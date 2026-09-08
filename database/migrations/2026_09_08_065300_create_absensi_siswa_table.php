@@ -11,14 +11,16 @@ return new class extends Migration
         Schema::create('absensi_siswa', function (Blueprint $table) {
             $table->id('id_absensi');
 
-            $table->integer('id_jurnal');
+            $table->unsignedInteger('id_jurnal');
             $table->unsignedBigInteger('id_siswa');
 
             $table->enum('keterangan', [
                 'Hadir',
                 'Izin',
                 'Sakit',
-                'Alpa'
+                'Alpa',
+                'Dispensasi'
+
             ])->default('Hadir');
 
             $table->timestamps();

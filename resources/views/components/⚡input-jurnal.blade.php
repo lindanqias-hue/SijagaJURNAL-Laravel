@@ -29,58 +29,60 @@ public $isSaving = false;
     public $absensi = [];
     public $keteranganDispensasi = [];
 
-    public function mount()
-    {
-        $this->tanggal = now()->format('Y-m-d');
+   public function mount()
+{
+    // Tanggal selalu otomatis mengikuti hari ini
+    $this->tanggal = now()->format('Y-m-d');
 
-        if (request()->has('edit')) {
+    if (request()->has('edit')) {
 
-            $id = request()->get('edit');
+        $id = request()->get('edit');
 
-            $this->editing = Jurnal::where('id_jurnal', $id)
-                ->where('id_guru', session('id_pengguna'))
-                ->first();
+        $this->editing = Jurnal::where('id_jurnal', $id)
+            ->where('id_guru', session('id_pengguna'))
+            ->first();
 
-            if ($this->editing) {
+        if ($this->editing) {
 
-                if ($this->editing->status_validasi !== 'Menunggu') {
-                    $this->editing = null;
-                    return;
-                }
-
-                $this->id_kelas = $this->editing->id_kelas;
-
-                $this->tanggal = $this->editing->tanggal
-                    ? $this->editing->tanggal->format('Y-m-d')
-                    : now()->format('Y-m-d');
-
-                $this->jam_ke = $this->editing->jam_ke;
-                $this->materi = $this->editing->materi;
-
-                $this->jumlah_tidak_hadir =
-                    $this->editing->jumlah_tidak_hadir ?? 0;
-
-                $this->status_kehadiran_guru =
-                    $this->editing->status_kehadiran_guru ?? 'Hadir';
-
-                $this->catatan =
-                    $this->editing->catatan ?? '';
-
-                // Ambil mapel guru
-                $this->mapelAktif = DB::table('pengguna')
-                    ->where('id_pengguna', session('id_pengguna'))
-                    ->value('mapel_diampu') ?? '';
-
+            if ($this->editing->status_validasi !== 'Menunggu') {
+                $this->editing = null;
+                return;
             }
 
-        } else {
+            $this->id_kelas = $this->editing->id_kelas;
 
-            // Untuk jurnal baru, cari jadwal yang sedang aktif
-            $this->loadJadwal();
+            // JANGAN mengambil tanggal dari jurnal lama
+            // Tanggal tetap otomatis hari ini
+            $this->tanggal = now()->format('Y-m-d');
+
+            $this->jam_ke = $this->editing->jam_ke;
+            $this->materi = $this->editing->materi;
+
+            $this->jumlah_tidak_hadir =
+                $this->editing->jumlah_tidak_hadir ?? 0;
+
+            $this->status_kehadiran_guru =
+                $this->editing->status_kehadiran_guru ?? 'Hadir';
+
+            $this->catatan =
+                $this->editing->catatan ?? '';
+
+            // Ambil mapel guru
+            $this->mapelAktif = DB::table('pengguna')
+                ->where('id_pengguna', session('id_pengguna'))
+                ->value('mapel_diampu') ?? '';
+
+            // Load siswa
             $this->loadSiswa();
-
         }
+
+    } else {
+
+        // Untuk jurnal baru, cari jadwal yang sedang aktif
+        $this->loadJadwal();
+        $this->loadSiswa();
     }
+}
 
 
     /**
@@ -412,55 +414,63 @@ $jumlahTidakHadir =
 
                     {{-- TANGGAL --}}
 
-                    <div class="col-md-4">
+<div class="col-md-4">
 
-                        <label class="form-label-sm">
-                            Tanggal
-                        </label>
+    <label class="form-label-sm">
+        Tanggal
+    </label>
 
-                        <input
-                            type="date"
-                            wire:model="tanggal"
-                            class="form-control form-control-custom"
-                        >
+    <div class="form-control form-control-custom bg-light">
+        {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
+    </div>
 
-                    </div>
+</div>
 
 
                     {{-- JAM KE --}}
 
-                    <div class="col-md-4">
+<div class="col-md-4">
 
-                        <label class="form-label-sm">
-                            Jam Ke
-                        </label>
+    <label class="form-label-sm">
+        Jam Ke
+    </label>
 
-                        <input
-                            type="text"
-                            value="Jam ke-{{ $jam_ke }}"
-                            readonly
-                            class="form-control form-control-custom readonly-field"
-                        >
+    <div class="form-control form-control-custom bg-light">
+        @if($jadwalAktif)
+            Jam ke-{{ $jadwalAktif->jam_ke }}
+        @else
+            Tidak ada jadwal
+        @endif
+    </div>
 
-                    </div>
+</div>
 
 
                     {{-- WAKTU --}}
 
-                    <div class="col-md-4">
+<div class="col-md-4">
 
-                        <label class="form-label-sm">
-                            Waktu
-                        </label>
+    <label class="form-label-sm">
+        Waktu
+    </label>
 
-                        <input
-                            type="text"
-                            value="{{ $jadwalAktif ? substr($jadwalAktif->jam_mulai, 0, 5) . ' - ' . substr($jadwalAktif->jam_selesai, 0, 5) : '-' }}"
-                            readonly
-                            class="form-control form-control-custom readonly-field"
-                        >
+    <div class="form-control form-control-custom bg-light">
 
-                    </div>
+        @if($jadwalAktif)
+
+            {{ \Carbon\Carbon::parse($jadwalAktif->jam_mulai)->format('H:i') }}
+            -
+            {{ \Carbon\Carbon::parse($jadwalAktif->jam_selesai)->format('H:i') }}
+
+        @else
+
+            Tidak ada jadwal
+
+        @endif
+
+    </div>
+
+</div>
 
 
                     {{-- MATERI --}}
