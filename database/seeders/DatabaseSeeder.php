@@ -90,24 +90,24 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-                /*
-        |--------------------------------------------------------------------------
-        | SEKRETARIS XI RPL 2
-        |--------------------------------------------------------------------------
-        */
+/*
+|--------------------------------------------------------------------------
+| SEKRETARIS KELAS
+|--------------------------------------------------------------------------
+*/
 
-        DB::table('pengguna')->updateOrInsert(
-            ['nip' => 'SEKRETARIS001'],
-            [
-                'nama' => 'Nama Sekretaris',
-                'mapel_diampu' => null,
-                'no_hp' => null,
-                'status_kepegawaian' => null,
-                'password' => 'sekretaris123',
-                'role' => 'sekretaris',
-                'id_kelas' => 4,
-            ]
-        );
+DB::table('pengguna')->updateOrInsert(
+    ['nip' => 'SEKRE001'],
+    [
+        'nama' => 'Sekretaris Kelas XI RPL 2',
+        'mapel_diampu' => null,
+        'no_hp' => null,
+        'status_kepegawaian' => null,
+        'password' => 'guru123',
+        'role' => 'sekretaris',
+        'id_kelas' => 4, // id kelas XI RPL 2 (lihat blok seed KELAS di atas)
+    ]
+);
 
 
         /*
@@ -353,21 +353,3 @@ class DatabaseSeeder extends Seeder
         );
     }
 }
-/*
-|--------------------------------------------------------------------------
-| SEKRETARIS KELAS
-|--------------------------------------------------------------------------
-*/
-
-DB::table('pengguna')->updateOrInsert(
-    ['nip' => 'SEKRE001'],
-    [
-        'nama' => 'Sekretaris Kelas XI RPL 2',
-        'mapel_diampu' => null,
-        'no_hp' => null,
-        'status_kepegawaian' => null,
-        'password' => 'guru123',
-        'role' => 'sekretaris',
-        'id_kelas' => 4, // id kelas XI RPL 2 (lihat blok seed KELAS di atas)
-    ]
-);
