@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Session;
 new class extends Component
 {
     public string $nip = '';
-public string $password = '';
-public string $error = '';
-public bool $showForgot = false;
+    public string $password = '';
+    public string $error = '';
+    public bool $showForgot = false;
 
     public function login()
     {
@@ -35,8 +35,13 @@ public bool $showForgot = false;
         ]);
 
         if ($user->role === 'guru_piket') {
-    return redirect()->route('guru-piket');
-}
+            return redirect()->route('guru-piket');
+        }
+
+        if ($user->role === 'sekretaris') {
+            return redirect()->route('sekretaris'); // <-- baru
+        }
+
         return redirect()->route('dashboard');
     }
 };

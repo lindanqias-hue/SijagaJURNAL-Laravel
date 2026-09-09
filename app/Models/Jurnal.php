@@ -26,11 +26,16 @@ class Jurnal extends Model
         'id_validator',
         'tanggal_validasi',
         'catatan_validasi',
+        'status_konfirmasi_sekretaris',
+        'id_sekretaris',
+        'waktu_konfirmasi_sekretaris',
+        'catatan_sekretaris',
     ];
 
     protected $casts = [
         'tanggal' => 'date',
         'tanggal_validasi' => 'datetime',
+        'waktu_konfirmasi_sekretaris' => 'datetime',
     ];
 
     // Relasi ke pengguna/guru
@@ -39,6 +44,16 @@ class Jurnal extends Model
         return $this->belongsTo(
             Pengguna::class,
             'id_guru',
+            'id_pengguna'
+        );
+    }
+
+    // Relasi ke sekretaris yang mengonfirmasi
+    public function sekretaris()
+    {
+        return $this->belongsTo(
+            Pengguna::class,
+            'id_sekretaris',
             'id_pengguna'
         );
     }
