@@ -13,7 +13,9 @@ Route::livewire('/guru-piket', 'guru-piket')->name('guru-piket');
 Route::livewire('/dispensasi', 'dispensasi')->name('dispensasi');
 Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')
     ->name('rekap-dispensasi');
-
+Route::livewire('/approve-dispensasi/{token}', 'approve-dispensasi')
+    ->name('approve-dispensasi');
+    
 Route::livewire('/riwayat', 'riwayat')->name('riwayat');
 Route::livewire('/input-jurnal', 'input-jurnal')->name('input-jurnal');
 

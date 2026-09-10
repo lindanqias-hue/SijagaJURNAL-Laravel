@@ -31,7 +31,8 @@ return new class extends Migration
             'guru',
             'sekretaris',
             'admin',
-            'guru_piket'
+            'guru_piket',
+            'wakasek'
         ])->default('guru');
 
         $table->integer('id_kelas')->nullable();
