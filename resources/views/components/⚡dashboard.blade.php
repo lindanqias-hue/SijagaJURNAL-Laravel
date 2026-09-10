@@ -196,16 +196,16 @@ public function getJadwalHariIniProperty()
 {{-- WELCOME --}}
 <div class="welcome-banner">
 
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex justify-content-between align-items-center w-100">
 
         {{-- DATA GURU --}}
-        <div>
+        <div style="min-width:0; flex:1 1 auto;">
             <div style="color:rgba(255,255,255,.6); font-size:13px; margin-bottom:4px;">
                 Selamat datang kembali,
             </div>
 
             <div class="fw-bold"
-                 style="font-size:22px; color:#fff; margin-bottom:12px;">
+                 style="font-size:22px; color:#fff; margin-bottom:12px; word-break:break-word;">
                 {{ session('nama') }}
             </div>
 
@@ -245,7 +245,8 @@ public function getJadwalHariIniProperty()
 <div class="text-end ms-auto ps-4"
      style="
         border-left:1px solid rgba(255,255,255,.25);
-        min-width:1300px;
+        min-width:150px;
+        flex:0 0 auto;
      ">
 
     <div id="clock"
