@@ -90,24 +90,24 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-/*
-|--------------------------------------------------------------------------
-| SEKRETARIS KELAS
-|--------------------------------------------------------------------------
-*/
+        /*
+        |--------------------------------------------------------------------------
+        | SEKRETARIS KELAS
+        |--------------------------------------------------------------------------
+        */
 
-DB::table('pengguna')->updateOrInsert(
-    ['nip' => 'SEKRE001'],
-    [
-        'nama' => 'Sekretaris Kelas XI RPL 2',
-        'mapel_diampu' => null,
-        'no_hp' => null,
-        'status_kepegawaian' => null,
-        'password' => 'guru123',
-        'role' => 'sekretaris',
-        'id_kelas' => 4, // id kelas XI RPL 2 (lihat blok seed KELAS di atas)
-    ]
-);
+        DB::table('pengguna')->updateOrInsert(
+            ['nip' => 'SEKRE001'],
+            [
+                'nama' => 'Sekretaris Kelas XI RPL 2',
+                'mapel_diampu' => null,
+                'no_hp' => null,
+                'status_kepegawaian' => null,
+                'password' => 'guru123',
+                'role' => 'sekretaris',
+                'id_kelas' => 4,
+            ]
+        );
 
 
         /*
@@ -242,10 +242,10 @@ DB::table('pengguna')->updateOrInsert(
         $this->jadwal($idHendro, 4, 'Rabu', 6, '10:35:00', '11:10:00');
 
         $this->jadwal($idWiwik, 4, 'Rabu', 7, '11:10:00', '11:45:00');
-        $this->jadwal($idWiwik, 4, 'Rabu', 8, '11:45:00', '12:20:00');
+        $this->jadwal($idWiwik, 4, 'Rabu', 8, '13:15:00', '13:50:00');
 
-        $this->jadwal($idErna, 4, 'Rabu', 9, '13:15:00', '13:50:00');
-        $this->jadwal($idErna, 4, 'Rabu', 10, '13:50:00', '14:25:00');
+        $this->jadwal($idErna, 4, 'Rabu', 9, '13:50:00', '14:25:00');
+        $this->jadwal($idErna, 4, 'Rabu', 10, '14:25:00', '15:00:00');
 
 
         /*
@@ -264,9 +264,9 @@ DB::table('pengguna')->updateOrInsert(
         $this->jadwal($idLaili, 4, 'Kamis', 6, '10:35:00', '11:10:00');
 
         $this->jadwal($idKurnila, 4, 'Kamis', 7, '11:10:00', '11:45:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 8, '11:45:00', '12:20:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 9, '13:15:00', '13:50:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 10, '13:50:00', '14:25:00');
+        $this->jadwal($idKurnila, 4, 'Kamis', 8, '13:15:00', '13:50:00');
+        $this->jadwal($idKurnila, 4, 'Kamis', 9, '13:50:00', '14:25:00');
+        $this->jadwal($idKurnila, 4, 'Kamis', 10, '14:25:00', '15:00:00');
 
 
         /*
@@ -275,21 +275,20 @@ DB::table('pengguna')->updateOrInsert(
         |--------------------------------------------------------------------------
         */
 
-        $this->jadwal($idWinartin, 4, 'Jumat', 2, '07:30:00', '08:05:00');
-        $this->jadwal($idWinartin, 4, 'Jumat', 3, '08:05:00', '08:40:00');
-        $this->jadwal($idWinartin, 4, 'Jumat', 4, '08:40:00', '09:15:00');
+        $this->jadwal($idWinartin, 4, 'Jumat', 2, '07:30:00', '08:00:00');
+        $this->jadwal($idWinartin, 4, 'Jumat', 3, '08:00:00', '08:30:00');
+        $this->jadwal($idWinartin, 4, 'Jumat', 4, '08:30:00', '09:00:00');
 
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 5, '09:15:00', '09:50:00');
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 6, '09:50:00', '10:25:00');
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 7, '10:25:00', '11:00:00');
+        $this->jadwal($idMufatiroh, 4, 'Jumat', 5, '09:00:00', '09:30:00');
+        $this->jadwal($idMufatiroh, 4, 'Jumat', 6, '09:50:00', '10:20:00');
+        $this->jadwal($idMufatiroh, 4, 'Jumat', 7, '10:20:00', '10:50:00');
 
-        $this->jadwal($idBadrus, 4, 'Jumat', 8, '11:00:00', '11:35:00');
-        $this->jadwal($idBadrus, 4, 'Jumat', 9, '11:35:00', '12:10:00');
-        $this->jadwal($idBadrus, 4, 'Jumat', 10, '12:10:00', '12:45:00');
+        $this->jadwal($idBadrus, 4, 'Jumat', 8, '10:50:00', '11:20:00');
+        $this->jadwal($idBadrus, 4, 'Jumat', 9, '13:00:00', '13:30:00');
+        $this->jadwal($idBadrus, 4, 'Jumat', 10, '13:30:00', '14:00:00');
 
-        $this->jadwal($idAnisa, 4, 'Jumat', 11, '12:45:00', '13:20:00');
-        $this->jadwal($idAnisa, 4, 'Jumat', 12, '13:20:00', '13:55:00');
-
+        $this->jadwal($idAnisa, 4, 'Jumat', 11, '14:00:00', '14:30:00');
+        $this->jadwal($idAnisa, 4, 'Jumat', 12, '14:30:00', '15:00:00');
 
         /*
         |--------------------------------------------------------------------------

@@ -22,6 +22,11 @@ new class extends Component
     public $jadwalAktif = null;
     public $mapelAktif = '';
 
+    public $jamMulaiPembelajaran = null;
+    public $jamSelesaiPembelajaran = null;
+    public $jamMulaiKe = null;
+    public $jamSelesaiKe = null;
+
     public $editing = null;
 public $saved = false;
 public $isSaving = false;
@@ -121,7 +126,7 @@ public function loadJadwal()
 
     $jamSekarang = now()->format('H:i:s');
 
-    // Ambil semua jadwal guru ini KHUSUS untuk hari ini saja
+       // Ambil semua jadwal guru ini KHUSUS untuk hari ini saja
     $jadwalHariIni = Jadwal::where('id_guru', $idGuru)
         ->where('hari', $hari)
         ->orderBy('jam_ke')
@@ -132,11 +137,8 @@ public function loadJadwal()
         fn ($j) => $j->jam_mulai <= $jamSekarang && $j->jam_selesai >= $jamSekarang
     );
 
-    // 2. Kalau tidak ada jam yang sedang berlangsung (misalnya guru
-    //    membuka halaman sebelum bel masuk atau tepat setelah bel
-    //    pulang), ambil jadwal HARI INI yang jam mulainya paling dekat
-    //    dengan waktu sekarang. Tidak pernah mengambil jadwal dari
-    //    hari lain, supaya jam ke & waktunya tetap sesuai jadwal asli.
+    // 2. Kalau tidak ada jam yang sedang berlangsung,
+    // ambil jadwal HARI INI yang jam mulainya paling dekat
     if (!$this->jadwalAktif && $jadwalHariIni->isNotEmpty()) {
 
         $nowTime = Carbon::createFromFormat('H:i:s', $jamSekarang);
@@ -151,24 +153,67 @@ public function loadJadwal()
             ->first();
     }
 
-    if ($this->jadwalAktif) {
-
-        // Otomatis isi kelas
-        $this->id_kelas = $this->jadwalAktif->id_kelas;
-
-        // Otomatis isi jam ke
-        $this->jam_ke = $this->jadwalAktif->jam_ke;
-
-        // Ambil mapel guru
-        $this->mapelAktif = DB::table('pengguna')
-            ->where('id_pengguna', $idGuru)
-            ->value('mapel_diampu') ?? '';
-
-        // Ambil siswa sesuai kelas
-        $this->loadSiswa();
+    if (!$this->jadwalAktif) {
+        return;
     }
-}
 
+    // Otomatis isi kelas
+    $this->id_kelas = $this->jadwalAktif->id_kelas;
+
+    // Jam mulai
+    $this->jamMulaiKe = $this->jadwalAktif->jam_ke;
+    $this->jamMulaiPembelajaran = $this->jadwalAktif->jam_mulai;
+
+    // Default selesai = jadwal yang sedang aktif
+    $this->jamSelesaiKe = $this->jadwalAktif->jam_ke;
+    $this->jamSelesaiPembelajaran = $this->jadwalAktif->jam_selesai;
+
+    /*
+     * Cari jam berikutnya yang:
+     * - guru sama
+     * - kelas sama
+     * - jam ke berikutnya
+     * - waktu mulai sama dengan waktu selesai sebelumnya
+     *
+     * Contoh:
+     * Jam 5 = 10:00 - 10:35
+     * Jam 6 = 10:35 - 11:10
+     *
+     * Maka hasil:
+     * Mulai  = Jam ke-5, 10:00
+     * Selesai = Jam ke-6, 11:10
+     */
+
+    $jadwalBerikutnya = Jadwal::where('id_guru', $idGuru)
+        ->where('id_kelas', $this->jadwalAktif->id_kelas)
+        ->where('hari', $hari)
+        ->where('jam_ke', $this->jadwalAktif->jam_ke + 1)
+        ->where('jam_mulai', $this->jadwalAktif->jam_selesai)
+        ->first();
+
+    // Kalau ada jam berikutnya yang menyambung, lanjutkan
+    while ($jadwalBerikutnya) {
+
+        $this->jamSelesaiKe = $jadwalBerikutnya->jam_ke;
+        $this->jamSelesaiPembelajaran = $jadwalBerikutnya->jam_selesai;
+
+        // Cari jam berikutnya lagi
+        $jadwalBerikutnya = Jadwal::where('id_guru', $idGuru)
+            ->where('id_kelas', $this->jadwalAktif->id_kelas)
+            ->where('hari', $hari)
+            ->where('jam_ke', $jadwalBerikutnya->jam_ke + 1)
+            ->where('jam_mulai', $this->jamSelesaiPembelajaran)
+            ->first();
+    }
+
+    // Ambil mapel guru
+    $this->mapelAktif = DB::table('pengguna')
+        ->where('id_pengguna', $idGuru)
+        ->value('mapel_diampu') ?? '';
+
+    // Ambil siswa sesuai kelas
+    $this->loadSiswa();
+}
     public function getKelasAktifProperty()
     {
         if (!$this->id_kelas) {
@@ -443,49 +488,35 @@ $jumlahTidakHadir =
 </div>
 
 
-                    {{-- JAM KE --}}
-
-<div class="col-md-4">
-
+                    {{-- JAM PEMBELAJARAN --}}
+<div class="col-md-6">
     <label class="form-label-sm">
-        Jam Ke
+        Jam Pembelajaran
     </label>
 
-    <div class="form-control form-control-custom bg-light">
-        @if($jadwalAktif)
-            Jam ke-{{ $jadwalAktif->jam_ke }}
-        @else
-            Tidak ada jadwal
-        @endif
-    </div>
-
+    <input
+        type="text"
+        value="{{ $jamMulaiKe ? 'Jam ke-' . $jamMulaiKe . ' - Jam ke-' . $jamSelesaiKe : '-' }}"
+        readonly
+        class="form-control form-control-custom readonly-field"
+    >
 </div>
 
 
-                    {{-- WAKTU --}}
-
-<div class="col-md-4">
-
+{{-- WAKTU PEMBELAJARAN --}}
+<div class="col-md-6">
     <label class="form-label-sm">
-        Waktu
+        Waktu Pembelajaran
     </label>
 
-    <div class="form-control form-control-custom bg-light">
-
-        @if($jadwalAktif)
-
-            {{ \Carbon\Carbon::parse($jadwalAktif->jam_mulai)->format('H:i') }}
-            -
-            {{ \Carbon\Carbon::parse($jadwalAktif->jam_selesai)->format('H:i') }}
-
-        @else
-
-            Tidak ada jadwal
-
-        @endif
-
-    </div>
-
+    <input
+        type="text"
+        value="{{ $jamMulaiPembelajaran && $jamSelesaiPembelajaran
+            ? substr($jamMulaiPembelajaran, 0, 5) . ' - ' . substr($jamSelesaiPembelajaran, 0, 5)
+            : '-' }}"
+        readonly
+        class="form-control form-control-custom readonly-field"
+    >
 </div>
 
 

@@ -3,6 +3,8 @@
 use Livewire\Component;
 use App\Models\Jurnal;
 use App\Models\Kelas;
+use App\Models\Jadwal;
+use Illuminate\Support\Facades\DB;
 
 new class extends Component
 {
@@ -94,13 +96,109 @@ new class extends Component
             ->firstWhere('id_kelas', $id)
             ?->nama_kelas ?? '-';
     }
+
+    public function getDispensasiMasukProperty()
+{
+    $idGuru = session('id_pengguna');
+
+    return DB::table('dispensasi_penerima')
+        ->join(
+            'dispensasi',
+            'dispensasi_penerima.id_dispensasi',
+            '=',
+            'dispensasi.id_dispensasi'
+        )
+        ->join(
+            'siswa',
+            'dispensasi.id_siswa',
+            '=',
+            'siswa.id_siswa'
+        )
+        ->join(
+            'kelas',
+            'dispensasi.id_kelas',
+            '=',
+            'kelas.id_kelas'
+        )
+        ->where('dispensasi_penerima.id_guru', $idGuru)
+        ->whereNull('dispensasi_penerima.dibaca_at')
+        ->where(
+            'dispensasi.tanggal',
+            now('Asia/Jakarta')->toDateString()
+        )
+        ->select(
+            'dispensasi_penerima.*',
+            'dispensasi.jenis_dispensasi',
+            'dispensasi.tanggal',
+            'dispensasi.jam_ke_mulai',
+            'dispensasi.jam_ke_selesai',
+            'dispensasi.jam_mulai',
+            'dispensasi.jam_selesai',
+            'dispensasi.alasan',
+            'dispensasi.status',
+            'siswa.nama_siswa',
+            'kelas.nama_kelas'
+        )
+        ->orderByDesc('dispensasi.id_dispensasi')
+        ->get();
+}
+
+public function tandaiDibaca($idPenerima)
+{
+    DB::table('dispensasi_penerima')
+        ->where('id_penerima', $idPenerima)
+        ->where('id_guru', session('id_pengguna'))
+        ->update([
+            'dibaca_at' => now(),
+            'updated_at' => now(),
+        ]);
+}
+
+public function getJadwalHariIniProperty()
+{
+    $idGuru = session('id_pengguna');
+
+    $hariIni = now('Asia/Jakarta')->locale('id')->translatedFormat('l');
+
+    $jadwal = Jadwal::where('id_guru', $idGuru)
+        ->where('hari', $hariIni)
+        ->whereHas('kelas')
+        ->with('kelas')
+        ->orderBy('jam_ke')
+        ->get();
+
+    $hasil = collect();
+
+    foreach ($jadwal as $item) {
+
+        $terakhir = $hasil->last();
+
+        // Gabungkan kalau kelas + mapel sama dan jam ke berurutan
+        if (
+            $terakhir &&
+            $terakhir->id_kelas == $item->id_kelas &&
+            $terakhir->jam_ke_selesai + 1 == $item->jam_ke
+        ) {
+            $terakhir->jam_ke_selesai = $item->jam_ke;
+            $terakhir->jam_selesai = $item->jam_selesai;
+        } else {
+            $item->jam_ke_mulai = $item->jam_ke;
+            $item->jam_ke_selesai = $item->jam_ke;
+            $hasil->push($item);
+        }
+    }
+
+    return $hasil;
+}
 };
 ?>
-
 <div>
+{{-- WELCOME --}}
+<div class="welcome-banner">
 
-    {{-- WELCOME --}}
-    <div class="welcome-banner">
+    <div class="d-flex justify-content-between align-items-center">
+
+        {{-- DATA GURU --}}
         <div>
             <div style="color:rgba(255,255,255,.6); font-size:13px; margin-bottom:4px;">
                 Selamat datang kembali,
@@ -141,7 +239,135 @@ new class extends Component
 
             </div>
         </div>
+
+
+        {{-- JAM & TANGGAL --}}
+<div class="text-end ms-auto ps-4"
+     style="
+        border-left:1px solid rgba(255,255,255,.25);
+        min-width:1300px;
+     ">
+
+    <div id="clock"
+        style="
+            color:#fff;
+            font-size:32px;
+            font-weight:700;
+            line-height:1.1;
+        ">
+        {{ now('Asia/Jakarta')->format('H:i:s') }}
     </div>
+
+    <div id="date"
+        style="
+            color:rgba(255,255,255,.8);
+            font-size:14px;
+            font-weight:600;
+            margin-top:6px;
+        ">
+        {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
+    </div>
+
+</div>
+    </div>
+
+</div>
+
+    {{-- NOTIFIKASI DISPENSASI --}}
+@if($this->dispensasiMasuk->isNotEmpty())
+
+    <div class="card-custom mb-3">
+
+        <div class="card-header-custom d-flex justify-content-between align-items-center">
+
+            <div class="fw-bold" style="font-size:14px;">
+                🔔 Dispensasi Siswa
+            </div>
+
+            <span class="badge bg-danger">
+                {{ $this->dispensasiMasuk->count() }} Baru
+            </span>
+
+        </div>
+
+        @foreach($this->dispensasiMasuk as $dispensasi)
+
+            <div class="p-3 border-bottom">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+                        <div class="fw-bold">
+                            {{ $dispensasi->nama_siswa }}
+                        </div>
+
+                        <div class="text-muted small">
+                            {{ $dispensasi->nama_kelas }}
+                        </div>
+                    </div>
+
+                    <span class="badge bg-warning text-dark">
+                        {{ $dispensasi->jenis_dispensasi }}
+                    </span>
+
+                </div>
+
+                <div class="mt-2 small">
+
+                    @if($dispensasi->jenis_dispensasi === 'Per Jam')
+
+                        <div>
+                            🕐 Jam ke-{{ $dispensasi->jam_ke_mulai }}
+
+                            @if($dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
+                                sampai {{ $dispensasi->jam_ke_selesai }}
+                            @endif
+                        </div>
+
+                        <div class="text-muted">
+                            {{ substr($dispensasi->jam_mulai, 0, 5) }}
+                            -
+                            {{ substr($dispensasi->jam_selesai, 0, 5) }}
+                        </div>
+
+                    @else
+
+                        <div>
+                            🕐 Sehari penuh
+                        </div>
+
+                    @endif
+
+                </div>
+
+                <div class="mt-2 small">
+
+                    <span class="text-muted">
+                        Alasan:
+                    </span>
+
+                    {{ $dispensasi->alasan }}
+
+                </div>
+
+                <div class="mt-3 text-end">
+
+                    <button
+                        wire:click="tandaiDibaca({{ $dispensasi->id_penerima }})"
+                        class="btn btn-sm btn-outline-primary"
+                    >
+                        ✓ Sudah Dilihat
+                    </button>
+
+                </div>
+
+            </div>
+
+        @endforeach
+
+    </div>
+
+@endif
 
 
     {{-- STATISTIK --}}
@@ -270,3 +496,41 @@ new class extends Component
     </div>
 
 </div>
+
+@script
+<script>
+    function updateClock() {
+        const now = new Date();
+
+        const time = now.toLocaleTimeString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+
+        const date = now.toLocaleDateString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const clock = document.getElementById('clock');
+        const dateElement = document.getElementById('date');
+
+        if (clock) {
+            clock.textContent = time;
+        }
+
+        if (dateElement) {
+            dateElement.textContent = date;
+        }
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+</script>
+@endscript

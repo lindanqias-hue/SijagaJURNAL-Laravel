@@ -3,9 +3,37 @@
 use Livewire\Component;
 use App\Models\Jurnal;
 use App\Models\AbsensiSiswa;
+use App\Models\Jadwal;
+use Carbon\Carbon;
 
 new class extends Component
 {
+
+public function getJadwalBerlangsungProperty()
+{
+    $sekarang = Carbon::now('Asia/Jakarta');
+
+    $hari = $sekarang
+        ->locale('id')
+        ->translatedFormat('l');
+
+    $jam = $sekarang->format('H:i:s');
+
+    return Jadwal::query()
+        ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
+        ->join('kelas', 'jadwal.id_kelas', '=', 'kelas.id_kelas')
+        ->where('jadwal.hari', $hari)
+        ->where('jadwal.jam_mulai', '<=', $jam)
+        ->where('jadwal.jam_selesai', '>=', $jam)
+        ->select(
+            'jadwal.*',
+            'pengguna.nama as nama_guru',
+            'pengguna.mapel_diampu',
+            'kelas.nama_kelas'
+        )
+        ->orderBy('jadwal.jam_ke')
+        ->get();
+}
     public $jurnalTerpilih = null;
     public $catatanValidasi = '';
 
@@ -148,8 +176,15 @@ new class extends Component
 ">
 
     {{-- HEADER --}}
-    <div style="margin-bottom: 25px;">
+<div style="
+    margin-bottom: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+">
 
+    <div>
         <h2 style="margin: 0 0 5px 0;">
             Dashboard Guru Piket
         </h2>
@@ -160,8 +195,37 @@ new class extends Component
         ">
             Jurnal mengajar guru yang menunggu validasi
         </p>
+    </div>
+
+    {{-- JAM KANAN ATAS --}}
+    <div style="
+        text-align: right;
+        flex-shrink: 0;
+    ">
+
+        <div
+            id="jam-guru-piket"
+            style="
+                font-size: 30px;
+                font-weight: 700;
+                color: #1e3a8a;
+                line-height: 1;
+            "
+        >
+            {{ now('Asia/Jakarta')->format('H:i:s') }}
+        </div>
+
+        <div style="
+            margin-top: 6px;
+            color: #666;
+            font-size: 14px;
+        ">
+            {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
+        </div>
 
     </div>
+
+</div>
 
 
     {{-- PESAN SUKSES --}}
@@ -179,6 +243,116 @@ new class extends Component
         </div>
 
     @endif
+
+    {{-- GURU YANG SEDANG MENGAJAR --}}
+<div
+    wire:poll.30s
+    style="
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        padding: 20px;
+        margin-bottom: 30px;
+    "
+>
+
+    <h3 style="
+        margin: 0 0 5px 0;
+    ">
+        👨‍🏫 Guru yang Sedang Mengajar
+    </h3>
+
+    <p style="
+        margin: 0 0 20px 0;
+        color: #777;
+    ">
+        Berdasarkan jadwal dan waktu saat ini.
+    </p>
+
+    @forelse ($this->jadwalBerlangsung as $jadwal)
+
+        <div style="
+            padding: 18px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border-left: 5px solid #2563eb;
+            margin-bottom: 12px;
+        ">
+
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                gap: 20px;
+                flex-wrap: wrap;
+            ">
+
+                <div>
+
+                    <div style="
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: #111827;
+                    ">
+                        {{ $jadwal->nama_guru }}
+                    </div>
+
+                    <div style="
+                        margin-top: 5px;
+                        color: #555;
+                    ">
+                        📚 {{ $jadwal->mapel_diampu ?? '-' }}
+                    </div>
+
+                    <div style="
+                        margin-top: 5px;
+                        color: #555;
+                    ">
+                        🏫 {{ $jadwal->nama_kelas }}
+                    </div>
+
+                </div>
+
+                <div style="
+                    text-align: right;
+                ">
+
+                    <div style="
+                        font-weight: 700;
+                        color: #2563eb;
+                    ">
+                        Jam ke-{{ $jadwal->jam_ke }}
+                    </div>
+
+                    <div style="
+                        margin-top: 5px;
+                        color: #666;
+                    ">
+                        {{ \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i') }}
+                        -
+                        {{ \Carbon\Carbon::parse($jadwal->jam_selesai)->format('H:i') }}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    @empty
+
+        <div style="
+            padding: 25px;
+            text-align: center;
+            background: #f8fafc;
+            border-radius: 10px;
+            color: #777;
+        ">
+            📭 Tidak ada guru yang sedang mengajar saat ini.
+        </div>
+
+    @endforelse
+
+</div>
 
 
     {{-- STATISTIK --}}
@@ -797,3 +971,23 @@ new class extends Component
     @endif
 
 </div>
+
+<script>
+    function updateJamGuruPiket() {
+        const sekarang = new Date();
+
+        const jam = String(sekarang.getHours()).padStart(2, '0');
+        const menit = String(sekarang.getMinutes()).padStart(2, '0');
+        const detik = String(sekarang.getSeconds()).padStart(2, '0');
+
+        const element = document.getElementById('jam-guru-piket');
+
+        if (element) {
+            element.textContent = `${jam}:${menit}:${detik}`;
+        }
+    }
+
+    updateJamGuruPiket();
+
+    setInterval(updateJamGuruPiket, 1000);
+</script>
