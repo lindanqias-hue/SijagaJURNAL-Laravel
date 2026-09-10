@@ -7,6 +7,7 @@ use App\Models\Jadwal;
 use App\Models\AbsensiSiswa;
 use App\Models\Siswa;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;   // <-- baru, dipakai loadJadwal()
 
 new class extends Component
 {
@@ -85,13 +86,13 @@ public $isSaving = false;
 }
 
 
-    /**
-     * Mengambil jadwal sesuai:
-     * - guru yang sedang login
-     * - hari sekarang
-     * - jam sekarang
-     */
-    public function loadJadwal()
+/**
+ * Mengambil jadwal sesuai:
+ * - guru yang sedang login
+ * - hari sekarang
+ * - jam sekarang
+ */
+public function loadJadwal()
 {
     $idGuru = session('id_pengguna');
 
@@ -120,18 +121,33 @@ public $isSaving = false;
 
     $jamSekarang = now()->format('H:i:s');
 
-    // Cari jadwal yang sedang berlangsung
-    $this->jadwalAktif = Jadwal::where('id_guru', $idGuru)
+    // Ambil semua jadwal guru ini KHUSUS untuk hari ini saja
+    $jadwalHariIni = Jadwal::where('id_guru', $idGuru)
         ->where('hari', $hari)
-        ->where('jam_mulai', '<=', $jamSekarang)
-        ->where('jam_selesai', '>=', $jamSekarang)
-        ->first();
+        ->orderBy('jam_ke')
+        ->get();
 
-    // Kalau tidak ada jadwal yang sedang berlangsung,
-    // ambil jadwal guru sebagai fallback untuk testing
-    if (!$this->jadwalAktif) {
-        $this->jadwalAktif = Jadwal::where('id_guru', $idGuru)
-            ->orderBy('id_jadwal')
+    // 1. Cari jadwal yang sedang berlangsung tepat sekarang
+    $this->jadwalAktif = $jadwalHariIni->first(
+        fn ($j) => $j->jam_mulai <= $jamSekarang && $j->jam_selesai >= $jamSekarang
+    );
+
+    // 2. Kalau tidak ada jam yang sedang berlangsung (misalnya guru
+    //    membuka halaman sebelum bel masuk atau tepat setelah bel
+    //    pulang), ambil jadwal HARI INI yang jam mulainya paling dekat
+    //    dengan waktu sekarang. Tidak pernah mengambil jadwal dari
+    //    hari lain, supaya jam ke & waktunya tetap sesuai jadwal asli.
+    if (!$this->jadwalAktif && $jadwalHariIni->isNotEmpty()) {
+
+        $nowTime = Carbon::createFromFormat('H:i:s', $jamSekarang);
+
+        $this->jadwalAktif = $jadwalHariIni
+            ->sortBy(function ($j) use ($nowTime) {
+                return abs(
+                    Carbon::createFromFormat('H:i:s', $j->jam_mulai)
+                        ->diffInSeconds($nowTime)
+                );
+            })
             ->first();
     }
 

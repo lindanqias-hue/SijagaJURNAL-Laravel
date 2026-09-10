@@ -39,21 +39,87 @@ new class extends Component
     | yang bersangkutan benar-benar sudah berakhir.
     */
 
+    private function namaHariIndonesia($tanggal): ?string
+    {
+        $hariMap = [
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
+        ];
+
+        $hariInggris = Carbon::parse($tanggal)->format('l');
+
+        return $hariMap[$hariInggris] ?? null;
+    }
+
+    /**
+     * Guru bisa mengajar beberapa jam pelajaran berurutan (mis. jam 7-10)
+     * di kelas yang sama pada hari yang sama. Sekretaris baru boleh
+     * mengonfirmasi setelah JAM TERAKHIR dalam rangkaian tersebut selesai,
+     * bukan cuma setelah jam pertama jurnal ini berakhir.
+     */
+    public function jamKeTerakhirBlok(Jurnal $jurnal): int
+    {
+        $hari = $this->namaHariIndonesia($jurnal->tanggal);
+
+        if (!$hari) {
+            return (int) $jurnal->jam_ke;
+        }
+
+        $jadwalHariItu = Jadwal::where('id_guru', $jurnal->id_guru)
+            ->where('id_kelas', $jurnal->id_kelas)
+            ->where('hari', $hari)
+            ->orderBy('jam_ke')
+            ->get();
+
+        // Telusuri jam_ke berurutan (7, 8, 9, 10, ...) mulai dari jam_ke
+        // milik jurnal ini, selama masih nyambung tanpa jeda.
+        $jamKeTerakhir = (int) $jurnal->jam_ke;
+
+        foreach ($jadwalHariItu as $jadwal) {
+            if ((int) $jadwal->jam_ke === $jamKeTerakhir + 1) {
+                $jamKeTerakhir = (int) $jadwal->jam_ke;
+            }
+        }
+
+        return $jamKeTerakhir;
+    }
+
+    private function jamSelesaiBlokTerakhir(Jurnal $jurnal): ?string
+    {
+        $hari = $this->namaHariIndonesia($jurnal->tanggal);
+
+        if (!$hari) {
+            return null;
+        }
+
+        $jamKeTerakhir = $this->jamKeTerakhirBlok($jurnal);
+
+        $jadwalTerakhir = Jadwal::where('id_guru', $jurnal->id_guru)
+            ->where('id_kelas', $jurnal->id_kelas)
+            ->where('hari', $hari)
+            ->where('jam_ke', $jamKeTerakhir)
+            ->first();
+
+        return $jadwalTerakhir?->jam_selesai;
+    }
+
     private function sudahSelesai(Jurnal $jurnal): bool
     {
-        $jadwal = Jadwal::where('id_guru', $jurnal->id_guru)
-            ->where('id_kelas', $jurnal->id_kelas)
-            ->where('jam_ke', $jurnal->jam_ke)
-            ->first();
+        $jamSelesaiTerakhir = $this->jamSelesaiBlokTerakhir($jurnal);
 
         // Kalau jadwalnya tidak ditemukan, izinkan tetap dikonfirmasi
         // supaya jurnal tidak "nyangkut" karena data jadwal tidak lengkap.
-        if (!$jadwal || !$jurnal->tanggal) {
+        if (!$jamSelesaiTerakhir || !$jurnal->tanggal) {
             return true;
         }
 
         $batasSelesai = Carbon::parse(
-            $jurnal->tanggal->format('Y-m-d') . ' ' . $jadwal->jam_selesai
+            $jurnal->tanggal->format('Y-m-d') . ' ' . $jamSelesaiTerakhir
         );
 
         return now()->greaterThanOrEqualTo($batasSelesai);
@@ -69,6 +135,7 @@ new class extends Component
     {
         return Jurnal::where('id_kelas', session('id_kelas'))
             ->where('status_konfirmasi_sekretaris', 'Menunggu')
+            ->where('status_validasi', 'Divalidasi') // <-- wajib sudah divalidasi guru piket
             ->with(['guru', 'kelas'])
             ->orderByDesc('tanggal')
             ->orderByDesc('jam_ke')
@@ -81,12 +148,32 @@ new class extends Component
     {
         return Jurnal::where('id_kelas', session('id_kelas'))
             ->where('status_konfirmasi_sekretaris', 'Menunggu')
+            ->where('status_validasi', 'Divalidasi') // <-- sudah divalidasi, tapi jam belum selesai
             ->with(['guru', 'kelas'])
             ->orderByDesc('tanggal')
             ->orderByDesc('jam_ke')
             ->get()
             ->reject(fn ($jurnal) => $this->sudahSelesai($jurnal))
             ->values();
+    }
+
+    /**
+     * Jurnal yang jam pelajarannya mungkin sudah selesai, tapi belum
+     * boleh dikonfirmasi sekretaris karena guru piket belum memvalidasi
+     * jurnal tersebut sama sekali (masih 'Menunggu' di sisi guru piket).
+     * Jurnal yang ditolak guru piket ('Ditolak') sengaja tidak
+     * ditampilkan di sini karena itu tanggung jawab guru untuk
+     * memperbaiki & mengirim ulang, bukan urusan sekretaris.
+     */
+    public function getMenungguValidasiGuruPiketProperty()
+    {
+        return Jurnal::where('id_kelas', session('id_kelas'))
+            ->where('status_konfirmasi_sekretaris', 'Menunggu')
+            ->where('status_validasi', 'Menunggu')
+            ->with(['guru', 'kelas'])
+            ->orderByDesc('tanggal')
+            ->orderByDesc('jam_ke')
+            ->get();
     }
 
     public function getRiwayatProperty()
@@ -136,6 +223,24 @@ new class extends Component
 
         // Pastikan jurnal ini memang milik kelasnya sendiri
         if ((int) $jurnal->id_kelas !== (int) session('id_kelas')) {
+            return;
+        }
+
+        // Belum divalidasi guru piket → sekretaris belum boleh memproses
+        if ($jurnal->status_validasi !== 'Divalidasi') {
+            session()->flash(
+                'error',
+                'Jurnal ini belum divalidasi guru piket, belum bisa dikonfirmasi.'
+            );
+            return;
+        }
+
+        // Jam pelajaran (blok terakhir) belum selesai
+        if (!$this->sudahSelesai($jurnal)) {
+            session()->flash(
+                'error',
+                'Jam pelajaran guru ini belum selesai, belum bisa dikonfirmasi.'
+            );
             return;
         }
 
@@ -240,6 +345,23 @@ new class extends Component
     @endif
 
 
+    {{-- PESAN ERROR --}}
+    @if (session()->has('error'))
+
+        <div style="
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #fecaca;
+        ">
+            ✕ {{ session('error') }}
+        </div>
+
+    @endif
+
+
     {{-- STATISTIK --}}
     <div style="
         display: grid;
@@ -269,13 +391,55 @@ new class extends Component
     </div>
 
 
+    {{-- MENUNGGU VALIDASI GURU PIKET --}}
+    @if ($this->menungguValidasiGuruPiket->count())
+
+        <div style="background: white; border-radius: 12px; border: 1px solid #ddd; overflow: hidden; margin-bottom: 25px;">
+
+            <div style="padding: 20px; border-bottom: 1px solid #ddd;">
+                <h3 style="margin: 0;">📋 Menunggu Validasi Guru Piket</h3>
+                <p style="margin: 5px 0 0; color: #777;">
+                    Jurnal ini harus divalidasi guru piket terlebih dahulu sebelum bisa dikonfirmasi sekretaris.
+                </p>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f5f5f5;">
+                            <th style="padding: 12px; text-align: left;">Tanggal</th>
+                            <th style="padding: 12px; text-align: left;">Guru</th>
+                            <th style="padding: 12px; text-align: left;">Jam</th>
+                            <th style="padding: 12px; text-align: left;">Materi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($this->menungguValidasiGuruPiket as $jurnal)
+                            <tr style="border-top: 1px solid #eee; color: #999;">
+                                <td style="padding: 12px;">
+                                    {{ \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}
+                                </td>
+                                <td style="padding: 12px;">{{ $jurnal->guru->nama ?? '-' }}</td>
+                                <td style="padding: 12px;">Jam {{ $jurnal->jam_ke }}</td>
+                                <td style="padding: 12px;">{{ $jurnal->materi }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    @endif
+
+
     {{-- DAFTAR JURNAL SIAP DIKONFIRMASI --}}
     <div style="background: white; border-radius: 12px; border: 1px solid #ddd; overflow: hidden; margin-bottom: 25px;">
 
         <div style="padding: 20px; border-bottom: 1px solid #ddd;">
             <h3 style="margin: 0;">🔔 Perlu Dikonfirmasi</h3>
             <p style="margin: 5px 0 0; color: #777;">
-                Jurnal di kelas ini yang jam pelajarannya sudah selesai.
+                Jurnal di kelas ini yang sudah divalidasi guru piket dan jam pelajarannya sudah selesai.
             </p>
         </div>
 
@@ -300,7 +464,13 @@ new class extends Component
                                 {{ \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}
                             </td>
                             <td style="padding: 12px;">{{ $jurnal->guru->nama ?? '-' }}</td>
-                            <td style="padding: 12px;">Jam {{ $jurnal->jam_ke }}</td>
+                            <td style="padding: 12px;">
+                                @php $jamAkhir = $this->jamKeTerakhirBlok($jurnal); @endphp
+                                Jam {{ $jurnal->jam_ke }}
+                                @if ($jamAkhir > $jurnal->jam_ke)
+                                    <br><small style="color:#777;">s/d jam {{ $jamAkhir }}</small>
+                                @endif
+                            </td>
                             <td style="padding: 12px;">{{ $jurnal->materi }}</td>
                             <td style="padding: 12px; text-align: center;">
                                 {{ $jurnal->status_kehadiran_guru }}
@@ -361,7 +531,13 @@ new class extends Component
                                     {{ \Carbon\Carbon::parse($jurnal->tanggal)->format('d/m/Y') }}
                                 </td>
                                 <td style="padding: 12px;">{{ $jurnal->guru->nama ?? '-' }}</td>
-                                <td style="padding: 12px;">Jam {{ $jurnal->jam_ke }}</td>
+                                <td style="padding: 12px;">
+                                    @php $jamAkhir = $this->jamKeTerakhirBlok($jurnal); @endphp
+                                    Jam {{ $jurnal->jam_ke }}
+                                    @if ($jamAkhir > $jurnal->jam_ke)
+                                        <br><small>menunggu s/d jam {{ $jamAkhir }} selesai</small>
+                                    @endif
+                                </td>
                                 <td style="padding: 12px;">{{ $jurnal->materi }}</td>
                             </tr>
                         @endforeach
