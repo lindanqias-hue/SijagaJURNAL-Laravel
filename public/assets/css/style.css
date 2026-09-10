@@ -216,12 +216,50 @@ a { color: var(--primary); }
   border-radius: 16px;
   background: linear-gradient(135deg, #10233f 0%, #2563eb 100%);
   padding: 26px 28px; margin-bottom: 24px; position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
 }
 .welcome-banner .deco-circle {
   position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,.07); pointer-events: none;
 }
 .pill { padding: 4px 10px; border-radius: 6px; font-size: 12px; }
+
+/* Baris dalam welcome banner: nama guru (kiri) + jam/tanggal (kanan) */
+.welcome-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+}
+.welcome-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.welcome-name .fw-bold {
+  word-break: break-word;
+}
+.welcome-clock {
+  flex: 0 0 auto;
+  min-width: 150px;
+  text-align: right;
+  padding-left: 20px;
+  border-left: 1px solid rgba(255,255,255,.25);
+}
+
+@media (max-width: 767.98px) {
+  .welcome-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .welcome-clock {
+    width: 100%;
+    text-align: left;
+    padding-left: 0;
+    padding-top: 14px;
+    margin-top: 4px;
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,.25);
+  }
+}
 
 /* Table */
 .table-custom { font-size: 13px; margin-bottom: 0; }
@@ -320,8 +358,6 @@ a { color: var(--primary); }
   .main-content { padding: 14px; }
   .login-card-header { padding: 24px 20px 20px; }
   .login-card-body { padding: 22px 18px 26px; }
-  .welcome-banner { flex-direction: column; align-items: flex-start; }
-  .welcome-banner .text-end { text-align: left !important; }
   .stat-card { padding: 14px 16px; }
   .table-custom { font-size: 12px; }
   .table-custom thead th, .table-custom tbody td { padding: 9px 10px; }
