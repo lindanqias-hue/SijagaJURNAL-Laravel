@@ -4,8 +4,10 @@ use Livewire\Component;
 use App\Models\Siswa;
 use App\Models\Dispensasi;
 use App\Models\Jadwal;
+use App\Models\Pengguna;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 new class extends Component
 {
@@ -29,6 +31,9 @@ new class extends Component
     public $siswaList = [];
     public $jadwalHariIni = [];
     public $jadwalAktif = null;
+
+    // Link WhatsApp approval Wakasek dari pengajuan terakhir
+    public $waLinkWakasek = null;
 
     public function mount()
     {
@@ -280,8 +285,78 @@ new class extends Component
 
         'id_guru_piket' => session('id_pengguna'),
 
-        'status' => 'Aktif',
+        // Token unik untuk link approval Wakasek (dipakai tanpa perlu login)
+        'token' => Str::random(40),
+
+        // Menunggu persetujuan Wakasek dulu sebelum dianggap Aktif/Selesai
+        'status' => 'Menunggu Persetujuan',
     ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | GENERATE LINK WHATSAPP KE WAKASEK
+    |--------------------------------------------------------------------------
+    | Ambil akun wakasek (role = wakasek) yang punya nomor HP terisi,
+    | lalu buat link wa.me otomatis berisi ringkasan pengajuan + link
+    | approval yang mengarah ke halaman approve-dispensasi (token).
+    |--------------------------------------------------------------------------
+    */
+
+    $this->waLinkWakasek = null;
+
+    $wakasek = Pengguna::where('role', 'wakasek')
+        ->whereNotNull('no_hp')
+        ->first();
+
+    if (!$wakasek) {
+
+        session()->flash(
+            'warning',
+            'Dispensasi tersimpan, tetapi akun Wakasek dengan nomor HP belum ditemukan. Link WhatsApp tidak bisa dibuat.'
+        );
+
+    } else {
+
+        // Rapikan nomor HP wakasek ke format internasional (62xxxxxxxxxx)
+        $noHpWakasek = preg_replace('/[^0-9]/', '', $wakasek->no_hp);
+
+        if (str_starts_with($noHpWakasek, '0')) {
+            $noHpWakasek = '62' . substr($noHpWakasek, 1);
+        } elseif (!str_starts_with($noHpWakasek, '62')) {
+            $noHpWakasek = '62' . $noHpWakasek;
+        }
+
+        // Keterangan waktu dispensasi untuk isi pesan
+        if ($this->jenis_dispensasi === 'Per Jam') {
+            $keteranganWaktu = 'Jam ke-' . $this->jam_ke_mulai
+                . ' s/d ' . $this->jam_ke_selesai
+                . ' (' . Carbon::parse($this->jam_mulai)->format('H:i')
+                . ' - ' . Carbon::parse($this->jam_selesai)->format('H:i') . ')';
+        } else {
+            $keteranganWaktu = 'Sehari penuh';
+        }
+
+        // Link approval — nama route disepakati bersama Tugas 3 (approve-dispensasi)
+        $linkApproval = route('approve-dispensasi', [
+            'token' => $dispensasi->token,
+        ]);
+
+        $pesanWa = "Permohonan Dispensasi Siswa\n\n"
+            . "Nama Siswa: {$siswa->nama_siswa}\n"
+            . "Kelas: {$this->kelasNama}\n"
+            . "Jenis: {$this->jenis_dispensasi}\n"
+            . "Waktu: {$keteranganWaktu}\n"
+            . "Alasan: {$this->alasan}\n"
+            . "Diajukan oleh: " . session('nama') . "\n\n"
+            . "Mohon persetujuan Bapak/Ibu Wakasek melalui link berikut:\n"
+            . $linkApproval;
+
+        $this->waLinkWakasek = 'https://wa.me/' . $noHpWakasek
+            . '?text=' . urlencode($pesanWa);
+
+        // Buka tab WhatsApp otomatis di sisi browser guru piket
+        $this->dispatch('buka-whatsapp', link: $this->waLinkWakasek);
+    }
 
    /*
 |--------------------------------------------------------------------------
@@ -746,6 +821,44 @@ foreach ($guruIds as $idGuru) {
 
 </div>
 
+
+{{-- PERINGATAN: AKUN WAKASEK BELUM DITEMUKAN --}}
+@if (session()->has('warning'))
+
+    <div class="col-12">
+        <div class="alert alert-warning mt-3 mb-0">
+            ⚠ {{ session('warning') }}
+        </div>
+    </div>
+
+@endif
+
+
+{{-- FALLBACK: TOMBOL BUKA WHATSAPP MANUAL --}}
+@if ($waLinkWakasek)
+
+    <div class="col-12">
+        <div class="alert alert-success mt-3 mb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+            <div>
+                ✓ Dispensasi terkirim. Link WhatsApp ke Wakasek sudah dibuat.
+            </div>
+
+            <a
+                href="{{ $waLinkWakasek }}"
+                target="_blank"
+                rel="noopener"
+                class="btn btn-success btn-sm"
+            >
+                🟢 Buka WhatsApp
+            </a>
+
+        </div>
+    </div>
+
+@endif
+
+
             </div>
 
         </div>
@@ -769,3 +882,12 @@ foreach ($guruIds as $idGuru) {
     updateJam();
     setInterval(updateJam, 1000);
 </script>
+
+@script
+<script>
+    // Buka tab WhatsApp otomatis begitu link berhasil dibuat di server
+    $wire.on('buka-whatsapp', (event) => {
+        window.open(event.link, '_blank');
+    });
+</script>
+@endscript
