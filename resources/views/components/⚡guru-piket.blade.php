@@ -168,17 +168,13 @@ public function getJadwalBerlangsungProperty()
 };
 ?>
 
-<div style="
-    width: 100%;
-    padding: 30px;
-    background: #f8fafc;
-    min-height: 100vh;
-">
+<div>
 
     {{-- HEADER --}}
 <div style="
     margin-bottom: 25px;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-start;
     gap: 20px;
@@ -356,79 +352,83 @@ public function getJadwalBerlangsungProperty()
 
 
     {{-- STATISTIK --}}
-    <div style="
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 30px;
-    ">
+    <div class="row g-3 mb-4">
 
         {{-- MENUNGGU --}}
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #ddd;
-        ">
+        <div class="col-6 col-md-4">
+            <div style="
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #ddd;
+                height: 100%;
+            ">
 
-            <div style="color: #777;">
-                Menunggu Validasi
+                <div style="color: #777;">
+                    Menunggu Validasi
+                </div>
+
+                <h1 style="margin: 10px 0;">
+                    {{ $this->jumlahMenunggu }}
+                </h1>
+
+                <small>
+                    Jurnal belum diperiksa
+                </small>
+
             </div>
-
-            <h1 style="margin: 10px 0;">
-                {{ $this->jumlahMenunggu }}
-            </h1>
-
-            <small>
-                Jurnal belum diperiksa
-            </small>
-
         </div>
 
 
         {{-- DIVALIDASI --}}
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #ddd;
-        ">
+        <div class="col-6 col-md-4">
+            <div style="
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #ddd;
+                height: 100%;
+            ">
 
-            <div style="color: #777;">
-                Divalidasi
+                <div style="color: #777;">
+                    Divalidasi
+                </div>
+
+                <h1 style="margin: 10px 0;">
+                    {{ $this->jumlahDivalidasi }}
+                </h1>
+
+                <small>
+                    Jurnal sudah disetujui
+                </small>
+
             </div>
-
-            <h1 style="margin: 10px 0;">
-                {{ $this->jumlahDivalidasi }}
-            </h1>
-
-            <small>
-                Jurnal sudah disetujui
-            </small>
-
         </div>
 
 
         {{-- DITOLAK --}}
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #ddd;
-        ">
+        <div class="col-6 col-md-4">
+            <div style="
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #ddd;
+                height: 100%;
+            ">
 
-            <div style="color: #777;">
-                Ditolak
+                <div style="color: #777;">
+                    Ditolak
+                </div>
+
+                <h1 style="margin: 10px 0;">
+                    {{ $this->jumlahDitolak }}
+                </h1>
+
+                <small>
+                    Jurnal perlu diperbaiki
+                </small>
+
             </div>
-
-            <h1 style="margin: 10px 0;">
-                {{ $this->jumlahDitolak }}
-            </h1>
-
-            <small>
-                Jurnal perlu diperbaiki
-            </small>
-
         </div>
 
     </div>
@@ -664,42 +664,37 @@ public function getJadwalBerlangsungProperty()
 
 
             {{-- INFORMASI JURNAL --}}
-            <div style="
-                padding: 20px;
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 15px;
-            ">
+            <div class="row g-3" style="padding: 20px;">
 
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Guru</strong>
                     <div style="margin-top: 5px;">
                         {{ $jurnalTerpilih->guru->nama ?? '-' }}
                     </div>
                 </div>
 
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Kelas</strong>
                     <div style="margin-top: 5px;">
                         {{ $jurnalTerpilih->kelas->nama_kelas ?? '-' }}
                     </div>
                 </div>
 
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Tanggal</strong>
                     <div style="margin-top: 5px;">
                         {{ \Carbon\Carbon::parse($jurnalTerpilih->tanggal)->format('d F Y') }}
                     </div>
                 </div>
 
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Jam Ke</strong>
                     <div style="margin-top: 5px;">
                         Jam {{ $jurnalTerpilih->jam_ke }}
                     </div>
                 </div>
 
-                <div style="grid-column: 1 / -1;">
+                <div class="col-12">
 
                     <strong>Materi</strong>
 
@@ -714,7 +709,7 @@ public function getJadwalBerlangsungProperty()
 
                 </div>
 
-                <div style="grid-column: 1 / -1;">
+                <div class="col-12">
 
                     <strong>Status Kehadiran Guru</strong>
 
@@ -728,7 +723,7 @@ public function getJadwalBerlangsungProperty()
 
                 @if ($jurnalTerpilih->catatan)
 
-                    <div style="grid-column: 1 / -1;">
+                    <div class="col-12">
 
                         <strong>Catatan Guru</strong>
 

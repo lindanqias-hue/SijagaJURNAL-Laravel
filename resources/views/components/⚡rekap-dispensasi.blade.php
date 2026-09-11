@@ -101,12 +101,7 @@ new class extends Component
 };
 ?>
 
-<div style="
-    width: 100%;
-    min-height: 100vh;
-    padding: 30px;
-    background: #f8fafc;
-">
+<div>
 
     {{-- HEADER --}}
     <div style="
@@ -146,14 +141,9 @@ new class extends Component
         margin-bottom: 25px;
     ">
 
-        <div style="
-            display: flex;
-            gap: 20px;
-            align-items: end;
-            flex-wrap: wrap;
-        ">
+        <div class="row g-3">
 
-            <div>
+            <div class="col-12 col-md-4">
                 <label style="
                     display: block;
                     margin-bottom: 7px;
@@ -165,7 +155,7 @@ new class extends Component
                 <select
                     wire:model.live="mode"
                     style="
-                        width: 200px;
+                        width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
@@ -178,7 +168,7 @@ new class extends Component
             </div>
 
 
-            <div>
+            <div class="col-6 col-md-4">
                 <label style="
                     display: block;
                     margin-bottom: 7px;
@@ -191,6 +181,7 @@ new class extends Component
                     type="date"
                     wire:model.live="tanggalAwal"
                     style="
+                        width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
@@ -199,7 +190,7 @@ new class extends Component
             </div>
 
 
-            <div>
+            <div class="col-6 col-md-4">
                 <label style="
                     display: block;
                     margin-bottom: 7px;
@@ -212,6 +203,7 @@ new class extends Component
                     type="date"
                     wire:model.live="tanggalAkhir"
                     style="
+                        width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
@@ -225,89 +217,96 @@ new class extends Component
 
 
     {{-- STATISTIK --}}
-    <div style="
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 18px;
-        margin-bottom: 25px;
-    ">
+    <div class="row g-3 mb-4">
 
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        ">
-            <div style="color: #6b7280;">
-                Total Dispensasi
-            </div>
-
+        <div class="col-6 col-md-3">
             <div style="
-                font-size: 30px;
-                font-weight: 700;
-                margin-top: 8px;
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+                height: 100%;
             ">
-                {{ $this->total }}
+                <div style="color: #6b7280;">
+                    Total Dispensasi
+                </div>
+
+                <div style="
+                    font-size: 30px;
+                    font-weight: 700;
+                    margin-top: 8px;
+                ">
+                    {{ $this->total }}
+                </div>
             </div>
         </div>
 
 
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        ">
-            <div style="color: #6b7280;">
-                Per Jam
-            </div>
-
+        <div class="col-6 col-md-3">
             <div style="
-                font-size: 30px;
-                font-weight: 700;
-                margin-top: 8px;
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+                height: 100%;
             ">
-                {{ $this->perJam }}
+                <div style="color: #6b7280;">
+                    Per Jam
+                </div>
+
+                <div style="
+                    font-size: 30px;
+                    font-weight: 700;
+                    margin-top: 8px;
+                ">
+                    {{ $this->perJam }}
+                </div>
             </div>
         </div>
 
 
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        ">
-            <div style="color: #6b7280;">
-                Sehari Penuh
-            </div>
-
+        <div class="col-6 col-md-3">
             <div style="
-                font-size: 30px;
-                font-weight: 700;
-                margin-top: 8px;
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+                height: 100%;
             ">
-                {{ $this->sehariPenuh }}
+                <div style="color: #6b7280;">
+                    Sehari Penuh
+                </div>
+
+                <div style="
+                    font-size: 30px;
+                    font-weight: 700;
+                    margin-top: 8px;
+                ">
+                    {{ $this->sehariPenuh }}
+                </div>
             </div>
         </div>
 
 
-        <div style="
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        ">
-            <div style="color: #6b7280;">
-                Siswa
-            </div>
-
+        <div class="col-6 col-md-3">
             <div style="
-                font-size: 30px;
-                font-weight: 700;
-                margin-top: 8px;
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid #e5e7eb;
+                height: 100%;
             ">
-                {{ $this->jumlahSiswa }}
+                <div style="color: #6b7280;">
+                    Siswa
+                </div>
+
+                <div style="
+                    font-size: 30px;
+                    font-weight: 700;
+                    margin-top: 8px;
+                ">
+                    {{ $this->jumlahSiswa }}
+                </div>
             </div>
         </div>
 

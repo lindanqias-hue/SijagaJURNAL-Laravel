@@ -307,12 +307,7 @@ new class extends Component
 };
 ?>
 
-<div style="
-    width: 100%;
-    padding: 30px;
-    background: #f8fafc;
-    min-height: 100vh;
-">
+<div>
 
     {{-- HEADER --}}
     <div style="margin-bottom: 25px;">
@@ -363,29 +358,30 @@ new class extends Component
 
 
     {{-- STATISTIK --}}
-    <div style="
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 30px;
-    ">
+    <div class="row g-3 mb-4">
 
-        <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
-            <div style="color: #777;">Menunggu Konfirmasi</div>
-            <h1 style="margin: 10px 0;">{{ $this->jumlahMenunggu }}</h1>
-            <small>Jam pelajaran sudah selesai</small>
+        <div class="col-6 col-md-4">
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; height: 100%;">
+                <div style="color: #777;">Menunggu Konfirmasi</div>
+                <h1 style="margin: 10px 0;">{{ $this->jumlahMenunggu }}</h1>
+                <small>Jam pelajaran sudah selesai</small>
+            </div>
         </div>
 
-        <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
-            <div style="color: #777;">Sesuai</div>
-            <h1 style="margin: 10px 0;">{{ $this->jumlahSesuai }}</h1>
-            <small>Guru hadir langsung di kelas</small>
+        <div class="col-6 col-md-4">
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; height: 100%;">
+                <div style="color: #777;">Sesuai</div>
+                <h1 style="margin: 10px 0;">{{ $this->jumlahSesuai }}</h1>
+                <small>Guru hadir langsung di kelas</small>
+            </div>
         </div>
 
-        <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd;">
-            <div style="color: #777;">Tidak Sesuai</div>
-            <h1 style="margin: 10px 0;">{{ $this->jumlahTidakSesuai }}</h1>
-            <small>Perlu ditindaklanjuti</small>
+        <div class="col-6 col-md-4">
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; height: 100%;">
+                <div style="color: #777;">Tidak Sesuai</div>
+                <h1 style="margin: 10px 0;">{{ $this->jumlahTidakSesuai }}</h1>
+                <small>Perlu ditindaklanjuti</small>
+            </div>
         </div>
 
     </div>
@@ -568,26 +564,26 @@ new class extends Component
                 ">✕ Tutup</button>
             </div>
 
-            <div style="padding: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                <div>
+            <div class="row g-3" style="padding: 20px;">
+                <div class="col-12 col-md-6">
                     <strong>Guru</strong>
                     <div style="margin-top: 5px;">{{ $jurnalTerpilih->guru->nama ?? '-' }}</div>
                 </div>
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Tanggal</strong>
                     <div style="margin-top: 5px;">
                         {{ \Carbon\Carbon::parse($jurnalTerpilih->tanggal)->format('d F Y') }}
                     </div>
                 </div>
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Jam Ke</strong>
                     <div style="margin-top: 5px;">Jam {{ $jurnalTerpilih->jam_ke }}</div>
                 </div>
-                <div>
+                <div class="col-12 col-md-6">
                     <strong>Status Kehadiran (lapor guru)</strong>
                     <div style="margin-top: 5px;">{{ $jurnalTerpilih->status_kehadiran_guru }}</div>
                 </div>
-                <div style="grid-column: 1 / -1;">
+                <div class="col-12">
                     <strong>Materi</strong>
                     <div style="margin-top: 5px; padding: 12px; background: #f8fafc; border-radius: 8px;">
                         {{ $jurnalTerpilih->materi }}
