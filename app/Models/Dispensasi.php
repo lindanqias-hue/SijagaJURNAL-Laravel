@@ -11,23 +11,33 @@ class Dispensasi extends Model
     protected $primaryKey = 'id_dispensasi';
 
     protected $fillable = [
-    'id_siswa',
-    'id_kelas',
-    'jenis_dispensasi',
-    'tanggal',
-    'jam_ke',
-    'jam_ke_mulai',
-    'jam_ke_selesai',
-    'jam_mulai',
-    'jam_selesai',
-    'alasan',
-    'id_guru_piket',
-    'status',
-];
+        'id_siswa',
+        'id_kelas',
+        'jenis_dispensasi',
+        'tanggal',
+        'jam_ke',
+        'jam_ke_mulai',
+        'jam_ke_selesai',
+        'jam_mulai',
+        'jam_selesai',
+        'alasan',
+        'id_guru_piket',
+        'status',
+    ];
 
     protected $casts = [
         'tanggal' => 'date',
     ];
+
+    //Relasi ke model pengguna (sebagai wakasek)
+    public function wakasek()
+    {
+        return $this->belongsTo(
+            pengguna::class,
+            'id_wakasek',
+            'id_pengguna'
+        );
+    }
 
     // Siswa yang mendapat dispensasi
     public function siswa()

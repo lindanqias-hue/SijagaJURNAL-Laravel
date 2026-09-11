@@ -4,11 +4,24 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use App\Models\Pengguna;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        /* WAKASEK */
+        pengguna::create([
+            'nip' => 'WAKASEK001',
+            'nama' => 'wakil kepala sekolah',
+            'no_hp' => '081234567890',
+            'password' => Hash::make('guru123'),
+            'role' => 'wakasek',
+
+        ]);
+
+
         /*
         |--------------------------------------------------------------------------
         | KELAS
