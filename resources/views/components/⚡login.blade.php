@@ -190,58 +190,6 @@ new class extends Component
                 </div>
 
 
-                <div class="mt-3 p-3"
-                     style="background:#f3f6fb;
-                            border-radius:10px;
-                            border:1px solid var(--border);">
-
-                    <div class="fw-bold text-muted mb-2"
-                         style="font-size:11px;
-                                text-transform:uppercase;
-                                letter-spacing:.04em;">
-
-                        Demo — Akun Tersedia
-
-                    </div>
-
-                    <div style="font-size:12px;
-                                color:var(--muted);
-                                line-height:1.9;">
-
-                        <strong style="color:var(--text);">
-    Admin:
-</strong>
-NIP
-<code style="background:#e2e8f0; padding:1px 5px; border-radius:3px;">
-    19800101200001001
-</code>
-<br>
-
-<strong style="color:var(--text);">
-    Guru:
-</strong>
-NIP
-<code style="background:#e2e8f0; padding:1px 5px; border-radius:3px;">
-    19850101201001001
-</code>
-<br>
-
-<strong style="color:var(--text);">
-    Sekretaris (X RPL 1):
-</strong>
-ID
-<code style="background:#e2e8f0; padding:1px 5px; border-radius:3px;">
-    2601001
-</code>
-<br>
-
-<strong style="color:var(--text);">
-    Password semua akun:
-</strong>
-<code style="background:#e2e8f0; padding:1px 5px; border-radius:3px;">
-    guru123
-</code>
-
                     </div>
 
                 </div>

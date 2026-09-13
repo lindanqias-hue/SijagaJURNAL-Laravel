@@ -34,6 +34,7 @@ new class extends Component
 
     // Link WhatsApp approval Wakasek dari pengajuan terakhir
     public $waLinkWakasek = null;
+    public $waLinksWakasek = [];
 
     public function mount()
     {
@@ -302,22 +303,47 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    $this->waLinkWakasek = null;
+    /*
+|--------------------------------------------------------------------------
+| GENERATE LINK WHATSAPP KE WAKASEK
+|--------------------------------------------------------------------------
+| Setiap Wakasek mendapatkan link approval masing-masing.
+| Link membawa token dispensasi + ID Wakasek.
+|--------------------------------------------------------------------------
+*/
 
-    $wakasek = Pengguna::where('role', 'wakasek')
-        ->whereNotNull('no_hp')
-        ->first();
+$this->waLinkWakasek = null;
+$this->waLinksWakasek = [];
 
-    if (!$wakasek) {
+$wakasekList = Pengguna::where('role', 'wakasek')
+    ->whereNotNull('no_hp')
+    ->get();
 
-        session()->flash(
-            'warning',
-            'Dispensasi tersimpan, tetapi akun Wakasek dengan nomor HP belum ditemukan. Link WhatsApp tidak bisa dibuat.'
-        );
+if ($wakasekList->isEmpty()) {
+
+    session()->flash(
+        'warning',
+        'Dispensasi tersimpan, tetapi akun Wakasek dengan nomor HP belum ditemukan.'
+    );
+
+} else {
+
+    // Keterangan waktu dispensasi
+    if ($this->jenis_dispensasi === 'Per Jam') {
+
+        $keteranganWaktu = 'Jam ke-' . $this->jam_ke_mulai
+            . ' s/d ' . $this->jam_ke_selesai
+            . ' (' . Carbon::parse($this->jam_mulai)->format('H:i')
+            . ' - ' . Carbon::parse($this->jam_selesai)->format('H:i') . ')';
 
     } else {
 
-        // Rapikan nomor HP wakasek ke format internasional (62xxxxxxxxxx)
+        $keteranganWaktu = 'Sehari penuh';
+    }
+
+    // Buat link WhatsApp untuk setiap Wakasek
+    foreach ($wakasekList as $wakasek) {
+
         $noHpWakasek = preg_replace('/[^0-9]/', '', $wakasek->no_hp);
 
         if (str_starts_with($noHpWakasek, '0')) {
@@ -326,21 +352,15 @@ new class extends Component
             $noHpWakasek = '62' . $noHpWakasek;
         }
 
-        // Keterangan waktu dispensasi untuk isi pesan
-        if ($this->jenis_dispensasi === 'Per Jam') {
-            $keteranganWaktu = 'Jam ke-' . $this->jam_ke_mulai
-                . ' s/d ' . $this->jam_ke_selesai
-                . ' (' . Carbon::parse($this->jam_mulai)->format('H:i')
-                . ' - ' . Carbon::parse($this->jam_selesai)->format('H:i') . ')';
-        } else {
-            $keteranganWaktu = 'Sehari penuh';
-        }
-
-        // Link approval — nama route disepakati bersama Tugas 3 (approve-dispensasi)
-        $linkApproval = route('approve-dispensasi', [
-            'token' => $dispensasi->token,
-        ]);
-
+        // Link approval khusus Wakasek ini
+       $linkApproval = rtrim(config('app.url'), '/') . route(
+    'approve-dispensasi',
+    [
+        'token' => $dispensasi->token,
+        'wakasek' => $wakasek->id_pengguna,
+    ],
+    false
+);
         $pesanWa = "Permohonan Dispensasi Siswa\n\n"
             . "Nama Siswa: {$siswa->nama_siswa}\n"
             . "Kelas: {$this->kelasNama}\n"
@@ -351,12 +371,26 @@ new class extends Component
             . "Mohon persetujuan Bapak/Ibu Wakasek melalui link berikut:\n"
             . $linkApproval;
 
-        $this->waLinkWakasek = 'https://wa.me/' . $noHpWakasek
-            . '?text=' . urlencode($pesanWa);
-
-        // Buka tab WhatsApp otomatis di sisi browser guru piket
-        $this->dispatch('buka-whatsapp', link: $this->waLinkWakasek);
+        $this->waLinksWakasek[] = [
+            'nama' => $wakasek->nama,
+            'link' => 'https://web.whatsapp.com/send?phone=' . $noHpWakasek
+                . '&text=' . urlencode($pesanWa),
+        ];
     }
+
+    // Link pertama dibuka otomatis
+    $this->waLinkWakasek = $this->waLinksWakasek[0]['link'];
+
+    $this->dispatch(
+        'buka-whatsapp',
+        link: $this->waLinkWakasek
+    );
+
+    session()->flash(
+        'success',
+        'Dispensasi berhasil disimpan dan link WhatsApp sudah dibuat untuk semua Wakasek.'
+    );
+}
 
    /*
 |--------------------------------------------------------------------------
@@ -407,23 +441,6 @@ $guruIds = $query
     ->pluck('id_guru')
     ->unique()
     ->values();
-
-/*
-|--------------------------------------------------------------------------
-| SIMPAN PENERIMA
-|--------------------------------------------------------------------------
-*/
-
-foreach ($guruIds as $idGuru) {
-
-    DB::table('dispensasi_penerima')->insert([
-        'id_dispensasi' => $dispensasi->id_dispensasi,
-        'id_guru' => $idGuru,
-        'dibaca_at' => null,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-}
 
     /*
     |--------------------------------------------------------------------------

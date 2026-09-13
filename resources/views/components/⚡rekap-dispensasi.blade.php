@@ -56,21 +56,20 @@ new class extends Component
         }
     }
 
-    public function getRekapProperty()
-    {
-        return Dispensasi::with([
-            'siswa',
-            'kelas',
-            'guruPiket'
-        ])
-        ->whereBetween('tanggal', [
-            $this->tanggalAwal,
-            $this->tanggalAkhir
-        ])
-        ->orderBy('tanggal')
-        ->orderBy('jam_ke_mulai')
-        ->get();
-    }
+   public function getRekapProperty()
+{
+    return Dispensasi::with([
+        'siswa',
+        'kelas',
+        'guruPiket'
+    ])
+    ->whereBetween('tanggal', [
+        $this->tanggalAwal,
+        $this->tanggalAkhir
+    ])
+    ->orderByDesc('created_at')
+    ->get();
+}
 
     public function getTotalProperty()
     {
@@ -395,6 +394,10 @@ new class extends Component
                         Status
                     </th>
 
+                    <th style="padding: 13px; text-align: left;">
+                        Persetujuan Wakasek
+                    </th>
+
                 </tr>
 
             </thead>
@@ -526,13 +529,92 @@ new class extends Component
 
 
                         <td style="
-                            padding: 13px;
-                            text-align: center;
-                        ">
+    padding: 13px;
+    text-align: center;
+">
 
-                            {{ $dispensasi->status }}
+    @if ($dispensasi->status === 'Menunggu Persetujuan')
 
-                        </td>
+        <span style="
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 13px;
+        ">
+            🟡 Menunggu Persetujuan
+        </span>
+
+    @elseif ($dispensasi->status === 'Disetujui')
+
+        <span style="
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: #dcfce7;
+            color: #166534;
+            font-size: 13px;
+        ">
+            🟢 Disetujui
+        </span>
+
+    @elseif ($dispensasi->status === 'Ditolak')
+
+        <span style="
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: #fee2e2;
+            color: #991b1b;
+            font-size: 13px;
+        ">
+            🔴 Ditolak
+        </span>
+
+    @else
+
+        <span style="
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 13px;
+        ">
+            {{ $dispensasi->status }}
+        </span>
+
+    @endif
+
+</td>
+
+<td style="padding: 13px;">
+
+    @if ($dispensasi->status === 'Disetujui' || $dispensasi->status === 'Ditolak')
+
+        <div style="font-weight: 600;">
+            {{ $dispensasi->wakasek->nama ?? '-' }}
+        </div>
+
+        <div style="
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 3px;
+        ">
+            {{ $dispensasi->waktu_approval
+                ? Carbon::parse($dispensasi->waktu_approval)
+                    ->locale('id')
+                    ->translatedFormat('d F Y H:i')
+                : '-'
+            }}
+        </div>
+
+    @else
+
+        <span style="color: #9ca3af;">
+            Belum disetujui
+        </span>
+
+    @endif
+
+</td>
 
                     </tr>
 

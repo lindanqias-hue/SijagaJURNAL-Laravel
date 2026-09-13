@@ -11,19 +11,23 @@ class Dispensasi extends Model
     protected $primaryKey = 'id_dispensasi';
 
     protected $fillable = [
-        'id_siswa',
-        'id_kelas',
-        'jenis_dispensasi',
-        'tanggal',
-        'jam_ke',
-        'jam_ke_mulai',
-        'jam_ke_selesai',
-        'jam_mulai',
-        'jam_selesai',
-        'alasan',
-        'id_guru_piket',
-        'status',
-    ];
+    'id_siswa',
+    'id_kelas',
+    'jenis_dispensasi',
+    'tanggal',
+    'jam_ke',
+    'jam_ke_mulai',
+    'jam_ke_selesai',
+    'jam_mulai',
+    'jam_selesai',
+    'alasan',
+    'id_guru_piket',
+    'status',
+    'id_wakasek',
+    'token',
+    'waktu_approval',
+    'catatan_wakasek',
+];
 
     protected $casts = [
         'tanggal' => 'date',

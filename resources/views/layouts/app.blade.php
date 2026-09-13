@@ -114,6 +114,12 @@
                     'icon' => '&#128203;',
                     'route' => 'riwayat'
                 ],
+
+                'notifikasi' => [
+                    'label' => 'Notifikasi',
+                    'icon' => '&#128276;',
+                    'route' => 'notifikasi'
+                ],
             ];
 
         } elseif ($role === 'sekretaris') {
@@ -133,6 +139,12 @@
                     'label' => 'Riwayat Kelas',
                     'icon' => '&#128203;',
                     'route' => 'riwayat'
+                ],
+
+                'notifikasi' => [
+                    'label' => 'Notifikasi',
+                    'icon' => '&#128276;',
+                    'route' => 'notifikasi'
                 ],
             ];
 

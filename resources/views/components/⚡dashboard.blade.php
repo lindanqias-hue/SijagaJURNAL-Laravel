@@ -307,9 +307,31 @@ public function getJadwalHariIniProperty()
                         </div>
                     </div>
 
-                    <span class="badge bg-warning text-dark">
-                        {{ $dispensasi->jenis_dispensasi }}
-                    </span>
+                    <div class="d-flex flex-column align-items-end gap-1">
+
+    <span class="badge bg-warning text-dark">
+        {{ $dispensasi->jenis_dispensasi }}
+    </span>
+
+    @if($dispensasi->status === 'Menunggu Persetujuan')
+        <span class="badge bg-warning text-dark">
+            🟡 Menunggu Persetujuan
+        </span>
+    @elseif($dispensasi->status === 'Disetujui')
+        <span class="badge bg-success">
+            🟢 Disetujui
+        </span>
+    @elseif($dispensasi->status === 'Ditolak')
+        <span class="badge bg-danger">
+            🔴 Ditolak
+        </span>
+    @else
+        <span class="badge bg-secondary">
+            {{ $dispensasi->status }}
+        </span>
+    @endif
+
+</div>
 
                 </div>
 
@@ -353,12 +375,23 @@ public function getJadwalHariIniProperty()
 
                 <div class="mt-3 text-end">
 
-                    <button
-                        wire:click="tandaiDibaca({{ $dispensasi->id_penerima }})"
-                        class="btn btn-sm btn-outline-primary"
-                    >
-                        ✓ Sudah Dilihat
-                    </button>
+                    <div class="d-flex gap-2 justify-content-end">
+
+    <a
+        href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}"
+        class="btn btn-sm btn-primary"
+    >
+        📄 Lihat Surat
+    </a>
+
+    <button
+        wire:click="tandaiDibaca({{ $dispensasi->id_penerima }})"
+        class="btn btn-sm btn-outline-primary"
+    >
+        ✓ Sudah Dilihat
+    </button>
+
+</div>
 
                 </div>
 

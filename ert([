@@ -1,0 +1,26 @@
+[90m= [39m[
+    {#7904
+      +"[1mField[22m": [32m"[39m[32mstatus_kepegawaian[39m[32m"[39m,
+      +"[1mType[22m": [32m"[39m[32menum('PNS','PPPK','Honorer')[39m[32m"[39m,
+      +"[1mNull[22m": [32m"[39m[32mYES[39m[32m"[39m,
+      +"[1mKey[22m": [32m""[39m,
+      +"[1mDefault[22m": [36mnull[39m,
+      +"[1mExtra[22m": [32m""[39m,
+    },
+    {#7903
+      +"[1mField[22m": [32m"[39m[32mpassword[39m[32m"[39m,
+      +"[1mType[22m": [32m"[39m[32mvarchar(100)[39m[32m"[39m,
+      +"[1mNull[22m": [32m"[39m[32mNO[39m[32m"[39m,
+      +"[1mKey[22m": [32m""[39m,
+      +"[1mDefault[22m": [36mnull[39m,
+      +"[1mExtra[22m": [32m""[39m,
+    },
+    {#7878
+      +"[1mField[22m": [32m"[39m[32mid_kelas[39m[32m"[39m,
+      +"[1mType[22m": [32m"[39m[32mint[39m[32m"[39m,
+      +"[1mNull[22m": [32m"[39m[32mYES[39m[32m"[39m,
+      +"[1mKey[22m": [32m"[39m[32mMUL[39m[32m"[39m,
+      +"[1mDefault[22m": [36mnull[39m,
+      +"[1mExtra[22m": [32m""[39m,
+    },
+  ]

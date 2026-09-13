@@ -255,7 +255,7 @@ public function loadJadwal()
 
     }
 
-    public function loadSiswa()
+public function loadSiswa()
 {
     if (!$this->id_kelas) {
         $this->siswa = [];
@@ -272,8 +272,56 @@ public function loadJadwal()
             $this->absensi[$siswa->id_siswa] = 'Hadir';
         }
     }
+
+    // CEK DISPENSASI YANG SUDAH DISETUJUI
+    $this->loadDispensasiDisetujui();
 }
 
+public function loadDispensasiDisetujui()
+{
+    if (!$this->id_kelas || !$this->tanggal || !$this->jam_ke) {
+        return;
+    }
+
+    $dispensasi = DB::table('dispensasi')
+        ->where('id_kelas', $this->id_kelas)
+        ->where('tanggal', $this->tanggal)
+        ->where('status', 'Disetujui')
+        ->where(function ($query) {
+            $query->where(function ($q) {
+                $q->where(
+                    'jenis_dispensasi',
+                    'Sehari Penuh'
+                );
+            })
+            ->orWhere(function ($q) {
+                $q->where(
+                    'jenis_dispensasi',
+                    'Per Jam'
+                )
+                ->where(
+                    'jam_ke_mulai',
+                    '<=',
+                    $this->jam_ke
+                )
+                ->where(
+                    'jam_ke_selesai',
+                    '>=',
+                    $this->jam_ke
+                );
+            });
+        })
+        ->get();
+
+    foreach ($dispensasi as $data) {
+
+        $this->absensi[$data->id_siswa] = 'Dispensasi';
+
+        $this->keteranganDispensasi[
+            $data->id_siswa
+        ] = $data->alasan;
+    }
+}
 public function save()
 {
 

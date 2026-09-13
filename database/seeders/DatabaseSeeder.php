@@ -11,14 +11,22 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        /* WAKASEK */
-        pengguna::create([
+        /* WAKASEK 1 */
+        Pengguna::create([
             'nip' => 'WAKASEK001',
-            'nama' => 'wakil kepala sekolah',
-            'no_hp' => '081234567890',
+            'nama' => 'Wakil Kepala Sekolah 1',
+            'no_hp' => '083835133274',
             'password' => Hash::make('guru123'),
             'role' => 'wakasek',
+        ]);
 
+        /* WAKASEK 2 */
+        Pengguna::create([
+            'nip' => 'WAKASEK002',
+            'nama' => 'Wakil Kepala Sekolah 2',
+            'no_hp' => '087889677251',
+            'password' => Hash::make('guru123'),
+            'role' => 'wakasek',
         ]);
 
 
