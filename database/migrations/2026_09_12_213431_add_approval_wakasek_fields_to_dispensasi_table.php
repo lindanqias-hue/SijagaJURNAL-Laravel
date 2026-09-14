@@ -9,36 +9,52 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('dispensasi', function (Blueprint $table) {
-            $table->unsignedBigInteger('id_wakasek')
-                ->nullable()
-                ->after('id_guru_piket');
+            if (!Schema::hasColumn('dispensasi', 'id_wakasek')) {
+                $table->unsignedBigInteger('id_wakasek')
+                    ->nullable()
+                    ->after('id_guru_piket');
+            }
 
-            $table->string('token', 100)
-                ->nullable()
-                ->unique()
-                ->after('status');
+            if (!Schema::hasColumn('dispensasi', 'token')) {
+                $table->string('token', 100)
+                    ->nullable()
+                    ->unique()
+                    ->after('status');
+            }
 
-            $table->timestamp('waktu_approval')
-                ->nullable()
-                ->after('token');
+            if (!Schema::hasColumn('dispensasi', 'waktu_approval')) {
+                $table->timestamp('waktu_approval')
+                    ->nullable()
+                    ->after('token');
+            }
 
-            $table->text('catatan_wakasek')
-                ->nullable()
-                ->after('waktu_approval');
+            if (!Schema::hasColumn('dispensasi', 'catatan_wakasek')) {
+                $table->text('catatan_wakasek')
+                    ->nullable()
+                    ->after('waktu_approval');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('dispensasi', function (Blueprint $table) {
-            $table->dropUnique(['token']);
+            if (Schema::hasColumn('dispensasi', 'token')) {
+                $table->dropUnique(['token']);
+                $table->dropColumn('token');
+            }
 
-            $table->dropColumn([
-                'id_wakasek',
-                'token',
-                'waktu_approval',
-                'catatan_wakasek',
-            ]);
+            if (Schema::hasColumn('dispensasi', 'id_wakasek')) {
+                $table->dropColumn('id_wakasek');
+            }
+
+            if (Schema::hasColumn('dispensasi', 'waktu_approval')) {
+                $table->dropColumn('waktu_approval');
+            }
+
+            if (Schema::hasColumn('dispensasi', 'catatan_wakasek')) {
+                $table->dropColumn('catatan_wakasek');
+            }
         });
     }
 };
