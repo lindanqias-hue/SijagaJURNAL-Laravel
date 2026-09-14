@@ -14,6 +14,7 @@ class AbsensiSiswa extends Model
         'id_jurnal',
         'id_siswa',
         'keterangan',
+        'keterangan_dispensasi',
     ];
 
     public function siswa()

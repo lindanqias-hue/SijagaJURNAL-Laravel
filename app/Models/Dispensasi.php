@@ -10,6 +10,22 @@ class Dispensasi extends Model
 
     protected $primaryKey = 'id_dispensasi';
 
+    // Status kolom ini sekarang plain string (bukan DB enum) supaya
+    // menambah/mengubah status di masa depan tidak perlu migration
+    // ALTER TABLE lagi. Ini jadi satu-satunya sumber kebenaran daftar
+    // status yang valid, dipakai untuk validasi di form/controller.
+    public const STATUS_MENUNGGU = 'Menunggu Persetujuan';
+    public const STATUS_DISETUJUI = 'Disetujui';
+    public const STATUS_DITOLAK = 'Ditolak';
+    public const STATUS_SELESAI = 'Selesai';
+
+    public const STATUSES = [
+        self::STATUS_MENUNGGU,
+        self::STATUS_DISETUJUI,
+        self::STATUS_DITOLAK,
+        self::STATUS_SELESAI,
+    ];
+
     protected $fillable = [
     'id_siswa',
     'id_kelas',
