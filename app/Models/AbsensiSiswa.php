@@ -14,7 +14,6 @@ class AbsensiSiswa extends Model
         'id_jurnal',
         'id_siswa',
         'keterangan',
-        'keterangan_dispensasi',
     ];
 
     public function siswa()
@@ -25,5 +24,10 @@ class AbsensiSiswa extends Model
     public function jurnal()
     {
         return $this->belongsTo(Jurnal::class, 'id_jurnal', 'id_jurnal');
+    }
+
+    public function keteranganSiswa()
+    {
+        return $this->hasOne(KeteranganSiswa::class, 'id_absensi', 'id_absensi');
     }
 }

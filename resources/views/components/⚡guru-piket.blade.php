@@ -754,7 +754,7 @@ public function getJadwalBerlangsungProperty()
                 </h3>
 
                 @php
-                    $absensiSiswa = AbsensiSiswa::with('siswa')
+                    $absensiSiswa = AbsensiSiswa::with(['siswa', 'keteranganSiswa'])
                         ->where('id_jurnal', $jurnalTerpilih->id_jurnal)
                         ->get();
 
@@ -808,11 +808,11 @@ public function getJadwalBerlangsungProperty()
                                     </th>
 
                                     <th style="padding: 10px; text-align: center;">
-                                        Keterangan
+                                        Status
                                     </th>
 
                                     <th style="padding: 10px; text-align: left;">
-                                        Keterangan Dispensasi
+                                        Keterangan
                                     </th>
 
                                 </tr>
@@ -843,7 +843,7 @@ public function getJadwalBerlangsungProperty()
                                         </td>
 
                                         <td style="padding: 10px;">
-                                            {{ $absensi->keterangan_dispensasi ?? '-' }}
+                                            {{ $absensi->keteranganSiswa->keterangan ?? '-' }}
                                         </td>
 
                                     </tr>
