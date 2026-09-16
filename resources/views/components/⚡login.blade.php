@@ -1,10 +1,11 @@
 <?php
 
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 use App\Models\Pengguna;
 use Illuminate\Support\Facades\Session;
 
-new class extends Component
+new #[Layout('layouts.guest')] class extends Component
 {
     public string $nip = '';
     public string $password = '';
@@ -47,20 +48,7 @@ new class extends Component
 };
 ?>
 
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - SIJAGA</title>
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
-
-    <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet">
-</head>
-
-<body>
+<div>
 
 <div class="login-wrapper">
 
@@ -115,7 +103,7 @@ new class extends Component
                 </div>
 
 
-                <form wire:submit="login">
+                <form wire:submit.prevent="login">
 
                     <div class="mb-3">
 
@@ -186,11 +174,6 @@ new class extends Component
                         Lupa Password?
 
                     </button>
-
-                </div>
-
-
-                    </div>
 
                 </div>
 
@@ -267,5 +250,4 @@ new class extends Component
 
 </div>
 
-</body>
-</html>
+</div>

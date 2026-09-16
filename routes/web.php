@@ -3,19 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApprovalDispensasiController;
 
-Route::get('/', function () {
-    return \Livewire\Livewire::mount('login');
-})->name('login');
+Route::livewire('/', 'login')->name('login');
 
-Route::livewire('/dashboard', 'dashboard')->name('dashboard');
-Route::livewire('/notifikasi', 'notifikasi')->name('notifikasi');
-Route::livewire('/sekretaris', 'sekretaris')->name('sekretaris');
-Route::livewire('/guru-piket', 'guru-piket')->name('guru-piket');
-Route::livewire('/dispensasi', 'dispensasi')->name('dispensasi');
-
-Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')
-    ->name('rekap-dispensasi');
-
+// Link approval wakasek dibuka lewat token di WhatsApp/email,
+// bukan lewat session login -> sengaja di luar auth.session.
 Route::get(
     '/approve-dispensasi/{token}/{wakasek}',
     [ApprovalDispensasiController::class, 'show']
@@ -36,11 +27,40 @@ Route::post(
     [ApprovalDispensasiController::class, 'tolak']
 )->name('approve-dispensasi.tolak');
 
-Route::livewire('/riwayat', 'riwayat')->name('riwayat');
-Route::livewire('/input-jurnal', 'input-jurnal')->name('input-jurnal');
-
 Route::get('/logout', function () {
     session()->flush();
 
     return redirect()->route('login');
 })->name('logout');
+
+/*
+|--------------------------------------------------------------------------
+| HALAMAN YANG WAJIB LOGIN
+|--------------------------------------------------------------------------
+| Sebelumnya route-route ini tidak dilindungi middleware apapun --
+| proteksi login cuma mengandalkan cek manual di dalam mount() masing-
+| masing komponen, dan ternyata tidak semua komponen punya cek itu.
+| Sekarang semua wajib login, dan beberapa dikunci per-role.
+*/
+Route::middleware('auth.session')->group(function () {
+
+    // Bisa diakses semua role yang login (masing-masing komponen
+    // sudah redirect sendiri kalau role-nya tidak cocok)
+    Route::livewire('/dashboard', 'dashboard')->name('dashboard');
+    Route::livewire('/notifikasi', 'notifikasi')->name('notifikasi');
+    Route::livewire('/riwayat', 'riwayat')->name('riwayat');
+    Route::livewire('/input-jurnal', 'input-jurnal')->name('input-jurnal');
+
+    // Khusus sekretaris
+    Route::middleware('role:sekretaris')->group(function () {
+        Route::livewire('/sekretaris', 'sekretaris')->name('sekretaris');
+    });
+
+    // Khusus guru piket
+    Route::middleware('role:guru_piket')->group(function () {
+        Route::livewire('/guru-piket', 'guru-piket')->name('guru-piket');
+        Route::livewire('/dispensasi', 'dispensasi')->name('dispensasi');
+        Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')
+            ->name('rekap-dispensasi');
+    });
+});
