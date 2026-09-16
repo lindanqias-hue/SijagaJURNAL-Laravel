@@ -61,10 +61,12 @@ new class extends Component
         }
 
         if ($this->bulanFilter) {
+
             $query->whereRaw(
-                "strftime('%Y-%m', tanggal) = ?",
+                "DATE_FORMAT(tanggal, '%Y-%m') = ?",
                 [$this->bulanFilter]
             );
+
         }
 
         if ($this->search) {
@@ -96,7 +98,7 @@ new class extends Component
             $query->where('id_kelas', $this->kelasFilter);
         }
         if ($this->bulanFilter) {
-            $query->whereRaw("strftime('%Y-%m', tanggal) = ?", [$this->bulanFilter]);
+            $query->whereRaw("DATE_FORMAT(tanggal, '%Y-%m') = ?", [$this->bulanFilter]);
         }
         if ($this->search) {
             $query->where('materi', 'like', '%'.$this->search.'%');
