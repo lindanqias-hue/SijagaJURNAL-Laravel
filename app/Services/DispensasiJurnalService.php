@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AbsensiSiswa;
 use App\Models\Dispensasi;
 use App\Models\Jurnal;
-use App\Models\AbsensiSiswa;
+use App\Models\KeteranganSiswa;
 use Illuminate\Support\Facades\DB;
 
 class DispensasiJurnalService
@@ -31,14 +32,16 @@ class DispensasiJurnalService
             'id_kelas',
             $dispensasi->id_kelas
         )
-        ->where(
-            'tanggal',
-            $dispensasi->tanggal
-        );
+            ->where(
+                'tanggal',
+                $dispensasi->tanggal
+            );
 
-        // Kalau dispensasi Per Jam, cari jurnal
-        // yang jamnya masuk dalam rentang dispensasi.
-        if ($dispensasi->jenis_dispensasi === 'Per Jam') {
+        if ($dispensasi->jenis_dispensasi === 'Per Mapel') {
+            $jurnalQuery
+                ->where('id_guru', $dispensasi->id_guru)
+                ->where('jam_ke', $dispensasi->jam_ke_mulai);
+        } elseif ($dispensasi->jenis_dispensasi === 'Per Jam') {
 
             $jurnalQuery->whereBetween('jam_ke', [
                 $dispensasi->jam_ke_mulai,
@@ -56,16 +59,31 @@ class DispensasiJurnalService
 
         foreach ($jurnalList as $jurnal) {
 
-            AbsensiSiswa::updateOrCreate(
+            $absensi = AbsensiSiswa::updateOrCreate(
                 [
                     'id_jurnal' => $jurnal->id_jurnal,
                     'id_siswa' => $dispensasi->id_siswa,
                 ],
                 [
                     'keterangan' => 'Dispensasi',
-                    'keterangan_dispensasi' => $dispensasi->alasan,
                 ]
             );
+
+            $siswa = $dispensasi->siswa()->with('kelas')->first();
+
+            if ($siswa) {
+                KeteranganSiswa::updateOrCreate(
+                    ['id_absensi' => $absensi->id_absensi],
+                    [
+                        'id_siswa' => $siswa->id_siswa,
+                        'nama_siswa' => $siswa->nama_siswa,
+                        'kelas' => $siswa->kelas?->nama_kelas ?? '-',
+                        'status' => 'Dispensasi',
+                        'keterangan' => $dispensasi->alasan,
+                        'tanggal' => $dispensasi->tanggal,
+                    ]
+                );
+            }
         }
 
         /*
@@ -74,14 +92,13 @@ class DispensasiJurnalService
         |--------------------------------------------------------------------------
         */
 
-        $guruIds = DB::table('jadwal')
-            ->where('id_kelas', $dispensasi->id_kelas)
-            ->whereIn(
-                'jam_ke',
-                $this->getJamKe($dispensasi)
-            )
-            ->pluck('id_guru')
-            ->unique();
+        $guruIds = $dispensasi->jenis_dispensasi === 'Per Mapel'
+            ? collect([$dispensasi->id_guru])->filter()
+            : DB::table('jadwal')
+                ->where('id_kelas', $dispensasi->id_kelas)
+                ->whereIn('jam_ke', $this->getJamKe($dispensasi))
+                ->pluck('id_guru')
+                ->unique();
 
         foreach ($guruIds as $idGuru) {
 
@@ -117,6 +134,10 @@ class DispensasiJurnalService
                 ->unique()
                 ->values()
                 ->toArray();
+        }
+
+        if ($dispensasi->jenis_dispensasi === 'Per Mapel') {
+            return [(int) $dispensasi->jam_ke_mulai];
         }
 
         // Per Jam

@@ -135,7 +135,7 @@ new class extends Component
     {
         return Jurnal::where('id_kelas', session('id_kelas'))
             ->where('status_konfirmasi_sekretaris', 'Menunggu')
-            ->where('status_validasi', 'Divalidasi') // <-- wajib sudah divalidasi guru piket
+            ->where('status_validasi', 'Divalidasi') // status otomatis oleh sistem
             ->with(['guru', 'kelas'])
             ->orderByDesc('tanggal')
             ->orderByDesc('jam_ke')
@@ -148,7 +148,7 @@ new class extends Component
     {
         return Jurnal::where('id_kelas', session('id_kelas'))
             ->where('status_konfirmasi_sekretaris', 'Menunggu')
-            ->where('status_validasi', 'Divalidasi') // <-- sudah divalidasi, tapi jam belum selesai
+            ->where('status_validasi', 'Divalidasi') // jam belum selesai
             ->with(['guru', 'kelas'])
             ->orderByDesc('tanggal')
             ->orderByDesc('jam_ke')
@@ -226,11 +226,11 @@ new class extends Component
             return;
         }
 
-        // Belum divalidasi guru piket → sekretaris belum boleh memproses
+        // Status kehadiran jurnal sudah ditentukan oleh sistem.
         if ($jurnal->status_validasi !== 'Divalidasi') {
             session()->flash(
                 'error',
-                'Jurnal ini belum divalidasi guru piket, belum bisa dikonfirmasi.'
+                'Jurnal ini belum tercatat oleh sistem, belum bisa dikonfirmasi.'
             );
             return;
         }
@@ -358,7 +358,7 @@ new class extends Component
 
 
     {{-- STATISTIK --}}
-    <div class="row g-3 mb-4">
+    <div id="rekap" class="row g-3 mb-4">
 
         <div class="col-6 col-md-4">
             <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; height: 100%;">
@@ -387,15 +387,15 @@ new class extends Component
     </div>
 
 
-    {{-- MENUNGGU VALIDASI GURU PIKET --}}
+    {{-- JURNAL LAMA YANG MENUNGGU PEMBARUAN STATUS SISTEM --}}
     @if ($this->menungguValidasiGuruPiket->count())
 
         <div style="background: white; border-radius: 12px; border: 1px solid #ddd; overflow: hidden; margin-bottom: 25px;">
 
             <div style="padding: 20px; border-bottom: 1px solid #ddd;">
-                <h3 style="margin: 0;">📋 Menunggu Validasi Guru Piket</h3>
+                <h3 style="margin: 0;">📋 Menunggu Pembaruan Sistem</h3>
                 <p style="margin: 5px 0 0; color: #777;">
-                    Jurnal ini harus divalidasi guru piket terlebih dahulu sebelum bisa dikonfirmasi sekretaris.
+                    Jurnal lama ini akan tersedia setelah statusnya diperbarui oleh sistem.
                 </p>
             </div>
 
@@ -430,12 +430,12 @@ new class extends Component
 
 
     {{-- DAFTAR JURNAL SIAP DIKONFIRMASI --}}
-    <div style="background: white; border-radius: 12px; border: 1px solid #ddd; overflow: hidden; margin-bottom: 25px;">
+    <div id="jurnal-kelas" style="background: white; border-radius: 12px; border: 1px solid #ddd; overflow: hidden; margin-bottom: 25px;">
 
         <div style="padding: 20px; border-bottom: 1px solid #ddd;">
             <h3 style="margin: 0;">🔔 Perlu Dikonfirmasi</h3>
             <p style="margin: 5px 0 0; color: #777;">
-                Jurnal di kelas ini yang sudah divalidasi guru piket dan jam pelajarannya sudah selesai.
+                Jurnal di kelas ini yang telah tercatat sistem dan jam pelajarannya sudah selesai.
             </p>
         </div>
 

@@ -4,6 +4,7 @@ use Livewire\Component;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\Jadwal;
+use App\Models\JadwalPiket;
 use Illuminate\Support\Facades\DB;
 
 new class extends Component
@@ -16,12 +17,6 @@ new class extends Component
             return;
         }
 
-        // Guru Piket → Dashboard Guru Piket
-        if (session('role') === 'guru_piket') {
-            $this->redirectRoute('guru-piket');
-            return;
-        }
-
         // Sekretaris → Dashboard Sekretaris
         if (session('role') === 'sekretaris') {
             $this->redirectRoute('sekretaris');
@@ -31,6 +26,11 @@ new class extends Component
         // Admin → Dashboard Admin
         if (session('role') === 'admin') {
             $this->redirectRoute('admin');
+            return;
+        }
+
+        if (session('role') === 'wakasek') {
+            $this->redirectRoute('wakasek');
             return;
         }
 
@@ -190,6 +190,20 @@ public function getJadwalHariIniProperty()
 
     return $hasil;
 }
+
+    public function getTugasPiketHariIniProperty()
+    {
+        if (! session('is_guru_piket')) {
+            return collect();
+        }
+
+        return JadwalPiket::query()
+            ->where('id_guru', session('id_pengguna'))
+            ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
+            ->where('status', 'Aktif')
+            ->orderBy('jam_mulai')
+            ->get();
+    }
 };
 ?>
 <div>
@@ -242,17 +256,15 @@ public function getJadwalHariIniProperty()
 
 
         {{-- JAM & TANGGAL --}}
-<div class="text-end ms-auto ps-4"
+<div class="d-flex flex-wrap gap-3 mt-3 pt-3"
      style="
-        border-left:1px solid rgba(255,255,255,.25);
-        min-width:150px;
-        flex:0 0 auto;
+        border-top:1px solid rgba(255,255,255,.25);
      ">
 
     <div id="clock"
         style="
             color:#fff;
-            font-size:32px;
+            font-size:24px;
             font-weight:700;
             line-height:1.1;
         ">
@@ -264,7 +276,7 @@ public function getJadwalHariIniProperty()
             color:rgba(255,255,255,.8);
             font-size:14px;
             font-weight:600;
-            margin-top:6px;
+            margin-top:2px;
         ">
         {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
     </div>
@@ -273,6 +285,48 @@ public function getJadwalHariIniProperty()
     </div>
 
 </div>
+
+    {{-- NAVIGASI CEPAT --}}
+    <div class="d-flex flex-wrap gap-2 my-3">
+        <a href="{{ route('input-jurnal') }}" class="btn btn-app-primary btn-sm">
+            + Input Jurnal
+        </a>
+        <a href="{{ route('riwayat') }}" class="btn btn-outline-secondary btn-sm">
+            Riwayat
+        </a>
+        <a href="{{ route('notifikasi') }}" class="btn btn-outline-secondary btn-sm">
+            Notifikasi
+        </a>
+        @if (session('is_guru_piket'))
+            <a href="{{ route('guru-piket') }}" class="btn btn-outline-secondary btn-sm">
+                Kehadiran Guru
+            </a>
+            <a href="{{ route('dispensasi') }}" class="btn btn-outline-secondary btn-sm">
+                Dispensasi Siswa
+            </a>
+        @endif
+    </div>
+
+        @if ($this->tugasPiketHariIni->isNotEmpty())
+            <div class="card-custom mb-3 border-start border-4 border-primary">
+                <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-semibold">Tugas Guru Piket</div>
+                        <div class="fw-bold mt-1">Hari ini</div>
+                        @foreach ($this->tugasPiketHariIni as $piket)
+                            <div class="text-muted small">
+                                {{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}
+                                · {{ $piket->keterangan ?: 'Guru Piket' }}
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success">Aktif</span>
+                        <a href="{{ route('guru-piket') }}" class="btn btn-sm btn-outline-primary">Buka Piket</a>
+                    </div>
+                </div>
+            </div>
+        @endif
 
     {{-- NOTIFIKASI DISPENSASI --}}
 @if($this->dispensasiMasuk->isNotEmpty())
@@ -435,7 +489,7 @@ public function getJadwalHariIniProperty()
                     {{ $this->divalidasiCount }}
                 </div>
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
-                    Tervalidasi
+                    Valid
                 </div>
             </div>
         </div>
@@ -446,7 +500,7 @@ public function getJadwalHariIniProperty()
                     {{ $this->menungguCount }}
                 </div>
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
-                    Menunggu Validasi
+                    Menunggu Konfirmasi
                 </div>
             </div>
         </div>
@@ -502,7 +556,7 @@ public function getJadwalHariIniProperty()
                         @if($jurnal->status_validasi === 'Divalidasi')
 
                             <span class="badge bg-success">
-                                ✓ Divalidasi
+                                ✓ Valid
                             </span>
 
                         @elseif($jurnal->status_validasi === 'Ditolak')

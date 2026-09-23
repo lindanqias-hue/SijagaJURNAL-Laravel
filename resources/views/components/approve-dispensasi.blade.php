@@ -11,7 +11,7 @@ new class extends Component
 {
     public $token;
     public $id_wakasek;
-    public $dispensasi;
+    public $dispensasi = collect();
     public $catatan_wakasek = '';
 
     /*
@@ -19,28 +19,22 @@ new class extends Component
     | MOUNT
     |--------------------------------------------------------------------------
     */
+
     public function mount($token, $wakasek)
     {
         $this->token = $token;
         $this->id_wakasek = $wakasek;
 
-        // Ambil data dispensasi berdasarkan token
-        $this->dispensasi = Dispensasi::with([
-            'siswa',
-            'kelas',
-            'guruPiket',
-            'wakasek',
-        ])
-        ->where('token', $token)
-        ->firstOrFail();
+        // Ambil SEMUA siswa dalam satu pengajuan
+        $this->muatUlangDispensasi();
 
         // Pastikan ID dari URL benar-benar Wakasek
         $cekWakasek = Pengguna::where(
             'id_pengguna',
             $this->id_wakasek
         )
-        ->where('role', 'wakasek')
-        ->first();
+            ->where('role', 'wakasek')
+            ->first();
 
         if (!$cekWakasek) {
             abort(403, 'Akun Wakasek tidak valid.');
@@ -52,6 +46,7 @@ new class extends Component
     | MUAT ULANG
     |--------------------------------------------------------------------------
     */
+
     private function muatUlangDispensasi()
     {
         $this->dispensasi = Dispensasi::with([
@@ -60,8 +55,13 @@ new class extends Component
             'guruPiket',
             'wakasek',
         ])
-        ->where('token', $this->token)
-        ->firstOrFail();
+            ->where('token', $this->token)
+            ->orderBy('id_dispensasi')
+            ->get();
+
+        if ($this->dispensasi->isEmpty()) {
+            abort(404, 'Data dispensasi tidak ditemukan.');
+        }
     }
 
     /*
@@ -69,6 +69,7 @@ new class extends Component
     | SETUJUI
     |--------------------------------------------------------------------------
     */
+
     public function setujui()
     {
         $this->validate([
@@ -77,37 +78,53 @@ new class extends Component
 
         $berhasil = DB::transaction(function () {
 
-            $dispensasi = Dispensasi::where(
-                'id_dispensasi',
-                $this->dispensasi->id_dispensasi
+            // Kunci SEMUA data dengan token yang sama
+            $dispensasiList = Dispensasi::where(
+                'token',
+                $this->token
             )
-            ->lockForUpdate()
-            ->firstOrFail();
+                ->lockForUpdate()
+                ->get();
 
-            // Sudah diproses Wakasek lain
-            if ($dispensasi->status !== 'Menunggu Persetujuan') {
+            if ($dispensasiList->isEmpty()) {
                 return false;
+            }
+
+            // Kalau salah satu sudah diproses,
+            // jangan proses ulang pengajuan ini.
+            foreach ($dispensasiList as $dispensasi) {
+                if ($dispensasi->status !== 'Menunggu Persetujuan') {
+                    return false;
+                }
             }
 
             $wakasek = Pengguna::where(
                 'id_pengguna',
                 $this->id_wakasek
             )
-            ->where('role', 'wakasek')
-            ->first();
+                ->where('role', 'wakasek')
+                ->first();
 
             if (!$wakasek) {
                 return false;
             }
 
-            $dispensasi->status = 'Disetujui';
-            $dispensasi->id_wakasek = $wakasek->id_pengguna;
-            $dispensasi->waktu_approval =
-                Carbon::now('Asia/Jakarta');
-            $dispensasi->catatan_wakasek =
-                $this->catatan_wakasek ?: null;
+            // Setujui SEMUA siswa
+            foreach ($dispensasiList as $dispensasi) {
 
-            $dispensasi->save();
+                $dispensasi->status = 'Disetujui';
+
+                $dispensasi->id_wakasek =
+                    $wakasek->id_pengguna;
+
+                $dispensasi->waktu_approval =
+                    Carbon::now('Asia/Jakarta');
+
+                $dispensasi->catatan_wakasek =
+                    $this->catatan_wakasek ?: null;
+
+                $dispensasi->save();
+            }
 
             return true;
         });
@@ -123,27 +140,44 @@ new class extends Component
             return;
         }
 
-        // Sinkronkan ke jurnal dan notifikasi guru
-        app(DispensasiJurnalService::class)
-    ->sync($this->dispensasi);
+        /*
+        |--------------------------------------------------------------------------
+        | SINKRONKAN SEMUA SISWA KE JURNAL
+        |--------------------------------------------------------------------------
+        */
 
-DB::table('dispensasi_penerima')->updateOrInsert(
-    [
-        'id_dispensasi' => $this->dispensasi->id_dispensasi,
-        'id_guru' => $this->dispensasi->id_guru_piket,
-    ],
-    [
-        'dibaca_at' => null,
-        'updated_at' => now(),
-        'created_at' => now(),
-    ]
-);
+        $dispensasiList = Dispensasi::where(
+            'token',
+            $this->token
+        )->get();
+
+        foreach ($dispensasiList as $dispensasi) {
+
+            app(DispensasiJurnalService::class)
+                ->sync($dispensasi);
+
+            // Notifikasi ke Guru Piket
+            DB::table('dispensasi_penerima')->updateOrInsert(
+                [
+                    'id_dispensasi' =>
+                        $dispensasi->id_dispensasi,
+
+                    'id_guru' =>
+                        $dispensasi->id_guru_piket,
+                ],
+                [
+                    'dibaca_at' => null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
 
         $this->muatUlangDispensasi();
 
         session()->flash(
             'success',
-            'Dispensasi berhasil disetujui.'
+            'Semua siswa dalam pengajuan berhasil disetujui.'
         );
     }
 
@@ -152,6 +186,7 @@ DB::table('dispensasi_penerima')->updateOrInsert(
     | TOLAK
     |--------------------------------------------------------------------------
     */
+
     public function tolak()
     {
         $this->validate([
@@ -163,36 +198,51 @@ DB::table('dispensasi_penerima')->updateOrInsert(
 
         $berhasil = DB::transaction(function () {
 
-            $dispensasi = Dispensasi::where(
-                'id_dispensasi',
-                $this->dispensasi->id_dispensasi
+            // Kunci SEMUA data dengan token yang sama
+            $dispensasiList = Dispensasi::where(
+                'token',
+                $this->token
             )
-            ->lockForUpdate()
-            ->firstOrFail();
+                ->lockForUpdate()
+                ->get();
 
-            if ($dispensasi->status !== 'Menunggu Persetujuan') {
+            if ($dispensasiList->isEmpty()) {
                 return false;
+            }
+
+            foreach ($dispensasiList as $dispensasi) {
+                if ($dispensasi->status !== 'Menunggu Persetujuan') {
+                    return false;
+                }
             }
 
             $wakasek = Pengguna::where(
                 'id_pengguna',
                 $this->id_wakasek
             )
-            ->where('role', 'wakasek')
-            ->first();
+                ->where('role', 'wakasek')
+                ->first();
 
             if (!$wakasek) {
                 return false;
             }
 
-            $dispensasi->status = 'Ditolak';
-            $dispensasi->id_wakasek = $wakasek->id_pengguna;
-            $dispensasi->waktu_approval =
-                Carbon::now('Asia/Jakarta');
-            $dispensasi->catatan_wakasek =
-                $this->catatan_wakasek;
+            // Tolak SEMUA siswa dalam pengajuan
+            foreach ($dispensasiList as $dispensasi) {
 
-            $dispensasi->save();
+                $dispensasi->status = 'Ditolak';
+
+                $dispensasi->id_wakasek =
+                    $wakasek->id_pengguna;
+
+                $dispensasi->waktu_approval =
+                    Carbon::now('Asia/Jakarta');
+
+                $dispensasi->catatan_wakasek =
+                    $this->catatan_wakasek;
+
+                $dispensasi->save();
+            }
 
             return true;
         });
@@ -208,11 +258,35 @@ DB::table('dispensasi_penerima')->updateOrInsert(
             return;
         }
 
+        // Kirim notifikasi ke Guru Piket untuk semua siswa
+        $dispensasiList = Dispensasi::where(
+            'token',
+            $this->token
+        )->get();
+
+        foreach ($dispensasiList as $dispensasi) {
+
+            DB::table('dispensasi_penerima')->updateOrInsert(
+                [
+                    'id_dispensasi' =>
+                        $dispensasi->id_dispensasi,
+
+                    'id_guru' =>
+                        $dispensasi->id_guru_piket,
+                ],
+                [
+                    'dibaca_at' => null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+
         $this->muatUlangDispensasi();
 
         session()->flash(
             'success',
-            'Dispensasi berhasil ditolak.'
+            'Semua siswa dalam pengajuan berhasil ditolak.'
         );
     }
 };
@@ -491,122 +565,199 @@ DB::table('dispensasi_penerima')->updateOrInsert(
         @endif
 
         {{-- DATA DISPENSASI --}}
-        <div class="card">
+<div class="card">
 
-            <div class="card-title">
-                📋 Data Dispensasi
-            </div>
+    <div class="card-title">
+        📋 Data Dispensasi
+    </div>
 
-            <div class="data-row">
-                <div class="data-label">Nama Siswa</div>
-                <div class="data-value">
-                    {{ $dispensasi->siswa->nama_siswa ?? '-' }}
-                </div>
-            </div>
+    {{-- DAFTAR SISWA --}}
+    <div class="data-row">
+        <div class="data-label">
+            Daftar Siswa
+        </div>
 
-            <div class="data-row">
-                <div class="data-label">Kelas</div>
-                <div class="data-value">
-                    {{ $dispensasi->kelas->nama_kelas ?? '-' }}
-                </div>
-            </div>
+        <div style="margin-top: 8px;">
 
-            <div class="data-row">
-                <div class="data-label">Jenis Dispensasi</div>
-                <div class="data-value">
-                    {{ $dispensasi->jenis_dispensasi }}
-                </div>
-            </div>
+            @foreach ($dispensasi as $item)
+                <div
+                    style="
+                        background:#f8fafc;
+                        border:1px solid #e5e7eb;
+                        border-radius:10px;
+                        padding:12px;
+                        margin-bottom:8px;
+                    "
+                >
+                    <div style="font-weight:700;">
+                        {{ $item->siswa->nama_siswa ?? '-' }}
+                    </div>
 
-            <div class="data-row">
-                <div class="data-label">Tanggal</div>
-                <div class="data-value">
-                    {{ optional($dispensasi->tanggal)->translatedFormat('d F Y') }}
-                </div>
-            </div>
-
-            @if ($dispensasi->jenis_dispensasi === 'Per Jam')
-                <div class="data-row">
-                    <div class="data-label">Jam Ke</div>
-                    <div class="data-value">
-                        {{ $dispensasi->jam_ke_mulai }}
-
-                        @if (
-                            $dispensasi->jam_ke_selesai &&
-                            $dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai
-                        )
-                            s/d {{ $dispensasi->jam_ke_selesai }}
-                        @endif
+                    <div
+                        style="
+                            font-size:13px;
+                            color:#6b7280;
+                            margin-top:3px;
+                        "
+                    >
+                        {{ $item->kelas->nama_kelas ?? '-' }}
                     </div>
                 </div>
-            @endif
+            @endforeach
 
-            <div class="data-row">
-                <div class="data-label">Alasan</div>
-                <div class="reason-box">
-                    {{ $dispensasi->alasan }}
-                </div>
+        </div>
+    </div>
+
+    {{-- JENIS DISPENSASI --}}
+    <div class="data-row">
+        <div class="data-label">
+            Jenis Dispensasi
+        </div>
+
+        <div class="data-value">
+            {{ $dispensasi->first()->jenis_dispensasi }}
+        </div>
+    </div>
+
+    {{-- TANGGAL --}}
+    <div class="data-row">
+        <div class="data-label">
+            Tanggal
+        </div>
+
+        <div class="data-value">
+            {{ optional($dispensasi->first()->tanggal)->translatedFormat('d F Y') }}
+        </div>
+    </div>
+
+    {{-- JAM --}}
+    @if ($dispensasi->first()->jenis_dispensasi === 'Per Jam')
+
+        <div class="data-row">
+
+            <div class="data-label">
+                Jam Ke
             </div>
 
-            <div class="data-row">
-                <div class="data-label">Diajukan oleh Guru Piket</div>
-                <div class="data-value">
-                    {{ $dispensasi->guruPiket->nama ?? '-' }}
-                </div>
-            </div>
+            <div class="data-value">
 
-            <div class="data-row">
-                <div class="data-label">Status</div>
+                {{ $dispensasi->first()->jam_ke_mulai }}
 
-                @if ($dispensasi->status === 'Menunggu Persetujuan')
-                    <span class="status-waiting">
-                        ⏳ Menunggu Persetujuan
-                    </span>
-                @elseif ($dispensasi->status === 'Disetujui')
-                    <span class="status-approved">
-                        ✓ Disetujui
-                    </span>
-                @elseif ($dispensasi->status === 'Ditolak')
-                    <span class="status-rejected">
-                        ✕ Ditolak
-                    </span>
-                @else
-                    <span class="status-waiting">
-                        {{ $dispensasi->status }}
-                    </span>
+                @if (
+                    $dispensasi->first()->jam_ke_selesai &&
+                    $dispensasi->first()->jam_ke_selesai !=
+                    $dispensasi->first()->jam_ke_mulai
+                )
+                    s/d
+                    {{ $dispensasi->first()->jam_ke_selesai }}
                 @endif
+
             </div>
 
-            {{-- DETAIL SETELAH DIPROSES --}}
-            @if ($dispensasi->status !== 'Menunggu Persetujuan')
+        </div>
 
-                <div class="processed-info">
+    @endif
 
-                    <strong>Diproses oleh:</strong>
-                    {{ $dispensasi->wakasek->nama ?? '-' }}
+    {{-- ALASAN --}}
+    <div class="data-row">
 
-                    <br>
+        <div class="data-label">
+            Alasan
+        </div>
 
-                    <strong>Waktu:</strong>
-                    {{ optional($dispensasi->waktu_approval)
-                        ->timezone('Asia/Jakarta')
-                        ->translatedFormat('d F Y, H:i') }}
-                    WIB
+        <div class="reason-box">
+            {{ $dispensasi->first()->alasan }}
+        </div>
 
-                    @if ($dispensasi->catatan_wakasek)
-                        <br><br>
-                        <strong>Catatan:</strong>
-                        {{ $dispensasi->catatan_wakasek }}
-                    @endif
+    </div>
 
-                </div>
+    {{-- GURU PIKET --}}
+    <div class="data-row">
+
+        <div class="data-label">
+            Diajukan oleh Guru Piket
+        </div>
+
+        <div class="data-value">
+            {{ $dispensasi->first()->guruPiket->nama ?? '-' }}
+        </div>
+
+    </div>
+
+    {{-- STATUS --}}
+    <div class="data-row">
+
+        <div class="data-label">
+            Status
+        </div>
+
+        @php
+            $status = $dispensasi->first()->status;
+        @endphp
+
+        @if ($status === 'Menunggu Persetujuan')
+
+            <span class="status-waiting">
+                ⏳ Menunggu Persetujuan
+            </span>
+
+        @elseif ($status === 'Disetujui')
+
+            <span class="status-approved">
+                ✓ Disetujui
+            </span>
+
+        @elseif ($status === 'Ditolak')
+
+            <span class="status-rejected">
+                ✕ Ditolak
+            </span>
+
+        @else
+
+            <span class="status-waiting">
+                {{ $status }}
+            </span>
+
+        @endif
+
+    </div>
+
+    {{-- DETAIL SETELAH DIPROSES --}}
+    @if ($status !== 'Menunggu Persetujuan')
+
+        <div class="processed-info">
+
+            <strong>Diproses oleh:</strong>
+            {{ $dispensasi->first()->wakasek->nama ?? '-' }}
+
+            <br>
+
+            <strong>Waktu:</strong>
+
+            {{ optional($dispensasi->first()->waktu_approval)
+                ->timezone('Asia/Jakarta')
+                ->translatedFormat('d F Y, H:i') }}
+
+            WIB
+
+            @if ($dispensasi->first()->catatan_wakasek)
+
+                <br><br>
+
+                <strong>Catatan:</strong>
+                {{ $dispensasi->first()->catatan_wakasek }}
 
             @endif
 
         </div>
 
+    @endif
+
+</div>
+
         {{-- FORM APPROVAL --}}
-        @if ($dispensasi->status === 'Menunggu Persetujuan')
+        @if ($dispensasi->first()->status === 'Menunggu Persetujuan')
 
             <div class="card">
 

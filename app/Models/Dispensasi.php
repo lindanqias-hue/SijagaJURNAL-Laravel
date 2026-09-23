@@ -15,8 +15,11 @@ class Dispensasi extends Model
     // ALTER TABLE lagi. Ini jadi satu-satunya sumber kebenaran daftar
     // status yang valid, dipakai untuk validasi di form/controller.
     public const STATUS_MENUNGGU = 'Menunggu Persetujuan';
+
     public const STATUS_DISETUJUI = 'Disetujui';
+
     public const STATUS_DITOLAK = 'Ditolak';
+
     public const STATUS_SELESAI = 'Selesai';
 
     public const STATUSES = [
@@ -27,29 +30,32 @@ class Dispensasi extends Model
     ];
 
     protected $fillable = [
-    'id_siswa',
-    'id_kelas',
-    'jenis_dispensasi',
-    'tanggal',
-    'jam_ke',
-    'jam_ke_mulai',
-    'jam_ke_selesai',
-    'jam_mulai',
-    'jam_selesai',
-    'alasan',
-    'id_guru_piket',
-    'status',
-    'id_wakasek',
-    'token',
-    'waktu_approval',
-    'catatan_wakasek',
-];
+        'id_siswa',
+        'id_kelas',
+        'id_jadwal',
+        'id_guru',
+        'mapel',
+        'jenis_dispensasi',
+        'tanggal',
+        'jam_ke',
+        'jam_ke_mulai',
+        'jam_ke_selesai',
+        'jam_mulai',
+        'jam_selesai',
+        'alasan',
+        'id_guru_piket',
+        'status',
+        'id_wakasek',
+        'token',
+        'waktu_approval',
+        'catatan_wakasek',
+    ];
 
     protected $casts = [
         'tanggal' => 'date',
     ];
 
-    //Relasi ke model pengguna (sebagai wakasek)
+    // Relasi ke model pengguna (sebagai wakasek)
     public function wakasek()
     {
         return $this->belongsTo(
@@ -85,6 +91,24 @@ class Dispensasi extends Model
         return $this->belongsTo(
             Pengguna::class,
             'id_guru_piket',
+            'id_pengguna'
+        );
+    }
+
+    public function jadwal()
+    {
+        return $this->belongsTo(
+            Jadwal::class,
+            'id_jadwal',
+            'id_jadwal'
+        );
+    }
+
+    public function guruPengajar()
+    {
+        return $this->belongsTo(
+            Pengguna::class,
+            'id_guru',
             'id_pengguna'
         );
     }

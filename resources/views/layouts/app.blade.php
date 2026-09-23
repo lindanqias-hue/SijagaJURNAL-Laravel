@@ -96,7 +96,31 @@
     @php
         $role = session('role', 'guru');
 
-        if ($role === 'guru') {
+        if ($role === 'admin') {
+            $navItems = [
+                'admin' => [
+                    'label' => 'Dashboard Admin',
+                    'icon' => '&#9881;',
+                    'route' => 'admin',
+                ],
+                'pengguna' => ['label' => 'Pengguna', 'icon' => '&#128100;', 'route' => 'admin', 'anchor' => 'pengguna'],
+                'guru' => ['label' => 'Guru', 'icon' => '&#127979;', 'route' => 'admin', 'anchor' => 'guru'],
+                'siswa' => ['label' => 'Siswa', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' => 'siswa'],
+                'kelas' => ['label' => 'Kelas', 'icon' => '&#127891;', 'route' => 'admin', 'anchor' => 'kelas'],
+                'jadwal' => ['label' => 'Jadwal Mengajar', 'icon' => '&#128197;', 'route' => 'admin', 'anchor' => 'jadwal'],
+                'jadwal_piket' => ['label' => 'Jadwal Piket', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' => 'jadwal-piket'],
+                'jurnal' => ['label' => 'Jurnal', 'icon' => '&#128203;', 'route' => 'admin', 'anchor' => 'jurnal'],
+                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'admin', 'anchor' => 'dispensasi'],
+            ];
+        } elseif ($role === 'wakasek') {
+            $navItems = [
+                'wakasek' => ['label' => 'Dashboard', 'icon' => '&#128202;', 'route' => 'wakasek'],
+                'monitoring_guru' => ['label' => 'Monitoring Guru', 'icon' => '&#128100;', 'route' => 'wakasek', 'anchor' => 'monitoring-guru'],
+                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'icon' => '&#128203;', 'route' => 'wakasek', 'anchor' => 'monitoring-jurnal'],
+                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'wakasek', 'anchor' => 'dispensasi'],
+                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'rekap-dispensasi'],
+            ];
+        } elseif ($role === 'guru') {
 
             $navItems = [
                 'dashboard' => [
@@ -104,11 +128,8 @@
                     'icon' => '&#8862;',
                     'route' => 'dashboard'
                 ],
-                'input_jurnal' => [
-                    'label' => 'Input Jurnal',
-                    'icon' => '&#9998;',
-                    'route' => 'input-jurnal'
-                ],
+                'jadwal_saya' => ['label' => 'Jadwal Saya', 'icon' => '&#128197;', 'route' => 'dashboard', 'anchor' => 'jadwal-saya'],
+                'input_jurnal' => ['label' => 'Input Jurnal', 'icon' => '&#9998;', 'route' => 'input-jurnal'],
                 'riwayat' => [
                     'label' => 'Riwayat Saya',
                     'icon' => '&#128203;',
@@ -120,52 +141,35 @@
                     'icon' => '&#128276;',
                     'route' => 'notifikasi'
                 ],
+                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'dispensasi'],
             ];
+
+            if (session('is_guru_piket')) {
+                $navItems['guru_piket'] = [
+                    'label' => 'Piket Hari Ini',
+                    'icon' => '&#128101;',
+                    'route' => 'guru-piket',
+                ];
+                $navItems['dispensasi'] = [
+                    'label' => 'Izin & Dispensasi',
+                    'icon' => '&#128221;',
+                    'route' => 'dispensasi',
+                ];
+                $navItems['rekap_dispensasi'] = [
+                    'label' => 'Rekap Dispensasi',
+                    'icon' => '&#128202;',
+                    'route' => 'rekap-dispensasi',
+                ];
+            }
 
         } elseif ($role === 'sekretaris') {
 
             $navItems = [
-                'dashboard' => [
-                    'label' => 'Dashboard',
-                    'icon' => '&#8862;',
-                    'route' => 'dashboard'
-                ],
-                'validasi' => [
-                    'label' => 'Validasi Jurnal',
-                    'icon' => '&#9989;',
-                    'route' => 'validasi'
-                ],
-                'riwayat' => [
-                    'label' => 'Riwayat Kelas',
-                    'icon' => '&#128203;',
-                    'route' => 'riwayat'
-                ],
-
-                'notifikasi' => [
-                    'label' => 'Notifikasi',
-                    'icon' => '&#128276;',
-                    'route' => 'notifikasi'
-                ],
-            ];
-
-        } elseif ($role === 'guru_piket') {
-
-            $navItems = [
-                'dashboard' => [
-                    'label' => 'Dashboard',
-                    'icon' => '&#8862;',
-                    'route' => 'guru-piket'
-                ],
-                'dispensasi' => [
-                    'label' => 'Dispensasi Siswa',
-                    'icon' => '&#128221;',
-                    'route' => 'dispensasi'
-                ],
-                'rekap-dispensasi' => [
-                    'label' => 'Rekap Dispensasi',
-                    'icon' => '&#128202;',
-                    'route' => 'rekap-dispensasi'
-                ],
+                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'dashboard'],
+                'data_kelas' => ['label' => 'Data Kelas', 'icon' => '&#127891;', 'route' => 'sekretaris', 'anchor' => 'data-kelas'],
+                'jurnal_kelas' => ['label' => 'Jurnal Kelas', 'icon' => '&#128203;', 'route' => 'sekretaris', 'anchor' => 'jurnal-kelas'],
+                'kehadiran' => ['label' => 'Kehadiran', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' => 'kehadiran'],
+                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'sekretaris', 'anchor' => 'rekap'],
             ];
 
         } else {
@@ -197,7 +201,7 @@
         @endphp
 
         <a
-            href="{{ Route::has($item['route']) ? route($item['route']) : '#' }}"
+            href="{{ Route::has($item['route']) ? route($item['route']).(!empty($item['anchor']) ? '#'.$item['anchor'] : '') : '#' }}"
             class="nav-link {{ $isActive ? 'active' : '' }}"
         >
 

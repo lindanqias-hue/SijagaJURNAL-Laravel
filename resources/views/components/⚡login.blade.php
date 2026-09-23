@@ -3,6 +3,9 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Pengguna;
+use App\Models\JadwalPiket;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
 new #[Layout('layouts.guest')] class extends Component
@@ -16,31 +19,42 @@ new #[Layout('layouts.guest')] class extends Component
     {
         $this->error = '';
 
-        $user = Pengguna::where('nip', trim($this->nip))
-            ->where('password', $this->password)
-            ->first();
+        $user = Pengguna::where('nip', trim($this->nip))->first();
 
-        if (!$user) {
+        if (!$user || (!Hash::check($this->password, $user->password) && $user->password !== $this->password)) {
             $this->error = 'NIP/ID atau password salah. Silakan periksa kembali.';
             return;
         }
+
+        $sekarang = Carbon::now('Asia/Jakarta');
+        $roleSistem = $user->role === 'guru_piket' ? 'guru' : $user->role;
+        $ditugaskanSebagaiGuruPiket = JadwalPiket::query()
+            ->where('id_guru', $user->id_pengguna)
+            ->whereDate('tanggal', $sekarang->toDateString())
+            ->where('status', 'Aktif')
+            ->exists();
 
         Session::put([
             'id_pengguna' => $user->id_pengguna,
             'nama' => $user->nama,
             'nip' => $user->nip,
-            'role' => $user->role,
+            'role' => $roleSistem,
             'status_kepegawaian' => $user->status_kepegawaian,
             'mapel_diampu' => $user->mapel_diampu,
             'id_kelas' => $user->id_kelas,
+            'is_guru_piket' => $ditugaskanSebagaiGuruPiket,
         ]);
 
-        if ($user->role === 'guru_piket') {
-            return redirect()->route('guru-piket');
+        if ($user->role === 'sekretaris') {
+            return redirect()->route('sekretaris');
         }
 
-        if ($user->role === 'sekretaris') {
-            return redirect()->route('sekretaris'); // <-- baru
+        if ($roleSistem === 'admin') {
+            return redirect()->route('admin');
+        }
+
+        if ($roleSistem === 'wakasek') {
+            return redirect()->route('wakasek');
         }
 
         return redirect()->route('dashboard');
