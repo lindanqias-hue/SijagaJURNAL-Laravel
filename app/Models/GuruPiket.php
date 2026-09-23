@@ -13,6 +13,7 @@ class GuruPiket extends Model
     protected $fillable = [
         'id_pengguna',
         'hari',
+        'tanggal',
         'jam_mulai',
         'jam_selesai',
         'aktif',
@@ -20,6 +21,7 @@ class GuruPiket extends Model
 
     protected $casts = [
         'aktif' => 'boolean',
+        'tanggal' => 'date',
     ];
 
     public function pengguna()

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AbsensiSiswa extends Model
 {
+    public const STATUS_TANPA_KETERANGAN = 'Tanpa Keterangan';
+
     protected $table = 'absensi_siswa';
 
     protected $primaryKey = 'id_absensi';

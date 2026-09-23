@@ -7,6 +7,7 @@ use App\Models\Jadwal;
 use App\Models\AbsensiSiswa;
 use App\Models\KeteranganSiswa;
 use App\Models\Siswa;
+use App\Services\KehadiranGuruService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;   // <-- baru, dipakai loadJadwal()
 
@@ -17,8 +18,8 @@ new class extends Component
     public $jam_ke = 1;
     public $materi = '';
     public $jumlah_tidak_hadir = 0;
-    public $status_kehadiran_guru = 'Hadir';
     public $catatan = '';
+    public string $cariSiswa = '';
 
     public $jadwalAktif = null;
     public $mapelAktif = '';
@@ -58,25 +59,23 @@ public $isSaving = false;
 
         if ($this->editing) {
 
-            if ($this->editing->status_validasi !== 'Menunggu') {
+            if (
+                !in_array($this->editing->status_validasi, ['Menunggu', 'Divalidasi'], true) ||
+                $this->editing->status_konfirmasi_sekretaris !== 'Menunggu'
+            ) {
                 $this->editing = null;
                 return;
             }
 
             $this->id_kelas = $this->editing->id_kelas;
 
-            // JANGAN mengambil tanggal dari jurnal lama
-            // Tanggal tetap otomatis hari ini
-            $this->tanggal = now()->format('Y-m-d');
+            $this->tanggal = $this->editing->tanggal->format('Y-m-d');
 
             $this->jam_ke = $this->editing->jam_ke;
             $this->materi = $this->editing->materi;
 
             $this->jumlah_tidak_hadir =
                 $this->editing->jumlah_tidak_hadir ?? 0;
-
-            $this->status_kehadiran_guru =
-                $this->editing->status_kehadiran_guru ?? 'Hadir';
 
             $this->catatan =
                 $this->editing->catatan ?? '';
@@ -87,6 +86,7 @@ public $isSaving = false;
                 ->value('mapel_diampu') ?? '';
 
             // Load siswa
+            $this->sinkronkanJadwalTerpilih();
             $this->loadSiswa();
 
             // PENTING: pulihkan status & keterangan yang sudah
@@ -96,10 +96,11 @@ public $isSaving = false;
         }
 
     } else {
+        $this->mapelAktif = DB::table('pengguna')
+            ->where('id_pengguna', session('id_pengguna'))
+            ->value('mapel_diampu') ?? '';
 
-        // Untuk jurnal baru, cari jadwal yang sedang aktif
         $this->loadJadwal();
-        $this->loadSiswa();
     }
 }
 
@@ -236,6 +237,40 @@ public function loadJadwal()
         return Kelas::where('id_kelas', $this->id_kelas)->first();
     }
 
+    public function getKelasListProperty()
+    {
+        $hari = $this->namaHariUntukTanggal();
+
+        if (!$hari || !session('id_pengguna')) {
+            return collect();
+        }
+
+        $idKelas = Jadwal::query()
+            ->where('id_guru', session('id_pengguna'))
+            ->where('hari', $hari)
+            ->pluck('id_kelas');
+
+        return Kelas::query()
+            ->whereIn('id_kelas', $idKelas)
+            ->orderBy('nama_kelas')
+            ->get();
+    }
+
+    public function getJamListProperty()
+    {
+        $hari = $this->namaHariUntukTanggal();
+
+        if (!$hari || !session('id_pengguna')) {
+            return collect();
+        }
+
+        return Jadwal::query()
+            ->where('id_guru', session('id_pengguna'))
+            ->where('hari', $hari)
+            ->orderBy('jam_ke')
+            ->get(['jam_ke', 'jam_mulai', 'jam_selesai']);
+    }
+
 
     public function getTotalSiswaProperty()
     {
@@ -248,93 +283,137 @@ public function loadJadwal()
     }
 
 
-    public function getJumlahHadirProperty()
+    public function getSiswaTersaringProperty()
     {
-        if ($this->status_kehadiran_guru !== 'Hadir') {
-            return 0;
+        $pencarian = trim($this->cariSiswa);
+
+        if ($pencarian === '') {
+            return $this->siswa;
         }
 
-        return max(
-            $this->totalSiswa - (int) $this->jumlah_tidak_hadir,
-            0
+        return $this->siswa->filter(
+            fn (Siswa $siswa) => str_contains(
+                mb_strtolower($siswa->nama_siswa),
+                mb_strtolower($pencarian)
+            )
+        );
+    }
+
+    public function butuhKeterangan(int|string $idSiswa): bool
+    {
+        return in_array(
+            $this->absensi[$idSiswa] ?? '',
+            self::STATUS_BUTUH_KETERANGAN,
+            true
         );
     }
 
 
-    public function updatedIdKelas()
+    public function updatedIdKelas(): void
     {
         $this->jumlah_tidak_hadir = 0;
         $this->loadSiswa();
-
+        $this->sinkronkanJadwalTerpilih();
     }
 
-public function loadSiswa()
-{
-    if (!$this->id_kelas) {
-        $this->siswa = [];
-        $this->absensi = [];
-        return;
+    public function updatedJamKe(): void
+    {
+        $this->loadDispensasiDisetujui();
+        $this->sinkronkanJadwalTerpilih();
     }
 
-    $this->siswa = Siswa::where('id_kelas', $this->id_kelas)
-        ->orderBy('id_siswa')
-        ->get();
+    private function namaHariUntukTanggal(): ?string
+    {
+        $hariInggris = Carbon::parse($this->tanggal)->format('l');
 
-    foreach ($this->siswa as $siswa) {
-        if (!isset($this->absensi[$siswa->id_siswa])) {
-            $this->absensi[$siswa->id_siswa] = 'Hadir';
+        return [
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
+        ][$hariInggris] ?? null;
+    }
+
+    private function findJadwalTerpilih(): ?Jadwal
+    {
+        $hari = $this->namaHariUntukTanggal();
+
+        if (!$hari || !$this->id_kelas || !$this->jam_ke) {
+            return null;
+        }
+
+        return Jadwal::query()
+            ->where('id_guru', session('id_pengguna'))
+            ->where('id_kelas', $this->id_kelas)
+            ->where('hari', $hari)
+            ->where('jam_ke', $this->jam_ke)
+            ->first();
+    }
+
+    private function sinkronkanJadwalTerpilih(): void
+    {
+        $this->jadwalAktif = $this->findJadwalTerpilih();
+
+        $this->jamMulaiKe = $this->jadwalAktif?->jam_ke;
+        $this->jamMulaiPembelajaran = $this->jadwalAktif?->jam_mulai;
+        $this->jamSelesaiKe = $this->jadwalAktif?->jam_ke;
+        $this->jamSelesaiPembelajaran = $this->jadwalAktif?->jam_selesai;
+    }
+
+    public function loadSiswa(): void
+    {
+        if (!$this->id_kelas) {
+            $this->siswa = [];
+            $this->absensi = [];
+            return;
+        }
+
+        $this->siswa = Siswa::where('id_kelas', $this->id_kelas)
+            ->orderBy('id_siswa')
+            ->get();
+
+        foreach ($this->siswa as $siswa) {
+            if (!isset($this->absensi[$siswa->id_siswa])) {
+                $this->absensi[$siswa->id_siswa] = 'Hadir';
+            }
+        }
+
+        $this->loadDispensasiDisetujui();
+    }
+
+    public function loadDispensasiDisetujui(): void
+    {
+        if (!$this->id_kelas || !$this->tanggal || !$this->jam_ke) {
+            return;
+        }
+
+        $dispensasi = DB::table('dispensasi')
+            ->where('id_kelas', $this->id_kelas)
+            ->where('tanggal', $this->tanggal)
+            ->where('status', 'Disetujui')
+            ->where(function ($query) {
+                $query->where('jenis_dispensasi', 'Sehari Penuh')
+                    ->orWhere(function ($q) {
+                        $q->where('jenis_dispensasi', 'Per Jam')
+                            ->where('jam_ke_mulai', '<=', $this->jam_ke)
+                            ->where('jam_ke_selesai', '>=', $this->jam_ke);
+                    })
+                    ->orWhere(function ($q) {
+                        $q->where('jenis_dispensasi', 'Per Mapel')
+                            ->where('id_guru', session('id_pengguna'))
+                            ->where('jam_ke_mulai', $this->jam_ke);
+                    });
+            })
+            ->get();
+
+        foreach ($dispensasi as $data) {
+            $this->absensi[$data->id_siswa] = 'Dispensasi';
+            $this->keteranganTambahan[$data->id_siswa] = $data->alasan;
         }
     }
-
-    // CEK DISPENSASI YANG SUDAH DISETUJUI
-    $this->loadDispensasiDisetujui();
-}
-
-public function loadDispensasiDisetujui()
-{
-    if (!$this->id_kelas || !$this->tanggal || !$this->jam_ke) {
-        return;
-    }
-
-    $dispensasi = DB::table('dispensasi')
-        ->where('id_kelas', $this->id_kelas)
-        ->where('tanggal', $this->tanggal)
-        ->where('status', 'Disetujui')
-        ->where(function ($query) {
-            $query->where(function ($q) {
-                $q->where(
-                    'jenis_dispensasi',
-                    'Sehari Penuh'
-                );
-            })
-            ->orWhere(function ($q) {
-                $q->where(
-                    'jenis_dispensasi',
-                    'Per Jam'
-                )
-                ->where(
-                    'jam_ke_mulai',
-                    '<=',
-                    $this->jam_ke
-                )
-                ->where(
-                    'jam_ke_selesai',
-                    '>=',
-                    $this->jam_ke
-                );
-            });
-        })
-        ->get();
-
-    foreach ($dispensasi as $data) {
-
-        $this->absensi[$data->id_siswa] = 'Dispensasi';
-
-        $this->keteranganTambahan[
-            $data->id_siswa
-        ] = $data->alasan;
-    }
-}
 
 /**
  * Dipanggil hanya saat mode edit. Mengambil status absensi &
@@ -373,17 +452,72 @@ public function save()
         'tanggal' => 'required|date',
         'jam_ke' => 'required|integer|min:1|max:12',
         'materi' => 'required|string',
-        'status_kehadiran_guru' =>
-            'required|in:Hadir,Izin,Sakit,Tanpa Keterangan',
+        'absensi.*' => 'required|in:Hadir,Izin,Sakit,Alpa,Dispensasi,Tanpa Keterangan',
     ], [
-        'id_kelas.required' => 'Jadwal kelas belum ditemukan.',
+        'id_kelas.required' => 'Kelas wajib dipilih.',
         'id_kelas.exists' => 'Kelas tidak ditemukan.',
         'materi.required' => 'Materi wajib diisi.',
     ]);
 
-    // lanjutkan kode save kamu di sini...
-    // Ambil semua siswa berdasarkan kelas
+    if ($this->editing) {
+        $this->editing = Jurnal::where('id_jurnal', $this->editing->id_jurnal)
+            ->where('id_guru', session('id_pengguna'))
+            ->whereIn('status_validasi', ['Menunggu', 'Divalidasi'])
+            ->where('status_konfirmasi_sekretaris', 'Menunggu')
+            ->first();
+
+        if (!$this->editing) {
+            $this->addError(
+                'editing',
+                'Jurnal tidak dapat diubah karena sudah tidak tersedia untuk diedit.'
+            );
+
+            return;
+        }
+    }
+
+    $jadwalTerpilih = $this->findJadwalTerpilih();
+
+    if (!$jadwalTerpilih) {
+        $this->addError(
+            'id_kelas',
+            'Kelas dan jam yang dipilih tidak termasuk jadwal mengajar Anda pada tanggal ini.'
+        );
+
+        return;
+    }
+
+    $this->jadwalAktif = $jadwalTerpilih;
+    $this->jamMulaiKe = $jadwalTerpilih->jam_ke;
+    $this->jamMulaiPembelajaran = $jadwalTerpilih->jam_mulai;
+    $this->jamSelesaiKe = $jadwalTerpilih->jam_ke;
+    $this->jamSelesaiPembelajaran = $jadwalTerpilih->jam_selesai;
+    $jurnalDuplikat = Jurnal::query()
+        ->where('id_guru', session('id_pengguna'))
+        ->where('id_kelas', $this->id_kelas)
+        ->whereDate('tanggal', $this->tanggal)
+        ->where('jam_ke', $this->jam_ke)
+        ->when(
+            $this->editing,
+            fn ($query) => $query->where('id_jurnal', '!=', $this->editing->id_jurnal)
+        )
+        ->exists();
+
+    if ($jurnalDuplikat) {
+        $this->addError('jam_ke', 'Jurnal untuk kelas dan jam ini sudah tercatat.');
+
+        return;
+    }
+
+    // Ambil ulang siswa dari kelas yang dipilih, lalu abaikan ID dari state
+    // Livewire yang bukan bagian dari kelas tersebut.
     $this->loadSiswa();
+    $idSiswaValid = $this->siswa->pluck('id_siswa')->map(
+        fn ($idSiswa) => (string) $idSiswa
+    )->all();
+    $this->absensi = collect($this->absensi)
+        ->only($idSiswaValid)
+        ->all();
 
     // Pastikan semua siswa memiliki status absensi,
     // dan keterangan wajib diisi untuk Sakit/Izin/Dispensasi
@@ -431,11 +565,16 @@ $jumlahDispensasi = collect($this->absensi)
     ->filter(fn ($status) => $status === 'Dispensasi')
     ->count();
 
+    $jumlahTanpaKeterangan = collect($this->absensi)
+        ->filter(fn ($status) => $status === 'Tanpa Keterangan')
+        ->count();
+
 $jumlahTidakHadir =
     $jumlahIzin +
     $jumlahSakit +
     $jumlahAlpa +
-    $jumlahDispensasi;
+    $jumlahDispensasi +
+    $jumlahTanpaKeterangan;
 
     $data = [
         'id_guru' => session('id_pengguna'),
@@ -445,58 +584,60 @@ $jumlahTidakHadir =
         'materi' => $this->materi,
         'jumlah_hadir' => $jumlahHadir,
         'jumlah_tidak_hadir' => $jumlahTidakHadir,
-        'status_kehadiran_guru' => $this->status_kehadiran_guru,
+        'status_kehadiran_guru' => 'Hadir',
         'catatan' => $this->catatan ?: null,
-        'status_validasi' => 'Menunggu',
+        'status_validasi' => 'Divalidasi',
         'id_validator' => null,
         'tanggal_validasi' => null,
-        'catatan_validasi' => null,
+        'catatan_validasi' => 'Validasi otomatis: jadwal, guru, kelas, tanggal, dan jam sesuai.',
     ];
 
-    // Simpan atau update jurnal
-    if ($this->editing) {
+    DB::transaction(function () use ($data): void {
+        // Simpan atau update jurnal
+        if ($this->editing) {
+            $this->editing->update($data);
 
-        $this->editing->update($data);
+            $idJurnal = $this->editing->id_jurnal;
 
-        $idJurnal = $this->editing->id_jurnal;
-
-        // Hapus absensi lama jika sedang edit
-        AbsensiSiswa::where('id_jurnal', $idJurnal)->delete();
-
-    } else {
-
-        $jurnal = Jurnal::create($data);
-
-        $idJurnal = $jurnal->id_jurnal;
-    }
-
-    // Nama kelas dipakai sebagai snapshot di keterangan_siswa
-    $namaKelas = $this->kelasAktif->nama_kelas ?? '-';
-
-    // Simpan absensi setiap siswa
-    foreach ($this->absensi as $idSiswa => $statusSiswa) {
-
-        $absensiSiswa = AbsensiSiswa::create([
-            'id_jurnal' => $idJurnal,
-            'id_siswa' => $idSiswa,
-            'keterangan' => $statusSiswa,
-        ]);
-
-        if (in_array($statusSiswa, self::STATUS_BUTUH_KETERANGAN, true)) {
-
-            $siswaData = $this->siswa->firstWhere('id_siswa', $idSiswa);
-
-            KeteranganSiswa::create([
-                'id_absensi' => $absensiSiswa->id_absensi,
-                'id_siswa' => $idSiswa,
-                'nama_siswa' => $siswaData->nama_siswa ?? '-',
-                'kelas' => $namaKelas,
-                'status' => $statusSiswa,
-                'keterangan' => trim($this->keteranganTambahan[$idSiswa] ?? ''),
-                'tanggal' => $this->tanggal,
-            ]);
+            // Hapus absensi lama jika sedang edit
+            AbsensiSiswa::where('id_jurnal', $idJurnal)->delete();
+        } else {
+            $jurnal = Jurnal::create($data);
+            $idJurnal = $jurnal->id_jurnal;
         }
-    }
+
+        // Nama kelas dipakai sebagai snapshot di keterangan_siswa
+        $namaKelas = $this->kelasAktif->nama_kelas ?? '-';
+
+        // Simpan absensi setiap siswa yang sudah diverifikasi berasal dari kelas.
+        foreach ($this->absensi as $idSiswa => $statusSiswa) {
+            $absensiSiswa = AbsensiSiswa::create([
+                'id_jurnal' => $idJurnal,
+                'id_siswa' => $idSiswa,
+                'keterangan' => $statusSiswa,
+            ]);
+
+            if (in_array($statusSiswa, self::STATUS_BUTUH_KETERANGAN, true)) {
+                $siswaData = $this->siswa->firstWhere('id_siswa', $idSiswa);
+
+                KeteranganSiswa::create([
+                    'id_absensi' => $absensiSiswa->id_absensi,
+                    'id_siswa' => $idSiswa,
+                    'nama_siswa' => $siswaData->nama_siswa ?? '-',
+                    'kelas' => $namaKelas,
+                    'status' => $statusSiswa,
+                    'keterangan' => trim($this->keteranganTambahan[$idSiswa] ?? ''),
+                    'tanggal' => $this->tanggal,
+                ]);
+            }
+        }
+    });
+
+    app(KehadiranGuruService::class)->statusUntukJadwal(
+        $jadwalTerpilih,
+        Carbon::now('Asia/Jakarta'),
+        Carbon::parse($this->tanggal, 'Asia/Jakarta')
+    );
 
     $this->saved = true;
 }
@@ -524,7 +665,7 @@ $jumlahTidakHadir =
             style="font-size:13px;"
         >
             {{ $editing
-                ? 'Mengedit jurnal ID #' . $editing->id_jurnal . ' (akan dikirim ulang untuk divalidasi)'
+                ? 'Mengedit jurnal ID #' . $editing->id_jurnal
                 : 'Catat aktivitas pembelajaran Anda hari ini.'
             }}
         </div>
@@ -538,207 +679,103 @@ $jumlahTidakHadir =
 >
 
         {{-- INFORMASI PEMBELAJARAN --}}
-
         <div class="form-section">
+            <div class="form-section-title">Informasi Pembelajaran</div>
 
-            <div class="form-section-title">
-                Informasi Pembelajaran
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label-sm">Mata Pelajaran</label>
+                    <input type="text" value="{{ $mapelAktif ?: '-' }}" readonly class="form-control form-control-custom readonly-field">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label-sm">Kelas</label>
+                    <select wire:model.live="id_kelas" class="form-select form-control-custom @error('id_kelas') is-invalid @enderror">
+                        <option value="">Pilih Kelas</option>
+                        @foreach ($this->kelasList as $kelas)
+                            <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>
+                        @endforeach
+                    </select>
+                    @error('id_kelas')
+                        <div class="text-danger" style="font-size:12px;">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label-sm">Tanggal</label>
+                    <div class="form-control form-control-custom bg-light">
+                        {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label-sm">Jam Ke</label>
+                    <select wire:model.live="jam_ke" class="form-select form-control-custom @error('jam_ke') is-invalid @enderror">
+                        @forelse ($this->jamList as $jam)
+                            <option value="{{ $jam->jam_ke }}">Jam ke-{{ $jam->jam_ke }} ({{ substr($jam->jam_mulai, 0, 5) }}–{{ substr($jam->jam_selesai, 0, 5) }})</option>
+                        @empty
+                            <option value="">Tidak ada jadwal pada hari ini</option>
+                        @endforelse
+                    </select>
+                    @error('jam_ke')
+                        <div class="text-danger" style="font-size:12px;">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label-sm">Jam Mulai</label>
+                    <div class="form-control form-control-custom bg-light">
+                        {{ $jamMulaiPembelajaran ? substr($jamMulaiPembelajaran, 0, 5) : '-' }}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label-sm">Jam Selesai</label>
+                    <div class="form-control form-control-custom bg-light">
+                        {{ $jamSelesaiPembelajaran ? substr($jamSelesaiPembelajaran, 0, 5) : '-' }}
+                    </div>
+                </div>
             </div>
-
-
-            @if ($jadwalAktif || $editing)
-
-                <div class="row g-3">
-
-                    {{-- MAPEL --}}
-
-                    <div class="col-md-6">
-
-                        <label class="form-label-sm">
-                            Mata Pelajaran
-                        </label>
-
-                        <input
-                            type="text"
-                            value="{{ $mapelAktif ?: '-' }}"
-                            readonly
-                            class="form-control form-control-custom readonly-field"
-                        >
-
-                    </div>
-
-
-                    {{-- KELAS --}}
-
-                    <div class="col-md-6">
-
-                        <label class="form-label-sm">
-                            Kelas
-                        </label>
-
-                        <input
-                            type="text"
-                            value="{{ $this->kelasAktif?->nama_kelas ?? '-' }}"
-                            readonly
-                            class="form-control form-control-custom readonly-field"
-                        >
-
-                        @error('id_kelas')
-                            <div class="text-danger" style="font-size:12px;">
-                                {{ $message }}
-                            </div>
-                        @enderror
-
-                    </div>
-
-
-                    {{-- TANGGAL --}}
-
-<div class="col-md-4">
-
-    <label class="form-label-sm">
-        Tanggal
-    </label>
-
-    <div class="form-control form-control-custom bg-light">
-        {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
-    </div>
-
-</div>
-
-
-                    {{-- JAM PEMBELAJARAN --}}
-<div class="col-md-6">
-    <label class="form-label-sm">
-        Jam Pembelajaran
-    </label>
-
-    <input
-        type="text"
-        value="{{ $jamMulaiKe ? 'Jam ke-' . $jamMulaiKe . ' - Jam ke-' . $jamSelesaiKe : '-' }}"
-        readonly
-        class="form-control form-control-custom readonly-field"
-    >
-</div>
-
-
-{{-- WAKTU PEMBELAJARAN --}}
-<div class="col-md-6">
-    <label class="form-label-sm">
-        Waktu Pembelajaran
-    </label>
-
-    <input
-        type="text"
-        value="{{ $jamMulaiPembelajaran && $jamSelesaiPembelajaran
-            ? substr($jamMulaiPembelajaran, 0, 5) . ' - ' . substr($jamSelesaiPembelajaran, 0, 5)
-            : '-' }}"
-        readonly
-        class="form-control form-control-custom readonly-field"
-    >
-</div>
-
-
-                    {{-- MATERI --}}
-
-                    <div class="col-12">
-
-                        <label class="form-label-sm">
-                            Materi Pembelajaran
-                        </label>
-
-                        <input
-                            type="text"
-                            wire:model="materi"
-                            placeholder="Contoh: Pengenalan DDL dan DML pada Basis Data"
-                            class="form-control form-control-custom @error('materi') is-invalid @enderror"
-                        >
-
-                        @error('materi')
-                            <div class="text-danger" style="font-size:12px;">
-                                {{ $message }}
-                            </div>
-                        @enderror
-
-                    </div>
-
-                </div>
-
-            @else
-
-                <div class="alert alert-warning">
-                    &#9888;
-                    Tidak ada jadwal mengajar yang sedang berlangsung saat ini.
-                </div>
-
-            @endif
-
         </div>
 
-        <div class="mb-3">
-    <label class="form-label fw-semibold">Keterangan</label>
-    <textarea
-        wire:model="catatan"
-        class="form-control"
-        rows="3"
-        placeholder="Masukkan keterangan tambahan..."
-    ></textarea>
-</div>
+        {{-- PEMBELAJARAN --}}
+        <div class="form-section">
+            <div class="form-section-title">Pembelajaran</div>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label-sm">Materi Pembelajaran</label>
+                    <input type="text" wire:model="materi" placeholder="Contoh: Pengenalan DDL dan DML pada Basis Data" class="form-control form-control-custom @error('materi') is-invalid @enderror">
+                    @error('materi')
+                        <div class="text-danger" style="font-size:12px;">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="col-12">
+                    <label class="form-label-sm">Metode Pembelajaran</label>
+                    <textarea wire:model="catatan" class="form-control form-control-custom" rows="3" placeholder="Contoh: diskusi kelompok, praktik, atau tugas lanjutan..."></textarea>
+                </div>
+            </div>
+        </div>
 
-
-       {{-- KEHADIRAN --}}
+        {{-- KEHADIRAN --}}
 <div class="form-section">
 
     <div class="form-section-title">
         Kehadiran & Absensi Siswa
     </div>
 
-    {{-- STATUS KEHADIRAN GURU --}}
-    <div class="mb-4">
-
-        <label class="form-label-sm">
-            Status Kehadiran Guru
-        </label>
-
-        <div class="d-flex flex-wrap gap-2 status-pill-radio">
-
-            @foreach ([
-                'Hadir' => '&#9989;',
-                'Izin' => '&#128203;',
-                'Sakit' => '&#129298;',
-                'Tanpa Keterangan' => '&#10067;'
-            ] as $status => $icon)
-
-                @php
-                    $rid = 'status_' . str_replace(' ', '_', $status);
-                @endphp
-
-                <input
-                    type="radio"
-                    id="{{ $rid }}"
-                    wire:model="status_kehadiran_guru"
-                    value="{{ $status }}"
-                >
-
-                <label for="{{ $rid }}">
-                    {!! $icon !!} {{ $status }}
-                </label>
-
-            @endforeach
-
-        </div>
-
+    <div class="alert alert-info mb-4">
+        Kehadiran guru ditentukan otomatis: jurnal yang berhasil dikirim tercatat sebagai <strong>Hadir</strong>.
+        Jadwal yang selesai tanpa jurnal akan dipantau sebagai <strong>Tanpa Keterangan</strong> oleh guru piket.
     </div>
 
 
     {{-- DAFTAR SISWA --}}
-    @if ($jadwalAktif || $editing)
-
         <div class="mb-3">
 
-            <label class="form-label-sm">
-                Daftar Kehadiran Siswa
-            </label>
+            <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+                <label class="form-label-sm mb-0">Daftar Kehadiran Siswa per Mata Pelajaran</label>
+                <input type="search" wire:model.live.debounce.300ms="cariSiswa" class="form-control" style="max-width:280px" placeholder="Cari nama siswa...">
+            </div>
 
             <div class="table-responsive border rounded">
 
@@ -756,7 +793,7 @@ $jumlahTidakHadir =
                             </th>
 
                             <th class="text-center" style="width:220px;">
-                                Keterangan
+                                Status Kehadiran
                             </th>
 
                         </tr>
@@ -764,9 +801,9 @@ $jumlahTidakHadir =
 
                     <tbody>
 
-                        @forelse ($siswa as $index => $dataSiswa)
+                        @forelse ($this->siswaTersaring as $index => $dataSiswa)
 
-                            <tr>
+                            <tr wire:key="siswa-{{ $dataSiswa->id_siswa }}">
 
                                 <td class="text-center">
                                     {{ $index + 1 }}
@@ -805,26 +842,20 @@ $jumlahTidakHadir =
                                             Dispensasi
                                         </option>
 
+                                        <option value="Tanpa Keterangan">
+                                            Tanpa Keterangan
+                                        </option>
+
                                     </select>
 
 
                                     {{-- KETERANGAN (Sakit / Izin / Dispensasi) --}}
-                                    @php
-                                        $statusIni = $absensi[$dataSiswa->id_siswa] ?? '';
-                                        $butuhKeterangan = in_array(
-                                            $statusIni,
-                                            ['Sakit', 'Izin', 'Dispensasi'],
-                                            true
-                                        );
-                                    @endphp
-
-                                    @if ($butuhKeterangan)
-
+                                    @if ($this->butuhKeterangan($dataSiswa->id_siswa))
                                         <input
                                             type="text"
                                             wire:model.live="keteranganTambahan.{{ $dataSiswa->id_siswa }}"
                                             class="form-control mt-2 @error('keteranganTambahan.'.$dataSiswa->id_siswa) is-invalid @enderror"
-                                            placeholder="Keterangan {{ strtolower($statusIni) }}..."
+                                            placeholder="Keterangan {{ strtolower($absensi[$dataSiswa->id_siswa] ?? '') }}..."
                                         >
 
                                         @error('keteranganTambahan.'.$dataSiswa->id_siswa)
@@ -832,7 +863,6 @@ $jumlahTidakHadir =
                                                 {{ $message }}
                                             </div>
                                         @enderror
-
                                     @endif
 
                                 </td>
@@ -1034,11 +1064,7 @@ $jumlahTidakHadir =
 
         </div>
 
-    @endif
-
     {{-- TOMBOL KONFIRMASI --}}
-@if ($jadwalAktif || $editing)
-
     <div class="d-flex justify-content-center gap-3 mt-4">
 
         <a
@@ -1050,17 +1076,13 @@ $jumlahTidakHadir =
 
         <button
     type="submit"
-    wire:confirm="Yakin jurnal ini sudah benar dan ingin dikirim ke Guru Piket untuk divalidasi?"
+    wire:confirm="Yakin jurnal ini sudah benar dan ingin dikirim untuk validasi otomatis?"
     class="btn btn-primary px-4"
     wire:loading.attr="disabled"
     wire:target="save"
 >
     <span wire:loading.remove wire:target="save">
-        @if ($status_kehadiran_guru === 'Hadir')
-            ✓ Konfirmasi & Kirim ke Guru Piket
-        @else
-            ✓ Konfirmasi ke Guru Piket
-        @endif
+        ✓ Simpan & Validasi Otomatis
     </span>
 
     <span wire:loading wire:target="save">
@@ -1070,9 +1092,9 @@ $jumlahTidakHadir =
 
 @if ($saved)
     <div class="alert-box alert-success-box mt-3 text-center">
-        <strong>✓ Jurnal berhasil dikirim ke Guru Piket.</strong>
+        <strong>✓ Jurnal berhasil disimpan dan divalidasi otomatis.</strong>
         <br>
-        Silakan tunggu pemeriksaan dan validasi dari Guru Piket.
+        Data jurnal siap dikonfirmasi oleh sekretaris kelas.
         <br>
         <a href="{{ route('riwayat') }}" class="mt-1 d-inline-block">
             Lihat Riwayat Jurnal →
@@ -1081,5 +1103,6 @@ $jumlahTidakHadir =
 @endif
 
     </div>
-
-    @endif
+</div>
+</form>
+</div>

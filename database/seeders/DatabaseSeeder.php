@@ -4,15 +4,13 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use App\Models\Pengguna;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
         /* WAKASEK 1 */
-        DB::table('Pengguna')->updateOrInsert(
+        DB::table('pengguna')->updateOrInsert(
             ['nip' => 'WAKASEK001'],
             [
                 'nama' => 'Wakil Kepala Sekolah 1',
@@ -23,7 +21,7 @@ class DatabaseSeeder extends Seeder
         );
 
         /* WAKASEK 2 */
-        DB::table('Pengguna')->updateOrInsert(
+        DB::table('pengguna')->updateOrInsert(
             ['nip' => 'WAKASEK002'],
             [
                 'nama' => 'Wakil Kepala Sekolah 2',
@@ -32,7 +30,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'wakasek',
             ]
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -48,7 +45,6 @@ class DatabaseSeeder extends Seeder
                 'jumlah_siswa' => 36,
             ]
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -88,33 +84,6 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | GURU PIKET
-        |--------------------------------------------------------------------------
-        */
-
-        $guruPiket = [
-            ['PIKET001', 'Budi Santoso, S.Pd'],
-            ['PIKET002', 'Siti Rahmawati, S.Pd'],
-        ];
-
-        foreach ($guruPiket as [$nip, $nama]) {
-            DB::table('pengguna')->updateOrInsert(
-                ['nip' => $nip],
-                [
-                    'nama' => $nama,
-                    'mapel_diampu' => null,
-                    'no_hp' => null,
-                    'status_kepegawaian' => 'PNS',
-                    'password' => 'guru123',
-                    'role' => 'guru_piket',
-                    'id_kelas' => null,
-                ]
-            );
-        }
-
         /*
         |--------------------------------------------------------------------------
         | SEKRETARIS KELAS
@@ -133,7 +102,6 @@ class DatabaseSeeder extends Seeder
                 'id_kelas' => 4,
             ]
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -189,7 +157,6 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | JADWAL
@@ -211,7 +178,6 @@ class DatabaseSeeder extends Seeder
         $idWinartin = DB::table('pengguna')->where('nip', 'GURU013')->value('id_pengguna');
         $idMufatiroh = DB::table('pengguna')->where('nip', 'GURU014')->value('id_pengguna');
 
-
         /*
         |--------------------------------------------------------------------------
         | SENIN
@@ -229,7 +195,6 @@ class DatabaseSeeder extends Seeder
         $this->jadwal($idBadrus, 4, 'Senin', 8, '13:15:00', '13:50:00');
         $this->jadwal($idBadrus, 4, 'Senin', 9, '13:50:00', '14:25:00');
         $this->jadwal($idBadrus, 4, 'Senin', 10, '14:25:00', '15:00:00');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -251,7 +216,6 @@ class DatabaseSeeder extends Seeder
         $this->jadwal($idBadrus, 4, 'Selasa', 9, '13:50:00', '14:25:00');
         $this->jadwal($idBadrus, 4, 'Selasa', 10, '14:25:00', '15:00:00');
 
-
         /*
         |--------------------------------------------------------------------------
         | RABU
@@ -272,7 +236,6 @@ class DatabaseSeeder extends Seeder
         $this->jadwal($idErna, 4, 'Rabu', 9, '13:50:00', '14:25:00');
         $this->jadwal($idErna, 4, 'Rabu', 10, '14:25:00', '15:00:00');
 
-
         /*
         |--------------------------------------------------------------------------
         | KAMIS
@@ -292,7 +255,6 @@ class DatabaseSeeder extends Seeder
         $this->jadwal($idKurnila, 4, 'Kamis', 8, '13:15:00', '13:50:00');
         $this->jadwal($idKurnila, 4, 'Kamis', 9, '13:50:00', '14:25:00');
         $this->jadwal($idKurnila, 4, 'Kamis', 10, '14:25:00', '15:00:00');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -321,13 +283,10 @@ class DatabaseSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $idPiket1 = DB::table('pengguna')
-            ->where('nip', 'PIKET001')
-            ->value('id_pengguna');
-
-        $idPiket2 = DB::table('pengguna')
-            ->where('nip', 'PIKET002')
-            ->value('id_pengguna');
+        // Piket adalah penugasan tambahan guru, bukan jenis akun lain.
+        // Guru yang sama tetap dapat mengisi jurnal mengajarnya.
+        $idPiket1 = $idAnisa;
+        $idPiket2 = $idFajar;
 
         DB::table('guru_piket')->updateOrInsert(
             [
@@ -352,8 +311,13 @@ class DatabaseSeeder extends Seeder
                 'aktif' => true,
             ]
         );
-    }
 
+        $this->call([
+            DummyRoleSeeder::class,
+            JadwalPiketSeeder::class,
+            DummyAbsensiSiswaSeeder::class,
+        ]);
+    }
 
     private function jadwal(
         $idGuru,

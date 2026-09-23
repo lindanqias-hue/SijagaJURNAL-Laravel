@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        DB::table('jurnal')
+            ->where('status_validasi', 'Menunggu')
+            ->update(['status_validasi' => 'Divalidasi']);
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        DB::table('jurnal')
+            ->where('status_validasi', 'Divalidasi')
+            ->whereNull('id_validator')
+            ->update(['status_validasi' => 'Menunggu']);
+    }
+};

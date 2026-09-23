@@ -39,6 +39,11 @@ new class extends Component
         return session('role') === 'guru';
     }
 
+    public function getIsSekretarisProperty(): bool
+    {
+        return session('role') === 'sekretaris';
+    }
+
     /**
      * Query dasar riwayat, sudah memperhitungkan role:
      * - guru       -> hanya jurnal miliknya sendiri ("Riwayat Saya")
@@ -50,6 +55,10 @@ new class extends Component
 
         if ($this->isGuru) {
             $query->where('id_guru', session('id_pengguna'));
+        }
+
+        if ($this->isSekretaris) {
+            $query->where('id_kelas', session('id_kelas'));
         }
 
         if ($this->statusFilter !== 'Semua') {
@@ -94,6 +103,10 @@ new class extends Component
         if ($this->isGuru) {
             $query->where('id_guru', session('id_pengguna'));
         }
+
+        if ($this->isSekretaris) {
+            $query->where('id_kelas', session('id_kelas'));
+        }
         if ($this->kelasFilter) {
             $query->where('id_kelas', $this->kelasFilter);
         }
@@ -116,11 +129,23 @@ new class extends Component
 
     public function getKelasListProperty()
     {
-        return Kelas::orderBy('nama_kelas')->get();
+        $query = Kelas::orderBy('nama_kelas');
+
+        if ($this->isSekretaris) {
+            $query->where('id_kelas', session('id_kelas'));
+        }
+
+        return $query->get();
     }
 
     public function lihatDetail($idJurnal)
     {
+        if ($this->isSekretaris && ! Jurnal::whereKey($idJurnal)
+            ->where('id_kelas', session('id_kelas'))
+            ->exists()) {
+            return;
+        }
+
         $this->jurnalTerpilih = $this->jurnalTerpilih === $idJurnal
             ? null
             : $idJurnal;
@@ -132,9 +157,18 @@ new class extends Component
             return collect();
         }
 
-        return AbsensiSiswa::with(['siswa', 'keteranganSiswa'])
+        $query = AbsensiSiswa::with(['siswa', 'keteranganSiswa'])
             ->where('id_jurnal', $this->jurnalTerpilih)
-            ->get();
+            ;
+
+        if ($this->isSekretaris) {
+            $query->whereHas(
+                'jurnal',
+                fn ($jurnal) => $jurnal->where('id_kelas', session('id_kelas'))
+            );
+        }
+
+        return $query->get();
     }
 
     public function resetFilter()
@@ -171,7 +205,7 @@ new class extends Component
 
                 <div style="color:rgba(255,255,255,.65); font-size:13px; margin-top:6px;">
                     {{ $this->isGuru
-                        ? 'Pantau status validasi jurnal yang sudah kamu kirim.'
+                        ? 'Pantau jurnal dan absensi yang sudah kamu kirim.'
                         : 'Pantau seluruh jurnal mengajar yang tercatat di sistem.'
                     }}
                 </div>
@@ -215,7 +249,7 @@ new class extends Component
             <div class="stat-card">
                 <div class="stat-icon" style="background:var(--accent-light); color:var(--accent);">&#9989;</div>
                 <div>
-                    <div class="text-muted small">Divalidasi</div>
+                    <div class="text-muted small">Valid</div>
                     <div class="stat-value">{{ $this->stats['divalidasi'] }}</div>
                 </div>
             </div>
@@ -258,7 +292,7 @@ new class extends Component
                     <select wire:model.live="statusFilter" class="form-select form-select-sm">
                         <option value="Semua">Semua Status</option>
                         <option value="Menunggu">Menunggu</option>
-                        <option value="Divalidasi">Divalidasi</option>
+                        <option value="Divalidasi">Valid</option>
                         <option value="Ditolak">Ditolak</option>
                     </select>
                 </div>
@@ -363,7 +397,7 @@ new class extends Component
 
                             <td class="text-center">
                                 <span class="badge-status {{ $badgeClass }}">
-                                    {{ $jurnal->status_validasi }}
+                                    {{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}
                                 </span>
                             </td>
 
@@ -396,7 +430,7 @@ new class extends Component
 
                                     @if ($jurnal->catatan_validasi)
                                         <div class="alert-box alert-warning-box mb-3">
-                                            <strong>Catatan Guru Piket:</strong>&nbsp;{{ $jurnal->catatan_validasi }}
+                                            <strong>Catatan Sistem:</strong>&nbsp;{{ $jurnal->catatan_validasi }}
                                         </div>
                                     @endif
 
@@ -414,7 +448,7 @@ new class extends Component
                                                     <tr>
                                                         <th>Nama Siswa</th>
                                                         <th class="text-center">Status</th>
-                                                        <th>Keterangan</th>
+                                                        <th>Detail</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
