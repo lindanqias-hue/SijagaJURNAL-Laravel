@@ -40,20 +40,44 @@ class JadwalPiketSeeder extends Seeder
             );
         }
 
-        $yusuf = Pengguna::query()->where('nama', 'Yusuf Hidayat, S.Kom')->firstOrFail();
         $kelas = Kelas::query()->where('nama_kelas', 'XI RPL 2')->firstOrFail();
 
-        Jadwal::query()->updateOrCreate(
-            [
-                'id_guru' => $yusuf->id_pengguna,
-                'id_kelas' => $kelas->id_kelas,
-                'hari' => 'Senin',
-                'jam_ke' => 2,
-            ],
-            [
-                'jam_mulai' => '07:40:00',
-                'jam_selesai' => '08:20:00',
-            ]
-        );
+        $waktuPerJam = [
+            1 => ['07:00:00', '07:40:00'],
+            2 => ['07:40:00', '08:20:00'],
+            3 => ['08:20:00', '09:00:00'],
+            4 => ['09:00:00', '09:40:00'],
+            5 => ['10:00:00', '10:35:00'],
+            6 => ['10:35:00', '11:10:00'],
+            7 => ['11:10:00', '11:45:00'],
+            8 => ['13:15:00', '13:50:00'],
+            9 => ['13:50:00', '14:25:00'],
+            10 => ['14:25:00', '15:00:00'],
+        ];
+
+        $guruDummy = Pengguna::query()
+            ->where('nip', 'like', 'DUMMY-GURU-%')
+            ->orderBy('nip')
+            ->get();
+
+        foreach ($guruDummy as $index => $guru) {
+            $jamKe = $index + 1;
+            [$jamMulai, $jamSelesai] = $waktuPerJam[$jamKe];
+
+            foreach (['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $hari) {
+                Jadwal::query()->updateOrCreate(
+                    [
+                        'id_guru' => $guru->id_pengguna,
+                        'id_kelas' => $kelas->id_kelas,
+                        'hari' => $hari,
+                        'jam_ke' => $jamKe,
+                    ],
+                    [
+                        'jam_mulai' => $jamMulai,
+                        'jam_selesai' => $jamSelesai,
+                    ]
+                );
+            }
+        }
     }
 }

@@ -777,22 +777,25 @@ $jumlahTidakHadir =
                 <input type="search" wire:model.live.debounce.300ms="cariSiswa" class="form-control" style="max-width:280px" placeholder="Cari nama siswa...">
             </div>
 
-            <div class="table-responsive border rounded">
+            <div
+                class="table-responsive border rounded"
+                style="max-height:540px; overflow-y:auto;"
+            >
 
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle" style="min-width:620px;">
 
                     <thead class="table-light">
                         <tr>
 
-                            <th class="text-center" style="width:60px;">
+                            <th class="text-center" style="width:60px; position:sticky; top:0; z-index:2;">
                                 No
                             </th>
 
-                            <th>
+                            <th style="position:sticky; top:0; z-index:2;">
                                 Nama Siswa
                             </th>
 
-                            <th class="text-center" style="width:220px;">
+                            <th class="text-center" style="width:220px; position:sticky; top:0; z-index:2;">
                                 Status Kehadiran
                             </th>
 
