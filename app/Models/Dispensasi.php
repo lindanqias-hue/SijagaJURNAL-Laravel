@@ -6,20 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Dispensasi extends Model
 {
-    protected $table = 'dispensasi';
+    protected $table = 'dispensasis';
 
     protected $primaryKey = 'id_dispensasi';
 
-    // Status kolom ini sekarang plain string (bukan DB enum) supaya
-    // menambah/mengubah status di masa depan tidak perlu migration
-    // ALTER TABLE lagi. Ini jadi satu-satunya sumber kebenaran daftar
-    // status yang valid, dipakai untuk validasi di form/controller.
+    // Status kolom plain string
     public const STATUS_MENUNGGU = 'Menunggu Persetujuan';
-
     public const STATUS_DISETUJUI = 'Disetujui';
-
     public const STATUS_DITOLAK = 'Ditolak';
-
     public const STATUS_SELESAI = 'Selesai';
 
     public const STATUSES = [
@@ -32,7 +26,7 @@ class Dispensasi extends Model
     protected $fillable = [
         'id_siswa',
         'id_kelas',
-        'id_jadwal',
+        'id_jadwal',         // Relasi ke jadwal / mapel
         'id_guru',
         'mapel',
         'jenis_dispensasi',
@@ -59,7 +53,7 @@ class Dispensasi extends Model
     public function wakasek()
     {
         return $this->belongsTo(
-            pengguna::class,
+            Pengguna::class,
             'id_wakasek',
             'id_pengguna'
         );
@@ -95,7 +89,18 @@ class Dispensasi extends Model
         );
     }
 
+    // Relasi ke jadwal / mapel (bisa disesuaikan dengan foreign key yang dipakai di database)
     public function jadwal()
+    {
+        return $this->belongsTo(
+            Jadwal::class,
+            'id_jadwal',
+            'id_jadwal'
+        );
+    }
+
+    // Alias atau fungsi tambahan jika ingin menggunakan penamaan jadwalPelajaran
+    public function jadwalPelajaran()
     {
         return $this->belongsTo(
             Jadwal::class,

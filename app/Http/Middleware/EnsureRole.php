@@ -14,11 +14,29 @@ class EnsureRole
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!session('id_pengguna')) {
-            return redirect()->route('login');
+        $user = $request->user();
+
+        if (!$user) {
+            // Mempertahankan pengecekan sesi lama jika user instance null
+            if (!session('id_pengguna')) {
+                return redirect()->route('login');
+            }
         }
 
-        if (!in_array(session('role'), $roles, true)) {
+        // Ambil role dari object user atau fallback ke session
+        $userRole = $user->role ?? session('role');
+
+        if (!$userRole) {
+            return redirect('/login');
+        }
+
+        // Jika rute butuh akses 'guru', izinkan juga 'guru_piket'
+        if (in_array('guru', $roles) && $userRole === 'guru_piket') {
+            return $next($request);
+        }
+
+        // Pengecekan role standar (mendukung array roles dan pengecekan ketat)
+        if (!in_array($userRole, $roles, true)) {
             abort(403, 'Kamu tidak punya akses ke halaman ini.');
         }
 
