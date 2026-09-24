@@ -27,7 +27,7 @@ new class extends Component
             'dispensasiMenunggu' => Dispensasi::query()
                 ->where('status', Dispensasi::STATUS_MENUNGGU)
                 ->count(),
-            'tanpaKeterangan' => $monitoring->where('status_kehadiran', 'Tanpa Keterangan')->count(),
+            'tanpaKeterangan' => $monitoring->where('status_kehadiran', KehadiranGuruService::STATUS_TANPA_KETERANGAN)->count(),
             'belumIsiJurnal' => $monitoring->whereNull('id_jurnal')->count(),
         ];
     }
@@ -71,7 +71,7 @@ new class extends Component
     public function getGuruTanpaKeteranganProperty()
     {
         return $this->monitoringGuru
-            ->where('status_kehadiran', 'Tanpa Keterangan')
+            ->where('status_kehadiran', KehadiranGuruService::STATUS_TANPA_KETERANGAN)
             ->unique('id_guru')
             ->values();
     }
@@ -155,7 +155,7 @@ new class extends Component
                                 <tr>
                                     <td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
                                     <td>Ke-{{ $jadwal->jam_ke }}<div class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</div></td>
-                                    <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === 'Tanpa Keterangan' ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
+                                    <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === KehadiranGuruService::STATUS_TANPA_KETERANGAN ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
                                 </tr>
                             @empty
                                 <tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>

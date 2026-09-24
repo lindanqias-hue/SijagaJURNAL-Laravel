@@ -41,7 +41,7 @@ new class extends Component
                     'Hadir' => 'Hadir (jurnal diisi)',
                     'Izin' => 'Izin resmi',
                     'Sakit' => 'Sakit resmi',
-                    'Tanpa Keterangan' => 'Tidak hadir tanpa keterangan',
+                    KehadiranGuruService::STATUS_TANPA_KETERANGAN => 'Tidak hadir tanpa keterangan',
                     default => 'Menunggu jam selesai',
                 };
 

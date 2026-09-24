@@ -233,7 +233,13 @@ new class extends Component
 };
 ?>
 
-<div>
+<div x-data="{ tabAktif: 'jadwal' }">
+
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-2 text-muted">
+        <div id="clock" style="font-size:14px; line-height:1.2;">{{ now('Asia/Jakarta')->format('H:i:s') }}</div>
+        <span aria-hidden="true">·</span>
+        <div id="date" style="font-size:13px;">{{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}</div>
+    </div>
 
     {{-- WELCOME --}}
     <div class="welcome-banner">
@@ -283,32 +289,6 @@ new class extends Component
                 </div>
             </div>
 
-            {{-- JAM & TANGGAL --}}
-            <div class="d-flex flex-wrap gap-3 mt-3 pt-3"
-                 style="border-top:1px solid rgba(255,255,255,.25);">
-
-                <div id="clock"
-                     style="
-                        color:#fff;
-                        font-size:24px;
-                        font-weight:700;
-                        line-height:1.1;
-                     ">
-                    {{ now('Asia/Jakarta')->format('H:i:s') }}
-                </div>
-
-                <div id="date"
-                     style="
-                        color:rgba(255,255,255,.8);
-                        font-size:14px;
-                        font-weight:600;
-                        margin-top:2px;
-                     ">
-                    {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
-                </div>
-
-            </div>
-
         </div>
 
     </div>
@@ -347,7 +327,19 @@ new class extends Component
 
     </div>
 
+    <div class="d-flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Bagian dashboard">
+        <button type="button" role="tab" :aria-selected="tabAktif === 'jadwal'" @click="tabAktif = 'jadwal'" :class="tabAktif === 'jadwal' ? 'btn btn-app-primary btn-sm' : 'btn btn-outline-secondary btn-sm'">Jadwal & Kehadiran</button>
+        <button type="button" role="tab" :aria-selected="tabAktif === 'jurnal'" @click="tabAktif = 'jurnal'" :class="tabAktif === 'jurnal' ? 'btn btn-app-primary btn-sm' : 'btn btn-outline-secondary btn-sm'">Jurnal Saya</button>
+        <button type="button" role="tab" :aria-selected="tabAktif === 'dispensasi'" @click="tabAktif = 'dispensasi'" :class="tabAktif === 'dispensasi' ? 'btn btn-app-primary btn-sm' : 'btn btn-outline-secondary btn-sm'">
+            Dispensasi Masuk
+            @if ($this->dispensasiMasuk->isNotEmpty())
+                <span class="badge bg-danger ms-1">{{ $this->dispensasiMasuk->count() }}</span>
+            @endif
+        </button>
+    </div>
+
     {{-- TUGAS GURU PIKET --}}
+    <div x-show="tabAktif === 'jadwal'" role="tabpanel">
     @if ($this->tugasPiketHariIni->isNotEmpty())
 
         <div class="card-custom mb-3 border-start border-4 border-primary">
@@ -441,7 +433,7 @@ new class extends Component
                                 ✓ Hadir
                             </span>
 
-                        @elseif($kehadiran->status === 'Tidak Hadir')
+                        @elseif($kehadiran->status === 'Tanpa Keterangan')
 
                             <span class="badge bg-danger">
                                 ✕ Tidak Hadir
@@ -478,6 +470,9 @@ new class extends Component
     </div>
 
     {{-- NOTIFIKASI DISPENSASI --}}
+    </div>
+
+    <div x-show="tabAktif === 'dispensasi'" role="tabpanel">
     @if($this->dispensasiMasuk->isNotEmpty())
 
         <div class="card-custom mb-3">
@@ -615,8 +610,10 @@ new class extends Component
         </div>
 
     @endif
+    </div>
 
     {{-- STATISTIK --}}
+    <div x-show="tabAktif === 'jurnal'" role="tabpanel">
     <div class="row g-3 my-3">
 
         <div class="col-6 col-md-3">
@@ -756,6 +753,8 @@ new class extends Component
             @endforeach
 
         @endif
+
+    </div>
 
     </div>
 

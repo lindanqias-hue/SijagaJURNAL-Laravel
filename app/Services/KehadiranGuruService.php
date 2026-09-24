@@ -9,6 +9,8 @@ use Carbon\Carbon;
 
 class KehadiranGuruService
 {
+    public const STATUS_TANPA_KETERANGAN = 'Tanpa Keterangan';
+
     private const GRACE_PERIOD_MINUTES = 5;
 
     public function tentukanStatus(
@@ -28,7 +30,7 @@ class KehadiranGuruService
 
         // Kalau jadwal sudah selesai dan tidak ada jurnal = Tanpa Keterangan
         if ($jadwalSelesai) {
-            return 'Tanpa Keterangan';
+            return self::STATUS_TANPA_KETERANGAN;
         }
 
         // Kalau jadwal belum selesai = Menunggu
