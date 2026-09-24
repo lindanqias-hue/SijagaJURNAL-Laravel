@@ -8750,6 +8750,30 @@
         },
         {
             "name": "symfony/yaml",
+<<<<<<< HEAD
+            "version": "v8.1.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/yaml.git",
+                "reference": "0b4aa53a67f9fece88c665f1a1dadcfd25d93fe5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/0b4aa53a67f9fece88c665f1a1dadcfd25d93fe5",
+                "reference": "0b4aa53a67f9fece88c665f1a1dadcfd25d93fe5",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.4.1",
+                "symfony/polyfill-ctype": "^1.8"
+            },
+            "conflict": {
+                "symfony/console": "<7.4"
+            },
+            "require-dev": {
+                "symfony/console": "^7.4|^8.0",
+                "yaml/yaml-test-suite": "*"
+=======
             "version": "v7.4.18",
             "source": {
                 "type": "git",
@@ -8772,6 +8796,7 @@
             },
             "require-dev": {
                 "symfony/console": "^6.4|^7.0|^8.0"
+>>>>>>> e399131cbefa84342dfac0d400ea5b9dc2bc7c31
             },
             "bin": [
                 "Resources/bin/yaml-lint"
@@ -8802,7 +8827,11 @@
             "description": "Loads and dumps YAML files",
             "homepage": "https://symfony.com",
             "support": {
+<<<<<<< HEAD
+                "source": "https://github.com/symfony/yaml/tree/v8.1.6"
+=======
                 "source": "https://github.com/symfony/yaml/tree/v7.4.18"
+>>>>>>> e399131cbefa84342dfac0d400ea5b9dc2bc7c31
             },
             "funding": [
                 {
@@ -8822,7 +8851,11 @@
                     "type": "tidelift"
                 }
             ],
+<<<<<<< HEAD
+            "time": "2026-08-30T01:03:44+00:00"
+=======
             "time": "2026-08-30T00:47:26+00:00"
+>>>>>>> e399131cbefa84342dfac0d400ea5b9dc2bc7c31
         },
         {
             "name": "theseer/tokenizer",
@@ -8877,12 +8910,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.3"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.6.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }

@@ -299,6 +299,37 @@ public function loadJadwal()
         );
     }
 
+    public bool $showAbsensiSiswa = false;
+    public bool $showReview = false;
+
+    public function bukaAbsensiSiswa(): void
+    {
+        $this->cariSiswa = '';
+        $this->showReview = false;
+        $this->showAbsensiSiswa = true;
+    }
+
+    public function bukaReview(): void
+    {
+        $this->showAbsensiSiswa = false;
+        $this->showReview = true;
+    }
+
+    public function setAbsensiSiswa(int|string $idSiswa, string $status): void
+    {
+        $statusDiizinkan = ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi', 'Tanpa Keterangan'];
+
+        if (!in_array($status, $statusDiizinkan, true)) {
+            return;
+        }
+
+        if (!collect($this->siswa)->contains('id_siswa', $idSiswa)) {
+            return;
+        }
+
+        $this->absensi[$idSiswa] = $status;
+    }
+
     public function butuhKeterangan(int|string $idSiswa): bool
     {
         return in_array(
@@ -770,339 +801,213 @@ $jumlahTidakHadir =
 
 
     {{-- DAFTAR SISWA --}}
-        <div class="mb-3">
-
-            <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
-                <label class="form-label-sm mb-0">Daftar Kehadiran Siswa per Mata Pelajaran</label>
-                <input type="search" wire:model.live.debounce.300ms="cariSiswa" class="form-control" style="max-width:280px" placeholder="Cari nama siswa...">
+    <div class="mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 p-3 border rounded-3 bg-light">
+            <div>
+                <div class="fw-semibold">Absensi Siswa</div>
+                <div class="small text-muted">{{ count($siswa) }} siswa</div>
             </div>
-
-            <div class="table-responsive border rounded">
-
-                <table class="table table-hover mb-0 align-middle">
-
-                    <thead class="table-light">
-                        <tr>
-
-                            <th class="text-center" style="width:60px;">
-                                No
-                            </th>
-
-                            <th>
-                                Nama Siswa
-                            </th>
-
-                            <th class="text-center" style="width:220px;">
-                                Status Kehadiran
-                            </th>
-
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        @forelse ($this->siswaTersaring as $index => $dataSiswa)
-
-                            <tr wire:key="siswa-{{ $dataSiswa->id_siswa }}">
-
-                                <td class="text-center">
-                                    {{ $index + 1 }}
-                                </td>
-
-                                <td>
-                                    <span class="fw-semibold">
-                                        {{ $dataSiswa->nama_siswa }}
-                                    </span>
-                                </td>
-
-                                <td>
-
-                                    <select
-                                        wire:model.live="absensi.{{ $dataSiswa->id_siswa }}"
-                                        class="form-select"
-                                    >
-
-                                        <option value="Hadir">
-                                            Hadir
-                                        </option>
-
-                                        <option value="Izin">
-                                            Izin
-                                        </option>
-
-                                        <option value="Sakit">
-                                            Sakit
-                                        </option>
-
-                                        <option value="Alpa">
-                                            Alpa
-                                        </option>
-
-                                        <option value="Dispensasi">
-                                            Dispensasi
-                                        </option>
-
-                                        <option value="Tanpa Keterangan">
-                                            Tanpa Keterangan
-                                        </option>
-
-                                    </select>
-
-
-                                    {{-- KETERANGAN (Sakit / Izin / Dispensasi) --}}
-                                    @if ($this->butuhKeterangan($dataSiswa->id_siswa))
-                                        <input
-                                            type="text"
-                                            wire:model.live="keteranganTambahan.{{ $dataSiswa->id_siswa }}"
-                                            class="form-control mt-2 @error('keteranganTambahan.'.$dataSiswa->id_siswa) is-invalid @enderror"
-                                            placeholder="Keterangan {{ strtolower($absensi[$dataSiswa->id_siswa] ?? '') }}..."
-                                        >
-
-                                        @error('keteranganTambahan.'.$dataSiswa->id_siswa)
-                                            <div class="invalid-feedback d-block">
-                                                {{ $message }}
-                                            </div>
-                                        @enderror
-                                    @endif
-
-                                </td>
-
-                            </tr>
-
-                        @empty
-
-                            <tr>
-
-                                <td
-                                    colspan="3"
-                                    class="text-center text-muted py-4"
-                                >
-                                    Data siswa belum ditemukan.
-                                </td>
-
-                            </tr>
-
-                        @endforelse
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
+            <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-primary px-4">
+                Kelola Kehadiran Siswa
+            </button>
         </div>
+        @error('absensi')
+            <div class="text-danger small mt-2">{{ $message }}</div>
+        @enderror
+    </div>
 
+    @if ($showAbsensiSiswa)
+        <div class="attendance-overlay" role="dialog" aria-modal="true" aria-labelledby="attendance-title">
+            <section class="attendance-panel">
+                <header class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h2 id="attendance-title" class="h5 mb-1">Kehadiran Siswa</h2>
+                        <div class="small text-muted">Cari siswa dan pilih status kehadirannya.</div>
+                    </div>
+                    <button type="button" wire:click="$set('showAbsensiSiswa', false)" class="btn-close" aria-label="Tutup"></button>
+                </header>
 
-        {{-- REKAP OTOMATIS --}}
+                <div class="input-group mb-3">
+                    <span class="input-group-text" aria-hidden="true">⌕</span>
+                    <input type="search" wire:model.live.debounce.300ms="cariSiswa" class="form-control" placeholder="Cari nama siswa..." aria-label="Cari nama siswa">
+                </div>
+
+                <div class="attendance-list">
+                    @forelse ($this->siswaTersaring as $dataSiswa)
+                        @php
+                            $idSiswa = $dataSiswa->id_siswa;
+                            $statusIni = $absensi[$idSiswa] ?? 'Hadir';
+                            $statusOptions = ['Hadir' => '✓', 'Izin' => '▣', 'Sakit' => '+', 'Alpa' => '!', 'Dispensasi' => '↗'];
+                            $statusColors = ['Hadir' => 'hadir', 'Izin' => 'izin', 'Sakit' => 'sakit', 'Alpa' => 'alpa', 'Dispensasi' => 'dispensasi'];
+                        @endphp
+
+                        <article class="attendance-student" wire:key="absensi-siswa-{{ $idSiswa }}">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <span class="fw-semibold">{{ $dataSiswa->nama_siswa }}</span>
+                                <span class="badge rounded-pill {{ $statusIni === 'Hadir' ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $statusIni }}</span>
+                            </div>
+
+                            <div class="attendance-status-buttons" role="group" aria-label="Status {{ $dataSiswa->nama_siswa }}">
+                                @foreach ($statusOptions as $status => $icon)
+                                    <button
+                                        type="button"
+                                        wire:click="setAbsensiSiswa({{ $idSiswa }}, '{{ $status }}')"
+                                        wire:key="absensi-status-{{ $idSiswa }}-{{ $loop->index }}"
+                                        class="attendance-status-button status-{{ $statusColors[$status] }} {{ $statusIni === $status ? 'active' : '' }}"
+                                        aria-pressed="{{ $statusIni === $status ? 'true' : 'false' }}"
+                                    >
+                                        <span aria-hidden="true">{{ $icon }}</span> {{ $status }}
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            @if ($this->butuhKeterangan($idSiswa))
+                                <label class="form-label small mt-3 mb-1" for="keterangan-{{ $idSiswa }}">
+                                    Keterangan {{ strtolower($statusIni) }} <span class="text-danger">*</span>
+                                </label>
+                                <input
+                                    id="keterangan-{{ $idSiswa }}"
+                                    type="text"
+                                    wire:model.live="keteranganTambahan.{{ $idSiswa }}"
+                                    class="form-control @error('keteranganTambahan.'.$idSiswa) is-invalid @enderror"
+                                    placeholder="Keterangan {{ strtolower($statusIni) }}..."
+                                >
+                                @error('keteranganTambahan.'.$idSiswa)
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            @endif
+                        </article>
+                    @empty
+                        <div class="text-center text-muted py-5">
+                            {{ count($siswa) === 0 ? 'Pilih kelas untuk melihat siswa.' : 'Siswa tidak ditemukan.' }}
+                        </div>
+                    @endforelse
+                </div>
+
+                <footer class="d-flex justify-content-end pt-3 mt-3 border-top">
+                    <button type="button" wire:click="$set('showAbsensiSiswa', false)" class="btn btn-outline-secondary">Selesai</button>
+                </footer>
+            </section>
+        </div>
+        <style>
+            .attendance-overlay{position:fixed;inset:0;z-index:1060;background:rgba(15,23,42,.55);display:flex;justify-content:center;align-items:center;padding:1rem}
+            .attendance-panel{background:#fff;border-radius:1rem;width:min(760px,100%);max-height:min(88vh,900px);padding:1.25rem;display:flex;flex-direction:column;box-shadow:0 1.5rem 4rem rgba(15,23,42,.25)}
+            .attendance-list{overflow-y:auto;overscroll-behavior:contain;padding-right:.25rem}
+            .attendance-student{border:1px solid #e5e7eb;border-radius:.75rem;padding:1rem;margin-bottom:.75rem}
+            .attendance-status-buttons{display:flex;flex-wrap:wrap;gap:.5rem}
+            .attendance-status-button{border:1px solid;border-radius:999px;padding:.4rem .8rem;font-size:.875rem;font-weight:500;transition:filter .15s ease,transform .15s ease,box-shadow .15s ease}
+            .attendance-status-button:hover{filter:saturate(1.35);transform:translateY(-1px)}
+            .attendance-status-button:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+            .attendance-status-button.active{font-weight:700;box-shadow:inset 0 0 0 1px currentColor}
+            .status-hadir{background:#e8f7ee;border-color:#a3d9b5;color:#176b36}
+            .status-izin{background:#e9f2ff;border-color:#b5d0fa;color:#2457a7}
+            .status-sakit{background:#fff4dc;border-color:#f2d08c;color:#8a5b00}
+            .status-alpa{background:#fdecec;border-color:#efb1b1;color:#a52d2d}
+            .status-dispensasi{background:#f4edff;border-color:#d1b9fa;color:#6441a5}
+            @media(max-width:575.98px){.attendance-overlay{padding:0}.attendance-panel{height:100dvh;max-height:100dvh;border-radius:0;padding:1rem}.attendance-status-button{flex:1 1 30%}}
+        </style>
+    @endif
+
+    <div class="d-flex justify-content-center gap-3 mt-4">
+        <a href="{{ route('riwayat') }}" class="btn btn-outline-secondary px-4">Batal</a>
+        <button type="button" wire:click="bukaReview" class="btn btn-primary px-4">Cek</button>
+    </div>
+
+    @if ($showReview)
         @php
-
-            $totalHadir = collect($absensi)
-                ->filter(fn ($status) => $status === 'Hadir')
-                ->count();
-
-            $totalIzin = collect($absensi)
-                ->filter(fn ($status) => $status === 'Izin')
-                ->count();
-
-            $totalSakit = collect($absensi)
-                ->filter(fn ($status) => $status === 'Sakit')
-                ->count();
-
-            $totalAlpa = collect($absensi)
-                ->filter(fn ($status) => $status === 'Alpa')
-                ->count();
-
-            $totalDispensasi = collect($absensi)
-                ->filter(fn ($status) => $status === 'Dispensasi')
-                ->count();
-
-            $totalTidakHadir =
-                $totalIzin +
-                $totalSakit +
-                $totalAlpa +
-                $totalDispensasi;
-
+            $totalHadir = collect($absensi)->filter(fn ($status) => $status === 'Hadir')->count();
+            $totalIzin = collect($absensi)->filter(fn ($status) => $status === 'Izin')->count();
+            $totalSakit = collect($absensi)->filter(fn ($status) => $status === 'Sakit')->count();
+            $totalAlpa = collect($absensi)->filter(fn ($status) => $status === 'Alpa')->count();
+            $totalDispensasi = collect($absensi)->filter(fn ($status) => $status === 'Dispensasi')->count();
+            $totalTanpaKeterangan = collect($absensi)->filter(fn ($status) => $status === 'Tanpa Keterangan')->count();
+            $totalTidakHadir = $totalIzin + $totalSakit + $totalAlpa + $totalDispensasi + $totalTanpaKeterangan;
+            $siswaTidakHadir = collect($siswa)->filter(fn ($dataSiswa) => ($absensi[$dataSiswa->id_siswa] ?? 'Hadir') !== 'Hadir');
         @endphp
 
-
-        {{-- TOTAL --}}
-        <div class="row g-3 mb-3">
-
-            <div class="col-md-6">
-
-                <div class="info-box-total">
-
+        <div class="attendance-overlay review-overlay" role="dialog" aria-modal="true" aria-labelledby="review-title">
+            <section class="attendance-panel review-panel">
+                <header class="d-flex justify-content-between align-items-start gap-3 mb-3">
                     <div>
-                        <div class="text-muted small">
-                            TOTAL HADIR
-                        </div>
+                        <h2 id="review-title" class="h5 mb-1">Periksa Jurnal</h2>
+                        <div class="small text-muted">Tinjau rekap dan siswa tidak hadir sebelum menyimpan jurnal.</div>
+                    </div>
+                    <button type="button" wire:click="$set('showReview', false)" class="btn-close" aria-label="Tutup"></button>
+                </header>
 
-                        <div class="fw-bold fs-5">
-                            {{ $totalHadir }} siswa
+                <div class="review-content">
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <div class="info-box-total"><div><div class="text-muted small">TOTAL HADIR</div><div class="fw-bold fs-5">{{ $totalHadir }} siswa</div></div><span aria-hidden="true">✅</span></div>
                         </div>
+                        <div class="col-sm-6">
+                            <div class="info-box-total"><div><div class="text-muted small">TOTAL TIDAK HADIR</div><div class="fw-bold fs-5">{{ $totalTidakHadir }} siswa</div></div><span aria-hidden="true">❌</span></div>
+                        </div>
+                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">IZIN</div><div class="fw-bold fs-5">{{ $totalIzin }} siswa</div></div><span aria-hidden="true">📋</span></div></div>
+                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">SAKIT</div><div class="fw-bold fs-5">{{ $totalSakit }} siswa</div></div><span aria-hidden="true">🤒</span></div></div>
+                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">ALPA</div><div class="fw-bold fs-5">{{ $totalAlpa }} siswa</div></div><span aria-hidden="true">❔</span></div></div>
+                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">DISPENSASI</div><div class="fw-bold fs-5">{{ $totalDispensasi }} siswa</div></div><span aria-hidden="true">📄</span></div></div>
+                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">TANPA KETERANGAN</div><div class="fw-bold fs-5">{{ $totalTanpaKeterangan }} siswa</div></div><span aria-hidden="true">❔</span></div></div>
                     </div>
 
-                    <div style="font-size:24px;">
-                        &#9989;
+                    <h3 class="h6 mt-4">Siswa Tidak Hadir ({{ $totalTidakHadir }})</h3>
+                    <div class="table-responsive border rounded">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr><th>Nama Siswa</th><th>Status</th><th>Keterangan</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($siswaTidakHadir as $dataSiswa)
+                                    @php $statusTidakHadir = $absensi[$dataSiswa->id_siswa] ?? 'Hadir'; @endphp
+                                    <tr wire:key="review-siswa-{{ $dataSiswa->id_siswa }}">
+                                        <td class="fw-semibold">{{ $dataSiswa->nama_siswa }}</td>
+                                        <td><span class="badge text-bg-secondary">{{ $statusTidakHadir }}</span></td>
+                                        <td>{{ $this->butuhKeterangan($dataSiswa->id_siswa) ? ($keteranganTambahan[$dataSiswa->id_siswa] ?? '—') : '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="3" class="text-center text-muted py-4">Semua siswa hadir.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
-
                 </div>
 
-            </div>
-
-
-            <div class="col-md-6">
-
-                <div class="info-box-total">
-
-                    <div>
-                        <div class="text-muted small">
-                            TOTAL TIDAK HADIR
-                        </div>
-
-                        <div class="fw-bold fs-5">
-                            {{ $totalTidakHadir }} siswa
-                        </div>
+                @if ($errors->any())
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $message)
+                                <li>{{ $message }}</li>
+                            @endforeach
+                        </ul>
                     </div>
+                @endif
 
-                    <div style="font-size:24px;">
-                        &#10060;
+                <footer class="d-flex flex-wrap justify-content-end gap-2 pt-3 mt-3 border-top">
+                    <button type="button" wire:click="$set('showReview', false)" class="btn btn-outline-secondary">Kembali</button>
+                    <button type="submit" wire:confirm="Yakin jurnal ini sudah benar dan ingin dikirim untuk validasi otomatis?" class="btn btn-primary px-4" wire:loading.attr="disabled" wire:target="save">
+                        <span wire:loading.remove wire:target="save">✓ Simpan &amp; Validasi Otomatis</span>
+                        <span wire:loading wire:target="save">⏳ Menyimpan jurnal...</span>
+                    </button>
+                </footer>
+
+                @if ($saved)
+                    <div class="alert-box alert-success-box mt-3 text-center">
+                        <strong>✓ Jurnal berhasil disimpan dan divalidasi otomatis.</strong>
+                        <br>
+                        Data jurnal siap dikonfirmasi oleh sekretaris kelas.
+                        <br>
+                        <a href="{{ route('riwayat') }}" class="mt-1 d-inline-block">Lihat Riwayat Jurnal →</a>
                     </div>
-
-                </div>
-
-            </div>
-
+                @endif
+            </section>
         </div>
+        <style>
+            .review-overlay{position:fixed;inset:0;z-index:1065;background:rgba(15,23,42,.55);display:flex;justify-content:center;align-items:center;padding:1rem}
+            .review-panel{background:#fff;border-radius:1rem;width:min(900px,100%);max-height:min(88vh,900px);padding:1.25rem;display:flex;flex-direction:column;box-shadow:0 1.5rem 4rem rgba(15,23,42,.25)}
+            .review-content{overflow-y:auto;overscroll-behavior:contain}
+            @media(max-width:575.98px){.review-overlay{padding:0}.review-panel{height:100dvh;max-height:100dvh;border-radius:0;padding:1rem}}
+        </style>
+    @endif
 
-
-        {{-- DETAIL REKAP --}}
-        <div class="row g-3">
-
-            <div class="col-md-3">
-
-                <div class="info-box-total">
-                    <div>
-                        <div class="text-muted small">
-                            IZIN
-                        </div>
-
-                        <div class="fw-bold fs-5">
-                            {{ $totalIzin }} siswa
-                        </div>
-                    </div>
-
-                    <div style="font-size:24px;">
-                        &#128203;
-                    </div>
-                </div>
-
-            </div>
-
-
-            <div class="col-md-3">
-
-                <div class="info-box-total">
-                    <div>
-                        <div class="text-muted small">
-                            SAKIT
-                        </div>
-
-                        <div class="fw-bold fs-5">
-                            {{ $totalSakit }} siswa
-                        </div>
-                    </div>
-
-                    <div style="font-size:24px;">
-                        &#129298;
-                    </div>
-                </div>
-
-            </div>
-
-
-            <div class="col-md-3">
-
-                <div class="info-box-total">
-                    <div>
-                        <div class="text-muted small">
-                            ALPA
-                        </div>
-
-                        <div class="fw-bold fs-5">
-                            {{ $totalAlpa }} siswa
-                        </div>
-                    </div>
-
-                    <div style="font-size:24px;">
-                        &#10067;
-                    </div>
-                </div>
-
-            </div>
-
-
-            <div class="col-md-3">
-
-                <div class="info-box-total">
-                    <div>
-                        <div class="text-muted small">
-                            DISPENSASI
-                        </div>
-
-                        <div class="fw-bold fs-5">
-                            {{ $totalDispensasi }} siswa
-                        </div>
-                    </div>
-
-                    <div style="font-size:24px;">
-                        &#128196;
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-
-    {{-- TOMBOL KONFIRMASI --}}
-    <div class="d-flex justify-content-center gap-3 mt-4">
-
-        <a
-            href="{{ route('riwayat') }}"
-            class="btn btn-outline-secondary px-4"
-        >
-            Batal
-        </a>
-
-        <button
-    type="submit"
-    wire:confirm="Yakin jurnal ini sudah benar dan ingin dikirim untuk validasi otomatis?"
-    class="btn btn-primary px-4"
-    wire:loading.attr="disabled"
-    wire:target="save"
->
-    <span wire:loading.remove wire:target="save">
-        ✓ Simpan & Validasi Otomatis
-    </span>
-
-    <span wire:loading wire:target="save">
-        ⏳ Mengirim jurnal...
-    </span>
-</button>
-
-@if ($saved)
-    <div class="alert-box alert-success-box mt-3 text-center">
-        <strong>✓ Jurnal berhasil disimpan dan divalidasi otomatis.</strong>
-        <br>
-        Data jurnal siap dikonfirmasi oleh sekretaris kelas.
-        <br>
-        <a href="{{ route('riwayat') }}" class="mt-1 d-inline-block">
-            Lihat Riwayat Jurnal →
-        </a>
-    </div>
-@endif
-
-    </div>
-</div>
 </form>
 </div>

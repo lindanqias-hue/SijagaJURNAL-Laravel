@@ -9,6 +9,11 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        //jadwal seeder
+        $this->call([
+            JadwalSeeder::class,
+        ]);
+
         /* WAKASEK 1 */
         DB::table('pengguna')->updateOrInsert(
             ['nip' => 'WAKASEK001'],
