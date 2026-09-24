@@ -1,10 +1,9 @@
 <?php
 
-use App\Models\Jurnal;
 use App\Models\Jadwal;
+use App\Models\Dispensasi;
 use App\Services\KehadiranGuruService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 new class extends Component
@@ -25,7 +24,9 @@ new class extends Component
                 ->whereNotNull('id_jurnal')
                 ->where('status_konfirmasi', 'Menunggu')
                 ->count(),
-            'dispensasiMenunggu' => DB::table('dispensasi')->where('status', 'Menunggu Persetujuan')->count(),
+            'dispensasiMenunggu' => Dispensasi::query()
+                ->where('status', Dispensasi::STATUS_MENUNGGU)
+                ->count(),
             'tanpaKeterangan' => $monitoring->where('status_kehadiran', 'Tanpa Keterangan')->count(),
             'belumIsiJurnal' => $monitoring->whereNull('id_jurnal')->count(),
         ];
@@ -40,34 +41,31 @@ new class extends Component
         return Jadwal::query()
             ->with('kelas')
             ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
+            ->leftJoin('jurnal as jurnal_hari_ini', function ($join) use ($sekarang) {
+                $join->on('jurnal_hari_ini.id_guru', '=', 'jadwal.id_guru')
+                    ->on('jurnal_hari_ini.id_kelas', '=', 'jadwal.id_kelas')
+                    ->on('jurnal_hari_ini.jam_ke', '=', 'jadwal.jam_ke')
+                    ->whereDate('jurnal_hari_ini.tanggal', $sekarang->toDateString());
+            })
             ->where('jadwal.hari', $hari)
             ->select([
                 'jadwal.*',
                 'pengguna.nama as nama_guru',
                 'pengguna.mapel_diampu',
+                'jurnal_hari_ini.id_jurnal as jurnal_hari_ini_id',
+                'jurnal_hari_ini.status_validasi as jurnal_hari_ini_status',
+                'jurnal_hari_ini.status_konfirmasi_sekretaris as jurnal_hari_ini_konfirmasi',
             ])
             ->orderBy('jadwal.jam_ke')
             ->get()
             ->map(function (Jadwal $jadwal) use ($kehadiranGuru, $sekarang) {
-                $jurnal = Jurnal::query()
-                    ->where('id_guru', $jadwal->id_guru)
-                    ->where('id_kelas', $jadwal->id_kelas)
-                    ->whereDate('tanggal', $sekarang->toDateString())
-                    ->where('jam_ke', $jadwal->jam_ke)
-                    ->first();
-
-                $jadwal->id_jurnal = $jurnal?->id_jurnal;
-                $jadwal->status_jurnal = $jurnal?->status_validasi;
-                $jadwal->status_konfirmasi = $jurnal?->status_konfirmasi_sekretaris;
+                $jadwal->id_jurnal = $jadwal->jurnal_hari_ini_id;
+                $jadwal->status_jurnal = $jadwal->jurnal_hari_ini_status;
+                $jadwal->status_konfirmasi = $jadwal->jurnal_hari_ini_konfirmasi;
                 $jadwal->status_kehadiran = $kehadiranGuru->statusUntukJadwal($jadwal, $sekarang);
 
                 return $jadwal;
             });
-    }
-
-    public function getGuruBelumMengisiProperty()
-    {
-        return $this->monitoringGuru->whereNull('id_jurnal')->unique('id_guru')->values();
     }
 
     public function getGuruTanpaKeteranganProperty()
@@ -78,32 +76,27 @@ new class extends Component
             ->values();
     }
 
-    public function getJurnalTerbaruProperty()
+    public function getJadwalMengajarSekarangProperty()
     {
-        return Jurnal::query()
-            ->with(['guru', 'kelas'])
-            ->orderByDesc('tanggal')
-            ->orderByDesc('id_jurnal')
-            ->limit(10)
-            ->get();
+        $sekarang = Carbon::now('Asia/Jakarta');
+
+        return $this->monitoringGuru
+            ->filter(function (Jadwal $jadwal) use ($sekarang): bool {
+                $mulai = Carbon::parse($sekarang->toDateString().' '.$jadwal->jam_mulai, 'Asia/Jakarta');
+                $selesai = Carbon::parse($sekarang->toDateString().' '.$jadwal->jam_selesai, 'Asia/Jakarta');
+
+                return $sekarang->betweenIncluded($mulai, $selesai);
+            })
+            ->values();
     }
 
     public function getDispensasiMenungguProperty()
     {
-        return DB::table('dispensasi')
-            ->join('siswa', 'dispensasi.id_siswa', '=', 'siswa.id_siswa')
-            ->join('kelas', 'dispensasi.id_kelas', '=', 'kelas.id_kelas')
-            ->where('dispensasi.status', 'Menunggu Persetujuan')
-            ->select([
-                'dispensasi.id_dispensasi',
-                'dispensasi.tanggal',
-                'dispensasi.jenis_dispensasi',
-                'dispensasi.mapel',
-                'siswa.nama_siswa',
-                'kelas.nama_kelas',
-            ])
+        return Dispensasi::query()
+            ->with(['siswa', 'kelas'])
+            ->where('status', Dispensasi::STATUS_MENUNGGU)
             ->orderBy('dispensasi.tanggal')
-            ->limit(10)
+            ->orderBy('id_dispensasi')
             ->get();
     }
 
@@ -130,18 +123,22 @@ new class extends Component
     <div class="row g-3">
         <div class="col-lg-7">
             <div id="monitoring-jurnal" class="card-custom overflow-hidden mb-3">
-                <div class="card-header-custom">Jurnal Terbaru</div>
+                <div class="card-header-custom">Rekap Jurnal Guru Hari Ini</div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead><tr><th>Tanggal</th><th>Guru</th><th>Kelas</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Status Jurnal</th><th>Validasi</th></tr></thead>
                         <tbody>
-                            @forelse ($this->jurnalTerbaru as $jurnal)
+                            @forelse ($this->monitoringGuru as $jadwal)
                                 <tr>
-                                    <td>{{ optional($jurnal->tanggal)->format('d/m/Y') }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->kelas?->nama_kelas ?? '-' }}</td>
-                                    <td><span class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}</span></td>
+                                    <td>{{ $jadwal->nama_guru }}</td>
+                                    <td>{{ $jadwal->mapel_diampu ?: '-' }}</td>
+                                    <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
+                                    <td>Ke-{{ $jadwal->jam_ke }}</td>
+                                    <td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Sudah Mengisi' : 'Belum Mengisi' }}</span></td>
+                                    <td><span class="badge {{ $jadwal->status_jurnal === 'Divalidasi' ? 'bg-success' : ($jadwal->status_jurnal === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_jurnal ?? '-' }}</span></td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="text-center text-muted py-4">Belum ada jurnal.</td></tr>
+                                <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -149,15 +146,19 @@ new class extends Component
             </div>
 
             <div id="monitoring-guru" class="card-custom overflow-hidden">
-                <div class="card-header-custom">Guru Belum Mengisi Jurnal</div>
+                <div class="card-header-custom">Jadwal Guru Mengajar Sekarang</div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th></tr></thead>
+                        <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Kehadiran</th></tr></thead>
                         <tbody>
-                            @forelse ($this->guruBelumMengisi as $jadwal)
-                                <tr><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td><td>Ke-{{ $jadwal->jam_ke }}</td></tr>
+                            @forelse ($this->jadwalMengajarSekarang as $jadwal)
+                                <tr>
+                                    <td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
+                                    <td>Ke-{{ $jadwal->jam_ke }}<div class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</div></td>
+                                    <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === 'Tanpa Keterangan' ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
+                                </tr>
                             @empty
-                                <tr><td colspan="4" class="text-center text-muted py-4">Semua jadwal sudah memiliki jurnal.</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -171,38 +172,20 @@ new class extends Component
                 <div class="list-group list-group-flush">
                     @forelse ($this->dispensasiMenunggu as $dispensasi)
                         <div class="list-group-item">
-                            <strong>{{ $dispensasi->nama_siswa }}</strong>
-                            <div class="text-muted small">{{ $dispensasi->nama_kelas }} · {{ $dispensasi->jenis_dispensasi }}{{ $dispensasi->mapel ? ' · '.$dispensasi->mapel : '' }}</div>
-                            <div class="text-muted small">{{ Carbon::parse($dispensasi->tanggal)->format('d/m/Y') }}</div>
+                            <strong>{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</strong>
+                            <div class="text-muted small">{{ $dispensasi->kelas?->nama_kelas ?? '-' }} · {{ $dispensasi->jenis_dispensasi }}{{ $dispensasi->mapel ? ' · '.$dispensasi->mapel : '' }}</div>
+                            <div class="text-muted small mb-2">{{ $dispensasi->tanggal?->format('d/m/Y') }}</div>
+                            @if ($dispensasi->token)
+                                <a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat & Validasi</a>
+                            @else
+                                <a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>
+                            @endif
                         </div>
                     @empty
                         <div class="p-3 text-muted">Tidak ada dispensasi yang menunggu.</div>
                     @endforelse
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="card-custom overflow-hidden mt-3">
-        <div class="card-header-custom">Monitoring Kehadiran Guru</div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-                <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Jurnal</th><th>Kehadiran</th></tr></thead>
-                <tbody>
-                    @forelse ($this->monitoringGuru as $jadwal)
-                        <tr wire:key="wakasek-monitoring-{{ $jadwal->id_jadwal }}">
-                            <td>{{ $jadwal->nama_guru }}</td>
-                            <td>{{ $jadwal->mapel_diampu ?: '-' }}</td>
-                            <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
-                            <td>Ke-{{ $jadwal->jam_ke }}<div class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</div></td>
-                            <td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Tercatat' : 'Belum Mengisi' }}</span></td>
-                            <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === 'Tanpa Keterangan' ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
         </div>
     </div>
 

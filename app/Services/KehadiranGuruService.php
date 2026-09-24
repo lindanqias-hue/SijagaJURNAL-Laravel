@@ -26,9 +26,9 @@ class KehadiranGuruService
             return 'Hadir';
         }
 
-        // Kalau jadwal sudah selesai dan tidak ada jurnal = Tidak Hadir
+        // Kalau jadwal sudah selesai dan tidak ada jurnal = Tanpa Keterangan
         if ($jadwalSelesai) {
-            return 'Tidak Hadir';
+            return 'Tanpa Keterangan';
         }
 
         // Kalau jadwal belum selesai = Menunggu
@@ -70,7 +70,7 @@ class KehadiranGuruService
          * jam selesai yang tercatat di jadwal.
          */
         $selesaiPada = Carbon::parse(
-            $tanggal . ' ' . $jadwal->jam_selesai,
+            $tanggal.' '.$jadwal->jam_selesai,
             'Asia/Jakarta'
         )->addMinutes(self::GRACE_PERIOD_MINUTES);
 

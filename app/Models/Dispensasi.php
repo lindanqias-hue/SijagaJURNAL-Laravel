@@ -6,14 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Dispensasi extends Model
 {
-    protected $table = 'dispensasis';
+    protected $table = 'dispensasi';
 
     protected $primaryKey = 'id_dispensasi';
 
     // Status kolom plain string
     public const STATUS_MENUNGGU = 'Menunggu Persetujuan';
+
     public const STATUS_DISETUJUI = 'Disetujui';
+
     public const STATUS_DITOLAK = 'Ditolak';
+
     public const STATUS_SELESAI = 'Selesai';
 
     public const STATUSES = [
