@@ -5,6 +5,7 @@ use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\Jadwal;
 use App\Models\JadwalPiket;
+use App\Models\KehadiranGuru;
 use Illuminate\Support\Facades\DB;
 
 new class extends Component
@@ -98,415 +99,591 @@ new class extends Component
     }
 
     public function getDispensasiMasukProperty()
-{
-    $idGuru = session('id_pengguna');
+    {
+        $idGuru = session('id_pengguna');
 
-    return DB::table('dispensasi_penerima')
-        ->join(
-            'dispensasi',
-            'dispensasi_penerima.id_dispensasi',
-            '=',
-            'dispensasi.id_dispensasi'
-        )
-        ->join(
-            'siswa',
-            'dispensasi.id_siswa',
-            '=',
-            'siswa.id_siswa'
-        )
-        ->join(
-            'kelas',
-            'dispensasi.id_kelas',
-            '=',
-            'kelas.id_kelas'
-        )
-        ->where('dispensasi_penerima.id_guru', $idGuru)
-        ->whereNull('dispensasi_penerima.dibaca_at')
-        ->where(
-            'dispensasi.tanggal',
-            now('Asia/Jakarta')->toDateString()
-        )
-        ->select(
-            'dispensasi_penerima.*',
-            'dispensasi.jenis_dispensasi',
-            'dispensasi.tanggal',
-            'dispensasi.jam_ke_mulai',
-            'dispensasi.jam_ke_selesai',
-            'dispensasi.jam_mulai',
-            'dispensasi.jam_selesai',
-            'dispensasi.alasan',
-            'dispensasi.status',
-            'siswa.nama_siswa',
-            'kelas.nama_kelas'
-        )
-        ->orderByDesc('dispensasi.id_dispensasi')
-        ->get();
-}
-
-public function tandaiDibaca($idPenerima)
-{
-    DB::table('dispensasi_penerima')
-        ->where('id_penerima', $idPenerima)
-        ->where('id_guru', session('id_pengguna'))
-        ->update([
-            'dibaca_at' => now(),
-            'updated_at' => now(),
-        ]);
-}
-
-public function getJadwalHariIniProperty()
-{
-    $idGuru = session('id_pengguna');
-
-    $hariIni = now('Asia/Jakarta')->locale('id')->translatedFormat('l');
-
-    $jadwal = Jadwal::where('id_guru', $idGuru)
-        ->where('hari', $hariIni)
-        ->whereHas('kelas')
-        ->with('kelas')
-        ->orderBy('jam_ke')
-        ->get();
-
-    $hasil = collect();
-
-    foreach ($jadwal as $item) {
-
-        $terakhir = $hasil->last();
-
-        // Gabungkan kalau kelas + mapel sama dan jam ke berurutan
-        if (
-            $terakhir &&
-            $terakhir->id_kelas == $item->id_kelas &&
-            $terakhir->jam_ke_selesai + 1 == $item->jam_ke
-        ) {
-            $terakhir->jam_ke_selesai = $item->jam_ke;
-            $terakhir->jam_selesai = $item->jam_selesai;
-        } else {
-            $item->jam_ke_mulai = $item->jam_ke;
-            $item->jam_ke_selesai = $item->jam_ke;
-            $hasil->push($item);
-        }
+        return DB::table('dispensasi_penerima')
+            ->join(
+                'dispensasi',
+                'dispensasi_penerima.id_dispensasi',
+                '=',
+                'dispensasi.id_dispensasi'
+            )
+            ->join(
+                'siswa',
+                'dispensasi.id_siswa',
+                '=',
+                'siswa.id_siswa'
+            )
+            ->join(
+                'kelas',
+                'dispensasi.id_kelas',
+                '=',
+                'kelas.id_kelas'
+            )
+            ->where('dispensasi_penerima.id_guru', $idGuru)
+            ->whereNull('dispensasi_penerima.dibaca_at')
+            ->where(
+                'dispensasi.tanggal',
+                now('Asia/Jakarta')->toDateString()
+            )
+            ->select(
+                'dispensasi_penerima.*',
+                'dispensasi.jenis_dispensasi',
+                'dispensasi.tanggal',
+                'dispensasi.jam_ke_mulai',
+                'dispensasi.jam_ke_selesai',
+                'dispensasi.jam_mulai',
+                'dispensasi.jam_selesai',
+                'dispensasi.alasan',
+                'dispensasi.status',
+                'siswa.nama_siswa',
+                'kelas.nama_kelas'
+            )
+            ->orderByDesc('dispensasi.id_dispensasi')
+            ->get();
     }
 
-    return $hasil;
-}
+    public function tandaiDibaca($idPenerima)
+    {
+        DB::table('dispensasi_penerima')
+            ->where('id_penerima', $idPenerima)
+            ->where('id_guru', session('id_pengguna'))
+            ->update([
+                'dibaca_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    public function getJadwalHariIniProperty()
+    {
+        $idGuru = session('id_pengguna');
+
+        $hariIni = now('Asia/Jakarta')
+            ->locale('id')
+            ->translatedFormat('l');
+
+        $jadwal = Jadwal::where('id_guru', $idGuru)
+            ->where('hari', $hariIni)
+            ->whereHas('kelas')
+            ->with('kelas')
+            ->orderBy('jam_ke')
+            ->get();
+
+        $hasil = collect();
+
+        foreach ($jadwal as $item) {
+
+            $terakhir = $hasil->last();
+
+            // Gabungkan kalau kelas + mapel sama dan jam ke berurutan
+            if (
+                $terakhir &&
+                $terakhir->id_kelas == $item->id_kelas &&
+                $terakhir->jam_ke_selesai + 1 == $item->jam_ke
+            ) {
+                $terakhir->jam_ke_selesai = $item->jam_ke;
+                $terakhir->jam_selesai = $item->jam_selesai;
+            } else {
+                $item->jam_ke_mulai = $item->jam_ke;
+                $item->jam_ke_selesai = $item->jam_ke;
+                $hasil->push($item);
+            }
+        }
+
+        return $hasil;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KEHADIRAN GURU HARI INI
+    |--------------------------------------------------------------------------
+    */
+
+    public function getKehadiranGuruHariIniProperty()
+    {
+        $idGuru = session('id_pengguna');
+
+        return KehadiranGuru::query()
+            ->where('id_guru', $idGuru)
+            ->whereDate(
+                'tanggal',
+                now('Asia/Jakarta')->toDateString()
+            )
+            ->orderBy('id_jadwal')
+            ->get();
+    }
 
     public function getTugasPiketHariIniProperty()
     {
-        if (! session('is_guru_piket')) {
+        if (!session('is_guru_piket')) {
             return collect();
         }
 
         return JadwalPiket::query()
             ->where('id_guru', session('id_pengguna'))
-            ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
+            ->whereDate(
+                'tanggal',
+                now('Asia/Jakarta')->toDateString()
+            )
             ->where('status', 'Aktif')
             ->orderBy('jam_mulai')
             ->get();
     }
 };
 ?>
+
 <div>
-{{-- WELCOME --}}
-<div class="welcome-banner">
 
-    <div class="d-flex justify-content-between align-items-center w-100">
+    {{-- WELCOME --}}
+    <div class="welcome-banner">
 
-        {{-- DATA GURU --}}
-        <div style="min-width:0; flex:1 1 auto;">
-            <div style="color:rgba(255,255,255,.6); font-size:13px; margin-bottom:4px;">
-                Selamat datang kembali,
-            </div>
+        <div class="d-flex justify-content-between align-items-center w-100">
 
-            <div class="fw-bold"
-                 style="font-size:22px; color:#fff; margin-bottom:12px; word-break:break-word;">
-                {{ session('nama') }}
-            </div>
+            {{-- DATA GURU --}}
+            <div style="min-width:0; flex:1 1 auto;">
 
-            <div class="d-flex flex-wrap gap-2">
+                <div style="color:rgba(255,255,255,.6); font-size:13px; margin-bottom:4px;">
+                    Selamat datang kembali,
+                </div>
 
-                <span class="pill"
-                      style="background:rgba(255,255,255,.12); color:#fff;">
-                    &#128206; NIP: {{ session('nip') ?? '-' }}
-                </span>
+                <div class="fw-bold"
+                     style="font-size:22px; color:#fff; margin-bottom:12px; word-break:break-word;">
+                    {{ session('nama') }}
+                </div>
 
-                @if(session('status_kepegawaian'))
-                    <span class="badge-status badge-status-secondary pill fw-semibold">
-                        {{ session('status_kepegawaian') }}
-                    </span>
-                @endif
+                <div class="d-flex flex-wrap gap-2">
 
-                @if(session('mapel_diampu'))
                     <span class="pill"
-                          style="background:rgba(255,255,255,.12); color:#93c5fd;">
-                        &#128218; {{ session('mapel_diampu') }}
+                          style="background:rgba(255,255,255,.12); color:#fff;">
+                        &#128206; NIP: {{ session('nip') ?? '-' }}
                     </span>
-                @endif
 
-                @if($this->waliKelas)
-                    <span class="pill fw-bold"
-                          style="background:#fbbf24; color:#451a03;">
-                        &#127891;
-                        Wali Kelas {{ $this->waliKelas->nama_kelas }}
-                    </span>
-                @endif
+                    @if(session('status_kepegawaian'))
+                        <span class="badge-status badge-status-secondary pill fw-semibold">
+                            {{ session('status_kepegawaian') }}
+                        </span>
+                    @endif
+
+                    @if(session('mapel_diampu'))
+                        <span class="pill"
+                              style="background:rgba(255,255,255,.12); color:#93c5fd;">
+                            &#128218; {{ session('mapel_diampu') }}
+                        </span>
+                    @endif
+
+                    @if($this->waliKelas)
+                        <span class="pill fw-bold"
+                              style="background:#fbbf24; color:#451a03;">
+                            &#127891;
+                            Wali Kelas {{ $this->waliKelas->nama_kelas }}
+                        </span>
+                    @endif
+
+                </div>
+            </div>
+
+            {{-- JAM & TANGGAL --}}
+            <div class="d-flex flex-wrap gap-3 mt-3 pt-3"
+                 style="border-top:1px solid rgba(255,255,255,.25);">
+
+                <div id="clock"
+                     style="
+                        color:#fff;
+                        font-size:24px;
+                        font-weight:700;
+                        line-height:1.1;
+                     ">
+                    {{ now('Asia/Jakarta')->format('H:i:s') }}
+                </div>
+
+                <div id="date"
+                     style="
+                        color:rgba(255,255,255,.8);
+                        font-size:14px;
+                        font-weight:600;
+                        margin-top:2px;
+                     ">
+                    {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
+                </div>
 
             </div>
+
         </div>
 
-
-        {{-- JAM & TANGGAL --}}
-<div class="d-flex flex-wrap gap-3 mt-3 pt-3"
-     style="
-        border-top:1px solid rgba(255,255,255,.25);
-     ">
-
-    <div id="clock"
-        style="
-            color:#fff;
-            font-size:24px;
-            font-weight:700;
-            line-height:1.1;
-        ">
-        {{ now('Asia/Jakarta')->format('H:i:s') }}
     </div>
-
-    <div id="date"
-        style="
-            color:rgba(255,255,255,.8);
-            font-size:14px;
-            font-weight:600;
-            margin-top:2px;
-        ">
-        {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
-    </div>
-
-</div>
-    </div>
-
-</div>
 
     {{-- NAVIGASI CEPAT --}}
     <div class="d-flex flex-wrap gap-2 my-3">
-        <a href="{{ route('input-jurnal') }}" class="btn btn-app-primary btn-sm">
+
+        <a href="{{ route('input-jurnal') }}"
+           class="btn btn-app-primary btn-sm">
             + Input Jurnal
         </a>
-        <a href="{{ route('riwayat') }}" class="btn btn-outline-secondary btn-sm">
+
+        <a href="{{ route('riwayat') }}"
+           class="btn btn-outline-secondary btn-sm">
             Riwayat
         </a>
-        <a href="{{ route('notifikasi') }}" class="btn btn-outline-secondary btn-sm">
+
+        <a href="{{ route('notifikasi') }}"
+           class="btn btn-outline-secondary btn-sm">
             Notifikasi
         </a>
-        @if (session('is_guru_piket'))
-            <a href="{{ route('guru-piket') }}" class="btn btn-outline-secondary btn-sm">
+
+        @if(session('is_guru_piket'))
+
+            <a href="{{ route('guru-piket') }}"
+               class="btn btn-outline-secondary btn-sm">
                 Kehadiran Guru
             </a>
-            <a href="{{ route('dispensasi') }}" class="btn btn-outline-secondary btn-sm">
+
+            <a href="{{ route('dispensasi') }}"
+               class="btn btn-outline-secondary btn-sm">
                 Dispensasi Siswa
             </a>
+
         @endif
+
     </div>
 
-        @if ($this->tugasPiketHariIni->isNotEmpty())
-            <div class="card-custom mb-3 border-start border-4 border-primary">
-                <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div>
-                        <div class="text-muted small text-uppercase fw-semibold">Tugas Guru Piket</div>
-                        <div class="fw-bold mt-1">Hari ini</div>
-                        @foreach ($this->tugasPiketHariIni as $piket)
-                            <div class="text-muted small">
-                                {{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}
-                                · {{ $piket->keterangan ?: 'Guru Piket' }}
-                            </div>
-                        @endforeach
+    {{-- TUGAS GURU PIKET --}}
+    @if ($this->tugasPiketHariIni->isNotEmpty())
+
+        <div class="card-custom mb-3 border-start border-4 border-primary">
+
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+
+                <div>
+
+                    <div class="text-muted small text-uppercase fw-semibold">
+                        Tugas Guru Piket
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-success">Aktif</span>
-                        <a href="{{ route('guru-piket') }}" class="btn btn-sm btn-outline-primary">Buka Piket</a>
+
+                    <div class="fw-bold mt-1">
+                        Hari ini
                     </div>
+
+                    @foreach ($this->tugasPiketHariIni as $piket)
+
+                        <div class="text-muted small">
+                            {{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}
+                            · {{ $piket->keterangan ?: 'Guru Piket' }}
+                        </div>
+
+                    @endforeach
+
                 </div>
+
+                <div class="d-flex align-items-center gap-2">
+
+                    <span class="badge bg-success">
+                        Aktif
+                    </span>
+
+                    <a href="{{ route('guru-piket') }}"
+                       class="btn btn-sm btn-outline-primary">
+                        Buka Piket
+                    </a>
+
+                </div>
+
             </div>
-        @endif
 
-    {{-- NOTIFIKASI DISPENSASI --}}
-@if($this->dispensasiMasuk->isNotEmpty())
+        </div>
 
+    @endif
+
+    {{-- KEHADIRAN GURU HARI INI --}}
     <div class="card-custom mb-3">
 
         <div class="card-header-custom d-flex justify-content-between align-items-center">
 
             <div class="fw-bold" style="font-size:14px;">
-                🔔 Dispensasi Siswa
+                Kehadiran Guru Hari Ini
             </div>
 
-            <span class="badge bg-danger">
-                {{ $this->dispensasiMasuk->count() }} Baru
+            <span class="badge bg-secondary">
+                {{ $this->kehadiranGuruHariIni->count() }} Jadwal
             </span>
 
         </div>
 
-        @foreach($this->dispensasiMasuk as $dispensasi)
+        @if($this->kehadiranGuruHariIni->isEmpty())
 
-            <div class="p-3 border-bottom">
+            <div class="text-center text-muted py-4">
+                Belum ada data kehadiran hari ini.
+            </div>
 
-                <div class="d-flex justify-content-between align-items-start">
+        @else
+
+            @foreach($this->kehadiranGuruHariIni as $kehadiran)
+
+                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
 
                     <div>
-                        <div class="fw-bold">
-                            {{ $dispensasi->nama_siswa }}
+
+                        <div class="fw-semibold">
+                            Jadwal ke-{{ $kehadiran->id_jadwal }}
                         </div>
 
                         <div class="text-muted small">
-                            {{ $dispensasi->nama_kelas }}
+                            {{ $kehadiran->tanggal }}
                         </div>
+
                     </div>
 
-                    <div class="d-flex flex-column align-items-end gap-1">
+                    <div>
 
-    <span class="badge bg-warning text-dark">
-        {{ $dispensasi->jenis_dispensasi }}
-    </span>
+                        @if($kehadiran->status === 'Hadir')
 
-    @if($dispensasi->status === 'Menunggu Persetujuan')
-        <span class="badge bg-warning text-dark">
-            🟡 Menunggu Persetujuan
-        </span>
-    @elseif($dispensasi->status === 'Disetujui')
-        <span class="badge bg-success">
-            🟢 Disetujui
-        </span>
-    @elseif($dispensasi->status === 'Ditolak')
-        <span class="badge bg-danger">
-            🔴 Ditolak
-        </span>
-    @else
-        <span class="badge bg-secondary">
-            {{ $dispensasi->status }}
-        </span>
-    @endif
+                            <span class="badge bg-success">
+                                ✓ Hadir
+                            </span>
 
-</div>
+                        @elseif($kehadiran->status === 'Tidak Hadir')
 
-                </div>
+                            <span class="badge bg-danger">
+                                ✕ Tidak Hadir
+                            </span>
 
-                <div class="mt-2 small">
+                        @elseif($kehadiran->status === 'Izin')
 
-                    @if($dispensasi->jenis_dispensasi === 'Per Jam')
+                            <span class="badge bg-warning text-dark">
+                                Izin
+                            </span>
 
-                        <div>
-                            🕐 Jam ke-{{ $dispensasi->jam_ke_mulai }}
+                        @elseif($kehadiran->status === 'Sakit')
 
-                            @if($dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
-                                sampai {{ $dispensasi->jam_ke_selesai }}
-                            @endif
-                        </div>
+                            <span class="badge bg-warning text-dark">
+                                Sakit
+                            </span>
 
-                        <div class="text-muted">
-                            {{ substr($dispensasi->jam_mulai, 0, 5) }}
-                            -
-                            {{ substr($dispensasi->jam_selesai, 0, 5) }}
-                        </div>
+                        @else
 
-                    @else
+                            <span class="badge bg-secondary">
+                                {{ $kehadiran->status }}
+                            </span>
 
-                        <div>
-                            🕐 Sehari penuh
-                        </div>
+                        @endif
 
-                    @endif
+                    </div>
 
                 </div>
 
-                <div class="mt-2 small">
+            @endforeach
 
-                    <span class="text-muted">
-                        Alasan:
-                    </span>
-
-                    {{ $dispensasi->alasan }}
-
-                </div>
-
-                <div class="mt-3 text-end">
-
-                    <div class="d-flex gap-2 justify-content-end">
-
-    <a
-        href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}"
-        class="btn btn-sm btn-primary"
-    >
-        📄 Lihat Surat
-    </a>
-
-    <button
-        wire:click="tandaiDibaca({{ $dispensasi->id_penerima }})"
-        class="btn btn-sm btn-outline-primary"
-    >
-        ✓ Sudah Dilihat
-    </button>
-
-</div>
-
-                </div>
-
-            </div>
-
-        @endforeach
+        @endif
 
     </div>
 
-@endif
+    {{-- NOTIFIKASI DISPENSASI --}}
+    @if($this->dispensasiMasuk->isNotEmpty())
 
+        <div class="card-custom mb-3">
+
+            <div class="card-header-custom d-flex justify-content-between align-items-center">
+
+                <div class="fw-bold" style="font-size:14px;">
+                    🔔 Dispensasi Siswa
+                </div>
+
+                <span class="badge bg-danger">
+                    {{ $this->dispensasiMasuk->count() }} Baru
+                </span>
+
+            </div>
+
+            @foreach($this->dispensasiMasuk as $dispensasi)
+
+                <div class="p-3 border-bottom">
+
+                    <div class="d-flex justify-content-between align-items-start">
+
+                        <div>
+
+                            <div class="fw-bold">
+                                {{ $dispensasi->nama_siswa }}
+                            </div>
+
+                            <div class="text-muted small">
+                                {{ $dispensasi->nama_kelas }}
+                            </div>
+
+                        </div>
+
+                        <div class="d-flex flex-column align-items-end gap-1">
+
+                            <span class="badge bg-warning text-dark">
+                                {{ $dispensasi->jenis_dispensasi }}
+                            </span>
+
+                            @if($dispensasi->status === 'Menunggu Persetujuan')
+
+                                <span class="badge bg-warning text-dark">
+                                    🟡 Menunggu Persetujuan
+                                </span>
+
+                            @elseif($dispensasi->status === 'Disetujui')
+
+                                <span class="badge bg-success">
+                                    🟢 Disetujui
+                                </span>
+
+                            @elseif($dispensasi->status === 'Ditolak')
+
+                                <span class="badge bg-danger">
+                                    🔴 Ditolak
+                                </span>
+
+                            @else
+
+                                <span class="badge bg-secondary">
+                                    {{ $dispensasi->status }}
+                                </span>
+
+                            @endif
+
+                        </div>
+
+                    </div>
+
+                    <div class="mt-2 small">
+
+                        @if($dispensasi->jenis_dispensasi === 'Per Jam')
+
+                            <div>
+                                🕐 Jam ke-{{ $dispensasi->jam_ke_mulai }}
+
+                                @if($dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
+                                    sampai {{ $dispensasi->jam_ke_selesai }}
+                                @endif
+                            </div>
+
+                            <div class="text-muted">
+                                {{ substr($dispensasi->jam_mulai, 0, 5) }}
+                                -
+                                {{ substr($dispensasi->jam_selesai, 0, 5) }}
+                            </div>
+
+                        @else
+
+                            <div>
+                                🕐 Sehari penuh
+                            </div>
+
+                        @endif
+
+                    </div>
+
+                    <div class="mt-2 small">
+
+                        <span class="text-muted">
+                            Alasan:
+                        </span>
+
+                        {{ $dispensasi->alasan }}
+
+                    </div>
+
+                    <div class="mt-3 text-end">
+
+                        <div class="d-flex gap-2 justify-content-end">
+
+                            <a
+                                href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}"
+                                class="btn btn-sm btn-primary"
+                            >
+                                📄 Lihat Surat
+                            </a>
+
+                            <button
+                                wire:click="tandaiDibaca({{ $dispensasi->id_penerima }})"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                ✓ Sudah Dilihat
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            @endforeach
+
+        </div>
+
+    @endif
 
     {{-- STATISTIK --}}
     <div class="row g-3 my-3">
 
         <div class="col-6 col-md-3">
+
             <div class="stat-card">
+
                 <div class="stat-value" style="color:#2563eb;">
                     {{ $this->jurnal->count() }}
                 </div>
+
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
                     Total Jurnal
                 </div>
+
             </div>
+
         </div>
 
         <div class="col-6 col-md-3">
+
             <div class="stat-card">
+
                 <div class="stat-value" style="color:#059669;">
                     {{ $this->uniqueKelas }}
                 </div>
+
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
                     Kelas Diampu
                 </div>
+
             </div>
+
         </div>
 
         <div class="col-6 col-md-3">
+
             <div class="stat-card">
+
                 <div class="stat-value" style="color:#16a34a;">
                     {{ $this->divalidasiCount }}
                 </div>
+
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
                     Valid
                 </div>
+
             </div>
+
         </div>
 
         <div class="col-6 col-md-3">
+
             <div class="stat-card">
+
                 <div class="stat-value" style="color:#ca8a04;">
                     {{ $this->menungguCount }}
                 </div>
+
                 <div class="text-muted fw-medium" style="font-size:11.5px;">
                     Menunggu Konfirmasi
                 </div>
+
             </div>
+
         </div>
 
     </div>
-
 
     {{-- AGENDA HARI INI --}}
     <div class="card-custom">
@@ -523,7 +700,6 @@ public function getJadwalHariIniProperty()
             </a>
 
         </div>
-
 
         @if($this->todayJurnal->isEmpty())
 
@@ -588,6 +764,7 @@ public function getJadwalHariIniProperty()
 @script
 <script>
     function updateClock() {
+
         const now = new Date();
 
         const time = now.toLocaleTimeString('id-ID', {
@@ -619,6 +796,7 @@ public function getJadwalHariIniProperty()
     }
 
     updateClock();
+
     setInterval(updateClock, 1000);
 </script>
 @endscript

@@ -24,7 +24,7 @@ class KehadiranGuruService
             return 'Hadir';
         }
 
-        return $jadwalSelesai ? 'Tanpa Keterangan' : 'Menunggu';
+        return $jadwalSelesai ? 'Tidak Hadir' : 'Menunggu';
     }
 
     public function statusUntukJadwal(

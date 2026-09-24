@@ -764,9 +764,9 @@ $jumlahTidakHadir =
     </div>
 
     <div class="alert alert-info mb-4">
-        Kehadiran guru ditentukan otomatis: jurnal yang berhasil dikirim tercatat sebagai <strong>Hadir</strong>.
-        Jadwal yang selesai tanpa jurnal akan dipantau sebagai <strong>Tanpa Keterangan</strong> oleh guru piket.
-    </div>
+    Kehadiran guru ditentukan otomatis: jurnal yang berhasil dikirim tercatat sebagai <strong>Hadir</strong>.
+    Jadwal yang selesai tanpa jurnal akan otomatis tercatat sebagai <strong>Tidak Hadir</strong>.
+</div>
 
 
     {{-- DAFTAR SISWA --}}
