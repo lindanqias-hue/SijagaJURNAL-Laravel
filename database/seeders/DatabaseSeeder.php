@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -10,53 +11,12 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        //jadwal seeder
-        $this->call([
-            JadwalSeeder::class,
-        ]);
+        $kelasRpl2Id = $this->upsertKelas('XI RPL 2', 'Dewi Anjani, S.Pd');
+        $kelasRpl1Id = $this->upsertKelas('XI RPL 1');
 
-        /* WAKASEK 1 */
-        DB::table('pengguna')->updateOrInsert(
-            ['nip' => 'WAKASEK001'],
-            [
-                'nama' => 'Wakil Kepala Sekolah 1',
-                'no_hp' => '083835133274',
-                'password' => Hash::make('guru123'),
-                'role' => 'wakasek',
-            ]
-        );
-
-        /* WAKASEK 2 */
-        DB::table('pengguna')->updateOrInsert(
-            ['nip' => 'WAKASEK002'],
-            [
-                'nama' => 'Wakil Kepala Sekolah 2',
-                'no_hp' => '087889677251',
-                'password' => Hash::make('guru123'),
-                'role' => 'wakasek',
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | KELAS
-        |--------------------------------------------------------------------------
-        */
-
-        DB::table('kelas')->updateOrInsert(
-            ['id_kelas' => 4],
-            [
-                'nama_kelas' => 'XI RPL 2',
-                'wali_kelas' => 'Dewi Anjani, S.Pd',
-                'jumlah_siswa' => 36,
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | GURU
-        |--------------------------------------------------------------------------
-        */
+        $this->upsertPengguna('ADMIN001', 'Administrator SIJAGA', 'admin');
+        $this->upsertPengguna('WAKASEK001', 'Wakil Kepala Sekolah 1', 'wakasek', noHp: '083835133274');
+        $this->upsertPengguna('WAKASEK002', 'Wakil Kepala Sekolah 2', 'wakasek', noHp: '087889677251');
 
         $guru = [
             ['GURU001', 'Anisa Kusumawati, S.Pd', 'Kreativitas, Inovasi, dan Kewirausahaan'],
@@ -73,47 +33,18 @@ class DatabaseSeeder extends Seeder
             ['GURU012', 'Laili Ernawati, S.Pd', 'Bahasa Jawa'],
             ['GURU013', 'Winartin, S.Pd', 'Bahasa Indonesia'],
             ['GURU014', 'Mufatiroh, S.Ag', 'Pendidikan Agama Islam dan Budi Pekerti'],
+            ['GURU015', 'Shinta Indyar Shanty Susanto, S.Kom', 'Konsentrasi RPL'],
+            ['GURU016', 'Isti Mufadah, S.Pd', 'Bahasa Inggris'],
+            ['GURU017', 'Rizki Putri Wulandari, S.Pd', 'Bahasa Jawa'],
+            ['GURU018', 'Umi Kulsum, S.Pd', 'Bahasa Indonesia'],
         ];
 
         foreach ($guru as [$nip, $nama, $mapel]) {
-            DB::table('pengguna')->updateOrInsert(
-                ['nip' => $nip],
-                [
-                    'nama' => $nama,
-                    'mapel_diampu' => $mapel,
-                    'no_hp' => null,
-                    'status_kepegawaian' => 'PNS',
-                    'password' => Hash::make('guru123'),
-                    'role' => 'guru',
-                    'id_kelas' => null,
-                ]
-            );
+            $this->upsertPengguna($nip, $nama, 'guru', $mapel);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEKRETARIS KELAS
-        |--------------------------------------------------------------------------
-        */
-
-        DB::table('pengguna')->updateOrInsert(
-            ['nip' => 'SEKRE001'],
-            [
-                'nama' => 'Sekretaris Kelas XI RPL 2',
-                'mapel_diampu' => null,
-                'no_hp' => null,
-                'status_kepegawaian' => null,
-                'password' => Hash::make('guru123'),
-                'role' => 'sekretaris',
-                'id_kelas' => 4,
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SISWA XI RPL 2
-        |--------------------------------------------------------------------------
-        */
+        $this->upsertPengguna('SEKRE001', 'Sekretaris Kelas XI RPL 2', 'sekretaris', idKelas: $kelasRpl2Id);
+        $this->upsertPengguna('SEKRE002', 'Sekretaris Kelas XI RPL 1', 'sekretaris', idKelas: $kelasRpl1Id);
 
         $siswa = [
             'MARVEL MAULANA SAPUTRA',
@@ -154,196 +85,180 @@ class DatabaseSeeder extends Seeder
             'SALMA FIKRIATUL AZIZAH',
         ];
 
-        foreach ($siswa as $nama) {
-            DB::table('siswa')->updateOrInsert(
+        foreach ([$kelasRpl1Id, $kelasRpl2Id] as $kelasId) {
+            foreach ($siswa as $namaSiswa) {
+                DB::table('siswa')->updateOrInsert(
+                    ['id_kelas' => $kelasId, 'nama_siswa' => $namaSiswa],
+                    []
+                );
+            }
+        }
+
+        $guruIds = DB::table('pengguna')
+            ->whereIn('nip', array_column($guru, 0))
+            ->pluck('id_pengguna', 'nip');
+
+        $this->seedJadwal($kelasRpl2Id, [
+            ['GURU001', 'Senin', 2, '07:40:00', '08:20:00'],
+            ['GURU001', 'Senin', 3, '08:20:00', '09:00:00'],
+            ['GURU001', 'Senin', 4, '09:00:00', '09:40:00'],
+            ['GURU002', 'Senin', 5, '10:00:00', '10:35:00'],
+            ['GURU002', 'Senin', 6, '10:35:00', '11:10:00'],
+            ['GURU003', 'Senin', 7, '11:10:00', '11:45:00'],
+            ['GURU003', 'Senin', 8, '13:15:00', '13:50:00'],
+            ['GURU003', 'Senin', 9, '13:50:00', '14:25:00'],
+            ['GURU003', 'Senin', 10, '14:25:00', '15:00:00'],
+            ['GURU004', 'Selasa', 1, '07:00:00', '07:40:00'],
+            ['GURU004', 'Selasa', 2, '07:40:00', '08:20:00'],
+            ['GURU004', 'Selasa', 3, '08:20:00', '09:00:00'],
+            ['GURU002', 'Selasa', 4, '09:00:00', '09:40:00'],
+            ['GURU002', 'Selasa', 5, '10:00:00', '10:35:00'],
+            ['GURU005', 'Selasa', 6, '10:35:00', '11:10:00'],
+            ['GURU005', 'Selasa', 7, '11:10:00', '11:45:00'],
+            ['GURU003', 'Selasa', 8, '13:15:00', '13:50:00'],
+            ['GURU003', 'Selasa', 9, '13:50:00', '14:25:00'],
+            ['GURU003', 'Selasa', 10, '14:25:00', '15:00:00'],
+            ['GURU006', 'Rabu', 1, '07:00:00', '07:40:00'],
+            ['GURU006', 'Rabu', 2, '07:40:00', '08:20:00'],
+            ['GURU006', 'Rabu', 3, '08:20:00', '09:00:00'],
+            ['GURU006', 'Rabu', 4, '09:00:00', '09:40:00'],
+            ['GURU007', 'Rabu', 5, '10:00:00', '10:35:00'],
+            ['GURU007', 'Rabu', 6, '10:35:00', '11:10:00'],
+            ['GURU008', 'Rabu', 7, '11:10:00', '11:45:00'],
+            ['GURU008', 'Rabu', 8, '13:15:00', '13:50:00'],
+            ['GURU009', 'Rabu', 9, '13:50:00', '14:25:00'],
+            ['GURU009', 'Rabu', 10, '14:25:00', '15:00:00'],
+            ['GURU010', 'Kamis', 1, '07:00:00', '07:40:00'],
+            ['GURU010', 'Kamis', 2, '07:40:00', '08:20:00'],
+            ['GURU011', 'Kamis', 3, '08:20:00', '09:00:00'],
+            ['GURU011', 'Kamis', 4, '09:00:00', '09:40:00'],
+            ['GURU012', 'Kamis', 5, '10:00:00', '10:35:00'],
+            ['GURU012', 'Kamis', 6, '10:35:00', '11:10:00'],
+            ['GURU006', 'Kamis', 7, '11:10:00', '11:45:00'],
+            ['GURU006', 'Kamis', 8, '13:15:00', '13:50:00'],
+            ['GURU006', 'Kamis', 9, '13:50:00', '14:25:00'],
+            ['GURU006', 'Kamis', 10, '14:25:00', '15:00:00'],
+            ['GURU013', 'Jumat', 2, '07:30:00', '08:00:00'],
+            ['GURU013', 'Jumat', 3, '08:00:00', '08:30:00'],
+            ['GURU013', 'Jumat', 4, '08:30:00', '09:00:00'],
+            ['GURU014', 'Jumat', 5, '09:00:00', '09:30:00'],
+            ['GURU014', 'Jumat', 6, '09:50:00', '10:20:00'],
+            ['GURU014', 'Jumat', 7, '10:20:00', '10:50:00'],
+            ['GURU003', 'Jumat', 8, '10:50:00', '11:20:00'],
+            ['GURU003', 'Jumat', 9, '13:00:00', '13:30:00'],
+            ['GURU003', 'Jumat', 10, '13:30:00', '14:00:00'],
+            ['GURU001', 'Jumat', 11, '14:00:00', '14:30:00'],
+            ['GURU001', 'Jumat', 12, '14:30:00', '15:00:00'],
+        ], $guruIds);
+
+        $this->seedJadwal($kelasRpl1Id, [
+            ['GURU014', 'Senin', 1, '07:00:00', '07:40:00'],
+            ['GURU011', 'Senin', 5, '10:00:00', '10:35:00'],
+            ['GURU011', 'Senin', 6, '10:35:00', '11:10:00'],
+            ['GURU006', 'Senin', 8, '13:15:00', '13:50:00'],
+            ['GURU006', 'Senin', 9, '13:50:00', '14:25:00'],
+            ['GURU006', 'Senin', 10, '14:25:00', '15:00:00'],
+            ['GURU006', 'Selasa', 1, '07:00:00', '07:40:00'],
+            ['GURU006', 'Selasa', 2, '07:40:00', '08:20:00'],
+            ['GURU006', 'Selasa', 3, '08:20:00', '09:00:00'],
+            ['GURU015', 'Selasa', 5, '10:00:00', '10:35:00'],
+            ['GURU015', 'Selasa', 6, '10:35:00', '11:10:00'],
+            ['GURU001', 'Selasa', 9, '13:50:00', '14:25:00'],
+            ['GURU001', 'Selasa', 10, '14:25:00', '15:00:00'],
+            ['GURU015', 'Rabu', 1, '07:00:00', '07:40:00'],
+            ['GURU015', 'Rabu', 2, '07:40:00', '08:20:00'],
+            ['GURU015', 'Rabu', 3, '08:20:00', '09:00:00'],
+            ['GURU016', 'Rabu', 5, '10:00:00', '10:35:00'],
+            ['GURU016', 'Rabu', 6, '10:35:00', '11:10:00'],
+            ['GURU009', 'Rabu', 7, '11:10:00', '11:45:00'],
+            ['GURU012', 'Rabu', 9, '13:50:00', '14:25:00'],
+            ['GURU012', 'Rabu', 10, '14:25:00', '15:00:00'],
+            ['GURU015', 'Kamis', 1, '07:00:00', '07:40:00'],
+            ['GURU015', 'Kamis', 2, '07:40:00', '08:20:00'],
+            ['GURU007', 'Kamis', 5, '10:00:00', '10:35:00'],
+            ['GURU007', 'Kamis', 6, '10:35:00', '11:10:00'],
+            ['GURU005', 'Kamis', 7, '11:10:00', '11:45:00'],
+            ['GURU018', 'Kamis', 9, '13:50:00', '14:25:00'],
+            ['GURU018', 'Kamis', 10, '14:25:00', '15:00:00'],
+            ['GURU001', 'Jumat', 2, '07:30:00', '08:00:00'],
+            ['GURU001', 'Jumat', 3, '08:00:00', '08:30:00'],
+            ['GURU001', 'Jumat', 4, '08:30:00', '09:00:00'],
+            ['GURU008', 'Jumat', 5, '09:00:00', '09:30:00'],
+            ['GURU010', 'Jumat', 6, '09:50:00', '10:20:00'],
+            ['GURU016', 'Jumat', 7, '10:20:00', '10:50:00'],
+            ['GURU004', 'Jumat', 8, '10:50:00', '11:20:00'],
+            ['GURU004', 'Jumat', 9, '13:00:00', '13:30:00'],
+            ['GURU004', 'Jumat', 10, '13:30:00', '14:00:00'],
+        ], $guruIds);
+
+        $this->seedJadwalPiket($guruIds);
+
+        $this->call(DummyAbsensiSiswaSeeder::class);
+    }
+
+    private function upsertKelas(string $namaKelas, ?string $waliKelas = null): int
+    {
+        DB::table('kelas')->updateOrInsert(
+            ['nama_kelas' => $namaKelas],
+            ['wali_kelas' => $waliKelas, 'jumlah_siswa' => 36]
+        );
+
+        return (int) DB::table('kelas')->where('nama_kelas', $namaKelas)->value('id_kelas');
+    }
+
+    private function upsertPengguna(
+        string $nip,
+        string $nama,
+        string $role,
+        ?string $mapel = null,
+        ?int $idKelas = null,
+        ?string $noHp = null,
+    ): void {
+        DB::table('pengguna')->updateOrInsert(
+            ['nip' => $nip],
+            [
+                'nama' => $nama,
+                'mapel_diampu' => $mapel,
+                'no_hp' => $noHp,
+                'status_kepegawaian' => in_array($role, ['guru', 'wakasek'], true) ? 'PNS' : null,
+                'password' => Hash::make('guru123'),
+                'role' => $role,
+                'id_kelas' => $idKelas,
+            ]
+        );
+    }
+
+    /**
+     * @param  array<int, array{0: string, 1: string, 2: int, 3: string, 4: string}>  $jadwal
+     * @param  Collection<string, int>  $guruIds
+     */
+    private function seedJadwal(int $idKelas, array $jadwal, $guruIds): void
+    {
+        foreach ($jadwal as [$nip, $hari, $jamKe, $mulai, $selesai]) {
+            DB::table('jadwal')->updateOrInsert(
+                ['id_kelas' => $idKelas, 'hari' => $hari, 'jam_ke' => $jamKe],
                 [
-                    'id_kelas' => 4,
-                    'nama_siswa' => $nama,
+                    'id_guru' => $guruIds[$nip],
+                    'jam_mulai' => $mulai,
+                    'jam_selesai' => $selesai,
                 ]
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | JADWAL
-        |--------------------------------------------------------------------------
-        */
-
-        $idAnisa = DB::table('pengguna')->where('nip', 'GURU001')->value('id_pengguna');
-        $idFajar = DB::table('pengguna')->where('nip', 'GURU002')->value('id_pengguna');
-        $idBadrus = DB::table('pengguna')->where('nip', 'GURU003')->value('id_pengguna');
-        $idLutfia = DB::table('pengguna')->where('nip', 'GURU004')->value('id_pengguna');
-        $idZainul = DB::table('pengguna')->where('nip', 'GURU005')->value('id_pengguna');
-        $idKurnila = DB::table('pengguna')->where('nip', 'GURU006')->value('id_pengguna');
-        $idHendro = DB::table('pengguna')->where('nip', 'GURU007')->value('id_pengguna');
-        $idWiwik = DB::table('pengguna')->where('nip', 'GURU008')->value('id_pengguna');
-        $idErna = DB::table('pengguna')->where('nip', 'GURU009')->value('id_pengguna');
-        $idSulistyowati = DB::table('pengguna')->where('nip', 'GURU010')->value('id_pengguna');
-        $idWidodo = DB::table('pengguna')->where('nip', 'GURU011')->value('id_pengguna');
-        $idLaili = DB::table('pengguna')->where('nip', 'GURU012')->value('id_pengguna');
-        $idWinartin = DB::table('pengguna')->where('nip', 'GURU013')->value('id_pengguna');
-        $idMufatiroh = DB::table('pengguna')->where('nip', 'GURU014')->value('id_pengguna');
-
-        /*
-        |--------------------------------------------------------------------------
-        | SENIN
-        |--------------------------------------------------------------------------
-        */
-
-        $this->jadwal($idAnisa, 4, 'Senin', 2, '07:40:00', '08:20:00');
-        $this->jadwal($idAnisa, 4, 'Senin', 3, '08:20:00', '09:00:00');
-        $this->jadwal($idAnisa, 4, 'Senin', 4, '09:00:00', '09:40:00');
-
-        $this->jadwal($idFajar, 4, 'Senin', 5, '10:00:00', '10:35:00');
-        $this->jadwal($idFajar, 4, 'Senin', 6, '10:35:00', '11:10:00');
-
-        $this->jadwal($idBadrus, 4, 'Senin', 7, '11:10:00', '11:45:00');
-        $this->jadwal($idBadrus, 4, 'Senin', 8, '13:15:00', '13:50:00');
-        $this->jadwal($idBadrus, 4, 'Senin', 9, '13:50:00', '14:25:00');
-        $this->jadwal($idBadrus, 4, 'Senin', 10, '14:25:00', '15:00:00');
-
-        /*
-        |--------------------------------------------------------------------------
-        | SELASA
-        |--------------------------------------------------------------------------
-        */
-
-        $this->jadwal($idLutfia, 4, 'Selasa', 1, '07:00:00', '07:40:00');
-        $this->jadwal($idLutfia, 4, 'Selasa', 2, '07:40:00', '08:20:00');
-        $this->jadwal($idLutfia, 4, 'Selasa', 3, '08:20:00', '09:00:00');
-
-        $this->jadwal($idFajar, 4, 'Selasa', 4, '09:00:00', '09:40:00');
-        $this->jadwal($idFajar, 4, 'Selasa', 5, '10:00:00', '10:35:00');
-
-        $this->jadwal($idZainul, 4, 'Selasa', 6, '10:35:00', '11:10:00');
-        $this->jadwal($idZainul, 4, 'Selasa', 7, '11:10:00', '11:45:00');
-
-        $this->jadwal($idBadrus, 4, 'Selasa', 8, '13:15:00', '13:50:00');
-        $this->jadwal($idBadrus, 4, 'Selasa', 9, '13:50:00', '14:25:00');
-        $this->jadwal($idBadrus, 4, 'Selasa', 10, '14:25:00', '15:00:00');
-
-        /*
-        |--------------------------------------------------------------------------
-        | RABU
-        |--------------------------------------------------------------------------
-        */
-
-        $this->jadwal($idKurnila, 4, 'Rabu', 1, '07:00:00', '07:40:00');
-        $this->jadwal($idKurnila, 4, 'Rabu', 2, '07:40:00', '08:20:00');
-        $this->jadwal($idKurnila, 4, 'Rabu', 3, '08:20:00', '09:00:00');
-        $this->jadwal($idKurnila, 4, 'Rabu', 4, '09:00:00', '09:40:00');
-
-        $this->jadwal($idHendro, 4, 'Rabu', 5, '10:00:00', '10:35:00');
-        $this->jadwal($idHendro, 4, 'Rabu', 6, '10:35:00', '11:10:00');
-
-        $this->jadwal($idWiwik, 4, 'Rabu', 7, '11:10:00', '11:45:00');
-        $this->jadwal($idWiwik, 4, 'Rabu', 8, '13:15:00', '13:50:00');
-
-        $this->jadwal($idErna, 4, 'Rabu', 9, '13:50:00', '14:25:00');
-        $this->jadwal($idErna, 4, 'Rabu', 10, '14:25:00', '15:00:00');
-
-        /*
-        |--------------------------------------------------------------------------
-        | KAMIS
-        |--------------------------------------------------------------------------
-        */
-
-        $this->jadwal($idSulistyowati, 4, 'Kamis', 1, '07:00:00', '07:40:00');
-        $this->jadwal($idSulistyowati, 4, 'Kamis', 2, '07:40:00', '08:20:00');
-
-        $this->jadwal($idWidodo, 4, 'Kamis', 3, '08:20:00', '09:00:00');
-        $this->jadwal($idWidodo, 4, 'Kamis', 4, '09:00:00', '09:40:00');
-
-        $this->jadwal($idLaili, 4, 'Kamis', 5, '10:00:00', '10:35:00');
-        $this->jadwal($idLaili, 4, 'Kamis', 6, '10:35:00', '11:10:00');
-
-        $this->jadwal($idKurnila, 4, 'Kamis', 7, '11:10:00', '11:45:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 8, '13:15:00', '13:50:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 9, '13:50:00', '14:25:00');
-        $this->jadwal($idKurnila, 4, 'Kamis', 10, '14:25:00', '15:00:00');
-
-        /*
-        |--------------------------------------------------------------------------
-        | JUMAT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->jadwal($idWinartin, 4, 'Jumat', 2, '07:30:00', '08:00:00');
-        $this->jadwal($idWinartin, 4, 'Jumat', 3, '08:00:00', '08:30:00');
-        $this->jadwal($idWinartin, 4, 'Jumat', 4, '08:30:00', '09:00:00');
-
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 5, '09:00:00', '09:30:00');
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 6, '09:50:00', '10:20:00');
-        $this->jadwal($idMufatiroh, 4, 'Jumat', 7, '10:20:00', '10:50:00');
-
-        $this->jadwal($idBadrus, 4, 'Jumat', 8, '10:50:00', '11:20:00');
-        $this->jadwal($idBadrus, 4, 'Jumat', 9, '13:00:00', '13:30:00');
-        $this->jadwal($idBadrus, 4, 'Jumat', 10, '13:30:00', '14:00:00');
-
-        $this->jadwal($idAnisa, 4, 'Jumat', 11, '14:00:00', '14:30:00');
-        $this->jadwal($idAnisa, 4, 'Jumat', 12, '14:30:00', '15:00:00');
-
-        /*
-        |--------------------------------------------------------------------------
-        | GURU PIKET
-        |--------------------------------------------------------------------------
-        */
-
-        // Piket adalah penugasan tambahan guru, bukan jenis akun lain.
-        // Guru yang sama tetap dapat mengisi jurnal mengajarnya.
-        $idPiket1 = $idAnisa;
-        $idPiket2 = $idFajar;
-
-        DB::table('guru_piket')->updateOrInsert(
-            [
-                'id_pengguna' => $idPiket1,
-                'hari' => 'Senin',
-            ],
-            [
-                'jam_mulai' => '07:00:00',
-                'jam_selesai' => '15:00:00',
-                'aktif' => true,
-            ]
-        );
-
-        DB::table('guru_piket')->updateOrInsert(
-            [
-                'id_pengguna' => $idPiket2,
-                'hari' => 'Selasa',
-            ],
-            [
-                'jam_mulai' => '07:00:00',
-                'jam_selesai' => '15:00:00',
-                'aktif' => true,
-            ]
-        );
-
-        $this->call([
-            DummyRoleSeeder::class,
-            JadwalPiketSeeder::class,
-            DummyAbsensiSiswaSeeder::class,
-        ]);
     }
 
-    private function jadwal(
-        $idGuru,
-        $idKelas,
-        $hari,
-        $jamKe,
-        $mulai,
-        $selesai
-    ): void {
-        DB::table('jadwal')->updateOrInsert(
-            [
-                'id_guru' => $idGuru,
-                'id_kelas' => $idKelas,
-                'hari' => $hari,
-                'jam_ke' => $jamKe,
-            ],
-            [
-                'jam_mulai' => $mulai,
-                'jam_selesai' => $selesai,
-            ]
-        );
+    /**
+     * @param  Collection<string, int>  $guruIds
+     */
+    private function seedJadwalPiket($guruIds): void
+    {
+        foreach ([
+            ['GURU001', 'Senin'],
+            ['GURU002', 'Selasa'],
+        ] as [$nip, $hari]) {
+            DB::table('guru_piket')->updateOrInsert(
+                ['id_pengguna' => $guruIds[$nip], 'hari' => $hari],
+                ['jam_mulai' => '07:00:00', 'jam_selesai' => '15:00:00', 'aktif' => true]
+            );
+        }
     }
 }

@@ -5,6 +5,7 @@ use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\Jadwal;
 use App\Models\JadwalPiket;
+use App\Models\GuruPiket;
 use Illuminate\Support\Facades\DB;
 
 new class extends Component
@@ -197,9 +198,22 @@ public function getJadwalHariIniProperty()
             return collect();
         }
 
+        $sekarang = now('Asia/Jakarta');
+        $hariIni = $sekarang->locale('id')->translatedFormat('l');
+
+        $jadwalMingguan = GuruPiket::query()
+            ->where('id_pengguna', session('id_pengguna'))
+            ->where('hari', $hariIni)
+            ->where('aktif', true)
+            ->get();
+
+        if ($jadwalMingguan->isNotEmpty()) {
+            return $jadwalMingguan;
+        }
+
         return JadwalPiket::query()
             ->where('id_guru', session('id_pengguna'))
-            ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
+            ->whereDate('tanggal', $sekarang->toDateString())
             ->where('status', 'Aktif')
             ->orderBy('jam_mulai')
             ->get();

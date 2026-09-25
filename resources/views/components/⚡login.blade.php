@@ -4,6 +4,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Pengguna;
 use App\Models\JadwalPiket;
+use App\Models\GuruPiket;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
@@ -28,7 +29,12 @@ new #[Layout('layouts.guest')] class extends Component
 
         $sekarang = Carbon::now('Asia/Jakarta');
         $roleSistem = $user->role === 'guru_piket' ? 'guru' : $user->role;
-        $ditugaskanSebagaiGuruPiket = JadwalPiket::query()
+        $hariIni = $sekarang->locale('id')->translatedFormat('l');
+        $ditugaskanSebagaiGuruPiket = GuruPiket::query()
+            ->where('id_pengguna', $user->id_pengguna)
+            ->where('hari', $hariIni)
+            ->where('aktif', true)
+            ->exists() || JadwalPiket::query()
             ->where('id_guru', $user->id_pengguna)
             ->whereDate('tanggal', $sekarang->toDateString())
             ->where('status', 'Aktif')

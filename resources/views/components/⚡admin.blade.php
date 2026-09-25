@@ -267,7 +267,7 @@ new class extends Component
         <div class="card-header-custom">Daftar Pengguna</div>
         <div class="p-3 border-bottom"><div class="row g-2">
             <div class="col-md-8"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP/ID pengguna..."></div>
-            <div class="col-md-4"><select wire:model.live="filterRole" class="form-select"><option value="">Semua Role</option><option value="admin">Admin</option><option value="wakasek">Wakasek</option><option value="guru">Guru</option><option value="sekretaris">Sekretaris</option><option value="guru_piket">Guru Piket</option></select></div>
+            <div class="col-md-4"><select wire:model.live="filterRole" class="form-select"><option value="">Semua Role</option><option value="admin">Admin</option><option value="wakasek">Wakasek</option><option value="guru">Guru</option><option value="sekretaris">Sekretaris</option></select></div>
         </div></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>NIP/ID</th><th>Role</th><th>Status Kepegawaian</th><th>No. HP</th><th>Kelas</th><th>Mapel</th></tr></thead><tbody>
             @forelse ($this->pengguna as $user)

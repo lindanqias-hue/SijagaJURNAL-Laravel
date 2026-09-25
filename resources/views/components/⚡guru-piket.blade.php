@@ -2,6 +2,7 @@
 
 use App\Models\Jadwal;
 use App\Models\JadwalPiket;
+use App\Models\GuruPiket;
 use App\Services\KehadiranGuruService;
 use Carbon\Carbon;
 use Livewire\Component;
@@ -14,9 +15,15 @@ new class extends Component
 
     public function mount(): void
     {
-        $bertugasPiket = JadwalPiket::query()
+        $sekarang = Carbon::now('Asia/Jakarta');
+        $hariIni = $sekarang->locale('id')->translatedFormat('l');
+        $bertugasPiket = GuruPiket::query()
+            ->where('id_pengguna', session('id_pengguna'))
+            ->where('hari', $hariIni)
+            ->where('aktif', true)
+            ->exists() || JadwalPiket::query()
             ->where('id_guru', session('id_pengguna'))
-            ->whereDate('tanggal', Carbon::now('Asia/Jakarta')->toDateString())
+            ->whereDate('tanggal', $sekarang->toDateString())
             ->where('status', 'Aktif')
             ->exists();
 
