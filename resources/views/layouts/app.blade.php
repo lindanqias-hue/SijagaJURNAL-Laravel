@@ -16,11 +16,54 @@
         rel="stylesheet"
     >
 
+    @if (request()->query('print'))
+        <style>
+            body:has(.print-report) {
+                min-height: 100vh;
+                background: linear-gradient(145deg, #eaf1fb, #f7f9fd 55%, #e9f0fa);
+            }
+
+            .print-shell {
+                min-height: 100vh;
+                padding: 36px 20px;
+            }
+
+            .print-frame {
+                width: min(100%, 1180px);
+                min-height: calc(100vh - 72px);
+                margin: 0 auto;
+                padding: 32px;
+                border: 1px solid #dce6f5;
+                border-radius: 18px;
+                background: #fff;
+                box-shadow: 0 24px 70px rgba(31, 57, 91, .14);
+            }
+
+            @media (max-width: 767.98px) {
+                .print-shell { padding: 12px; }
+                .print-frame { min-height: calc(100vh - 24px); padding: 16px; border-radius: 13px; }
+            }
+
+            @media print {
+                body:has(.print-report) { min-height: 0; background: #fff; }
+                .print-shell { min-height: 0; padding: 0; }
+                .print-frame { width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+            }
+        </style>
+    @endif
+
     @livewireStyles
 </head>
 
 <body>
 
+@if (request()->query('print'))
+    <main class="print-shell">
+        <div class="print-frame">
+            {{ $slot }}
+        </div>
+    </main>
+@else
 <div class="app-wrapper">
 
     {{-- TOPBAR MOBILE --}}
@@ -118,7 +161,7 @@
                 'monitoring_guru' => ['label' => 'Monitoring Guru', 'icon' => '&#128100;', 'route' => 'wakasek', 'anchor' => 'monitoring-guru'],
                 'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'icon' => '&#128203;', 'route' => 'wakasek', 'anchor' => 'monitoring-jurnal'],
                 'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'wakasek', 'anchor' => 'dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'rekap-dispensasi'],
+                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'wakasek', 'anchor' => 'rekap'],
             ];
         } elseif ($role === 'guru') {
 
@@ -141,7 +184,6 @@
                     'icon' => '&#128276;',
                     'route' => 'notifikasi'
                 ],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'dispensasi'],
             ];
 
             if (session('is_guru_piket')) {
@@ -318,6 +360,7 @@
     </div>
 
 </div>
+@endif
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

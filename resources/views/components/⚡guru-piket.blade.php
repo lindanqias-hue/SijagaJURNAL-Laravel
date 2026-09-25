@@ -114,7 +114,9 @@ new class extends Component
             <div class="text-muted mt-1" style="font-size:13px;">Pantau kehadiran guru otomatis berdasarkan jurnal dan
                 koordinasikan penyerahan tugas titipan.</div>
         </div>
-        <a href="{{ route('dispensasi') }}" class="btn btn-app-primary">+ Izin & Dispensasi Siswa</a>
+        @if (session('is_guru_piket'))
+            <a href="{{ route('dispensasi') }}" class="btn btn-app-primary">+ Izin & Dispensasi Siswa</a>
+        @endif
     </div>
 
     <div class="alert alert-info mb-4">Guru piket fokus mendistribusikan tugas titipan/izin luar kelas. Validasi

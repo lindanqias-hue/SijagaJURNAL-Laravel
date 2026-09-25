@@ -5,6 +5,8 @@
     use App\Models\Kelas;
     use App\Models\Dispensasi;
     use App\Models\Jadwal;
+    use App\Models\GuruPiket;
+    use App\Models\JadwalPiket;
     use App\Models\Pengguna;
     use Carbon\Carbon;
     use Illuminate\Support\Facades\DB;
@@ -69,6 +71,22 @@
 
     public function mount()
     {
+        $sekarang = Carbon::now('Asia/Jakarta');
+        $hariIni = $sekarang->locale('id')->translatedFormat('l');
+        $bertugasPiket = GuruPiket::query()
+            ->where('id_pengguna', session('id_pengguna'))
+            ->where('hari', $hariIni)
+            ->where('aktif', true)
+            ->exists() || JadwalPiket::query()
+            ->where('id_guru', session('id_pengguna'))
+            ->whereDate('tanggal', $sekarang->toDateString())
+            ->where('status', 'Aktif')
+            ->exists();
+
+        if (! $bertugasPiket) {
+            abort(403, 'Halaman ini khusus untuk guru yang bertugas piket.');
+        }
+
         $this->kelasList = Kelas::orderBy('nama_kelas')->get();
 
         $this->updateWaktu();
