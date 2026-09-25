@@ -254,6 +254,9 @@ class DatabaseSeeder extends Seeder
         foreach ([
             ['GURU001', 'Senin'],
             ['GURU002', 'Selasa'],
+            ['GURU003', 'Rabu'],
+            ['GURU004', 'Kamis'],
+            ['GURU005', 'Jumat'],
         ] as [$nip, $hari]) {
             DB::table('guru_piket')->updateOrInsert(
                 ['id_pengguna' => $guruIds[$nip], 'hari' => $hari],
