@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,7 +21,7 @@ class DatabaseSeeder extends Seeder
             [
                 'nama' => 'Wakil Kepala Sekolah 1',
                 'no_hp' => '083835133274',
-                'password' => 'guru123',
+                'password' => Hash::make('guru123'),
                 'role' => 'wakasek',
             ]
         );
@@ -31,7 +32,7 @@ class DatabaseSeeder extends Seeder
             [
                 'nama' => 'Wakil Kepala Sekolah 2',
                 'no_hp' => '087889677251',
-                'password' => 'guru123',
+                'password' => Hash::make('guru123'),
                 'role' => 'wakasek',
             ]
         );
@@ -82,7 +83,7 @@ class DatabaseSeeder extends Seeder
                     'mapel_diampu' => $mapel,
                     'no_hp' => null,
                     'status_kepegawaian' => 'PNS',
-                    'password' => 'guru123',
+                    'password' => Hash::make('guru123'),
                     'role' => 'guru',
                     'id_kelas' => null,
                 ]
@@ -102,7 +103,7 @@ class DatabaseSeeder extends Seeder
                 'mapel_diampu' => null,
                 'no_hp' => null,
                 'status_kepegawaian' => null,
-                'password' => 'guru123',
+                'password' => Hash::make('guru123'),
                 'role' => 'sekretaris',
                 'id_kelas' => 4,
             ]

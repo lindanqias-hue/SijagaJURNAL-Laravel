@@ -26,13 +26,25 @@ new class extends Component
             return;
         }
 
-        $this->bulanFilter = now()->format('Y-m');
+        $this->bulanFilter = now()->format('Y-m-d');
     }
 
-    public function updatingStatusFilter() { $this->resetPage(); }
-    public function updatingKelasFilter() { $this->resetPage(); }
-    public function updatingBulanFilter() { $this->resetPage(); }
-    public function updatingSearch() { $this->resetPage(); }
+    public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+    public function updatingKelasFilter()
+    {
+        $this->resetPage();
+    }
+    public function updatingBulanFilter()
+    {
+        $this->resetPage();
+    }
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
 
     public function getIsGuruProperty()
     {
@@ -70,16 +82,14 @@ new class extends Component
         }
 
         if ($this->bulanFilter) {
-
-            $query->whereRaw(
-                "DATE_FORMAT(tanggal, '%Y-%m') = ?",
-                [$this->bulanFilter]
-            );
-
+            [$year, $month, $day] = explode('-', $this->bulanFilter);
+            $query->whereYear('tanggal', $year)
+                ->whereMonth('tanggal', $month)
+                ->whereDay('tanggal', $day);
         }
 
         if ($this->search) {
-            $query->where('materi', 'like', '%'.$this->search.'%');
+            $query->where('materi', 'like', '%' . $this->search . '%');
         }
 
         return $query;
@@ -110,11 +120,17 @@ new class extends Component
         if ($this->kelasFilter) {
             $query->where('id_kelas', $this->kelasFilter);
         }
+
+        // PERBAIKAN: Mengganti DATE_FORMAT (MySQL-only) dengan whereYear & whereMonth (SQLite & MySQL)
         if ($this->bulanFilter) {
-            $query->whereRaw("DATE_FORMAT(tanggal, '%Y-%m') = ?", [$this->bulanFilter]);
+            [$year, $month, $day] = explode('-', $this->bulanFilter);
+            $query->whereYear('tanggal', $year)
+                ->whereMonth('tanggal', $month)
+                ->whereDay('tanggal', $day);
         }
+
         if ($this->search) {
-            $query->where('materi', 'like', '%'.$this->search.'%');
+            $query->where('materi', 'like', '%' . $this->search . '%');
         }
 
         $rows = $query->get(['status_validasi']);
@@ -158,13 +174,12 @@ new class extends Component
         }
 
         $query = AbsensiSiswa::with(['siswa', 'keteranganSiswa'])
-            ->where('id_jurnal', $this->jurnalTerpilih)
-            ;
+            ->where('id_jurnal', $this->jurnalTerpilih);
 
         if ($this->isSekretaris) {
             $query->whereHas(
                 'jurnal',
-                fn ($jurnal) => $jurnal->where('id_kelas', session('id_kelas'))
+                fn($jurnal) => $jurnal->where('id_kelas', session('id_kelas'))
             );
         }
 
@@ -175,7 +190,7 @@ new class extends Component
     {
         $this->statusFilter = 'Semua';
         $this->kelasFilter = '';
-        $this->bulanFilter = now()->format('Y-m');
+        $this->bulanFilter = now()->format('Y-m-d');
         $this->search = '';
         $this->resetPage();
     }
@@ -187,10 +202,7 @@ new class extends Component
     {{-- HEADER --}}
     <div class="welcome-banner">
 
-        <div
-            class="deco-circle"
-            style="width:180px; height:180px; top:-60px; right:-40px;"
-        ></div>
+        <div class="deco-circle" style="width:180px; height:180px; top:-60px; right:-40px;"></div>
 
         <div class="d-flex justify-content-between align-items-center w-100" style="position:relative;">
 
@@ -212,9 +224,9 @@ new class extends Component
             </div>
 
             @if ($this->isGuru)
-                <a href="{{ route('input-jurnal') }}" class="btn btn-app-primary px-4 py-2">
-                    + Input Jurnal
-                </a>
+            <a href="{{ route('input-jurnal') }}" class="btn btn-app-primary px-4 py-2">
+                + Input Jurnal
+            </a>
             @endif
 
         </div>
@@ -274,11 +286,7 @@ new class extends Component
         <div class="card-header-custom">
             <span class="fw-bold" style="font-size:14px;">Filter</span>
 
-            <button
-                type="button"
-                wire:click="resetFilter"
-                class="btn btn-outline-secondary btn-sm"
-            >
+            <button type="button" wire:click="resetFilter" class="btn btn-outline-secondary btn-sm">
                 Reset Filter
             </button>
         </div>
@@ -298,34 +306,27 @@ new class extends Component
                 </div>
 
                 @unless ($this->isGuru)
-                    <div class="col-md-3">
-                        <label class="form-label-sm">Kelas</label>
-                        <select wire:model.live="kelasFilter" class="form-select form-select-sm">
-                            <option value="">Semua Kelas</option>
-                            @foreach ($this->kelasList as $k)
-                                <option value="{{ $k->id_kelas }}">{{ $k->nama_kelas }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                <div class="col-md-3">
+                    <label class="form-label-sm">Kelas</label>
+                    <select wire:model.live="kelasFilter" class="form-select form-select-sm">
+                        <option value="">Semua Kelas</option>
+                        @foreach ($this->kelasList as $k)
+                        <option value="{{ $k->id_kelas }}">{{ $k->nama_kelas }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 @endunless
 
                 <div class="col-md-3">
                     <label class="form-label-sm">Bulan</label>
-                    <input
-                        type="month"
-                        wire:model.live="bulanFilter"
-                        class="form-control form-control-sm"
-                    >
+                    <input type="month" wire:model.live="bulanFilter" class="form-control form-control-sm" ,
+                        disabled="{{ $this->isSekretaris ? 'disabled' : '' }}">
                 </div>
 
                 <div class="col-md-3">
                     <label class="form-label-sm">Cari Materi</label>
-                    <input
-                        type="text"
-                        wire:model.live.debounce.400ms="search"
-                        class="form-control form-control-sm"
-                        placeholder="Ketik materi..."
-                    >
+                    <input type="text" wire:model.live.debounce.400ms="search" class="form-control form-control-sm"
+                        placeholder="Ketik materi...">
                 </div>
 
             </div>
@@ -354,7 +355,7 @@ new class extends Component
                         <th>Tanggal</th>
                         <th>Jam Ke</th>
                         @unless ($this->isGuru)
-                            <th>Guru</th>
+                        <th>Guru</th>
                         @endunless
                         <th>Kelas</th>
                         <th class="text-truncate-cell">Materi</th>
@@ -368,114 +369,107 @@ new class extends Component
 
                     @forelse ($this->riwayat as $jurnal)
 
-                        @php
-                            $badgeClass = match ($jurnal->status_validasi) {
-                                'Divalidasi' => 'badge-status-success',
-                                'Ditolak' => 'badge-status-danger',
-                                default => 'badge-status-warning',
-                            };
-                        @endphp
+                    @php
+                    $badgeClass = match ($jurnal->status_validasi) {
+                    'Divalidasi' => 'badge-status-success',
+                    'Ditolak' => 'badge-status-danger',
+                    default => 'badge-status-warning',
+                    };
+                    @endphp
 
-                        <tr>
-                            <td>{{ optional($jurnal->tanggal)->format('d M Y') }}</td>
-                            <td>Jam {{ $jurnal->jam_ke }}</td>
+                    <tr>
+                        <td>{{ optional($jurnal->tanggal)->format('d M Y') }}</td>
+                        <td>Jam {{ $jurnal->jam_ke }}</td>
 
-                            @unless ($this->isGuru)
-                                <td>{{ $jurnal->guru->nama ?? '-' }}</td>
-                            @endunless
+                        @unless ($this->isGuru)
+                        <td>{{ $jurnal->guru->nama ?? '-' }}</td>
+                        @endunless
 
-                            <td><span class="badge-kelas">{{ $jurnal->kelas->nama_kelas ?? '-' }}</span></td>
+                        <td><span class="badge-kelas">{{ $jurnal->kelas->nama_kelas ?? '-' }}</span></td>
 
-                            <td class="text-truncate-cell" title="{{ $jurnal->materi }}">
-                                {{ $jurnal->materi }}
-                            </td>
+                        <td class="text-truncate-cell" title="{{ $jurnal->materi }}">
+                            {{ $jurnal->materi }}
+                        </td>
 
-                            <td class="text-center">
-                                {{ $jurnal->jumlah_hadir }} Hadir /
-                                {{ $jurnal->jumlah_tidak_hadir }} Tidak Hadir
-                            </td>
+                        <td class="text-center">
+                            {{ $jurnal->jumlah_hadir }} Hadir /
+                            {{ $jurnal->jumlah_tidak_hadir }} Tidak Hadir
+                        </td>
 
-                            <td class="text-center">
-                                <span class="badge-status {{ $badgeClass }}">
-                                    {{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}
-                                </span>
-                            </td>
+                        <td class="text-center">
+                            <span class="badge-status {{ $badgeClass }}">
+                                {{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}
+                            </span>
+                        </td>
 
-                            <td class="text-center">
+                        <td class="text-center">
 
-                                <button
-                                    type="button"
-                                    wire:click="lihatDetail({{ $jurnal->id_jurnal }})"
-                                    class="btn-edit"
-                                >
-                                    {{ $jurnalTerpilih === $jurnal->id_jurnal ? 'Tutup' : 'Detail' }}
-                                </button>
+                            <button type="button" wire:click="lihatDetail({{ $jurnal->id_jurnal }})" class="btn-edit">
+                                {{ $jurnalTerpilih === $jurnal->id_jurnal ? 'Tutup' : 'Detail' }}
+                            </button>
 
-                                @if ($this->isGuru && $jurnal->status_validasi === 'Menunggu')
-                                    <a
-                                        href="{{ route('input-jurnal') }}?edit={{ $jurnal->id_jurnal }}"
-                                        class="btn-edit ms-1"
-                                    >
-                                        Edit
-                                    </a>
-                                @endif
+                            @if ($this->isGuru && $jurnal->status_validasi === 'Menunggu')
+                            <a href="{{ route('input-jurnal') }}?edit={{ $jurnal->id_jurnal }}" class="btn-edit ms-1">
+                                Edit
+                            </a>
+                            @endif
 
-                            </td>
-                        </tr>
+                        </td>
+                    </tr>
 
-                        {{-- DETAIL BARIS (per-siswa) --}}
-                        @if ($jurnalTerpilih === $jurnal->id_jurnal)
-                            <tr>
-                                <td colspan="{{ $this->isGuru ? 7 : 8 }}" style="background:#f8fafc; padding:16px;">
+                    {{-- DETAIL BARIS (per-siswa) --}}
+                    @if ($jurnalTerpilih === $jurnal->id_jurnal)
+                    <tr>
+                        <td colspan="{{ $this->isGuru ? 7 : 8 }}" style="background:#f8fafc; padding:16px;">
 
-                                    @if ($jurnal->catatan_validasi)
-                                        <div class="alert-box alert-warning-box mb-3">
-                                            <strong>Catatan Sistem:</strong>&nbsp;{{ $jurnal->catatan_validasi }}
-                                        </div>
-                                    @endif
+                            @if ($jurnal->catatan_validasi)
+                            <div class="alert-box alert-warning-box mb-3">
+                                <strong>Catatan Sistem:</strong>&nbsp;{{ $jurnal->catatan_validasi }}
+                            </div>
+                            @endif
 
-                                    @if ($this->detailAbsensi->isEmpty())
+                            @if ($this->detailAbsensi->isEmpty())
 
-                                        <div class="text-muted text-center py-2">
-                                            Belum ada data absensi untuk jurnal ini.
-                                        </div>
+                            <div class="text-muted text-center py-2">
+                                Belum ada data absensi untuk jurnal ini.
+                            </div>
 
-                                    @else
+                            @else
 
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-custom mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Nama Siswa</th>
-                                                        <th class="text-center">Status</th>
-                                                        <th>Detail</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach ($this->detailAbsensi as $absen)
-                                                        <tr>
-                                                            <td>{{ $absen->siswa->nama_siswa ?? '-' }}</td>
-                                                            <td class="text-center">{{ $absen->keterangan }}</td>
-                                                            <td>{{ $absen->keteranganSiswa->keterangan ?? '-' }}</td>
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-custom mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama Siswa</th>
+                                            <th class="text-center">Status</th>
+                                            <th>Detail</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($this->detailAbsensi as $absen)
+                                        <tr>
+                                            <td>{{ $absen->siswa->nama_siswa ?? '-' }}</td>
+                                            <td class="text-center">{{ $absen->keterangan }}</td>
+                                            <td>{{ $absen->keteranganSiswa->keterangan ?? '-' }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                    @endif
+                            @endif
 
-                                </td>
-                            </tr>
-                        @endif
+                        </td>
+                    </tr>
+                    @endif
 
                     @empty
 
-                        <tr>
-                            <td colspan="{{ $this->isGuru ? 7 : 8 }}" class="text-center text-muted py-5">
-                                Belum ada riwayat jurnal yang cocok dengan filter ini.
-                            </td>
-                        </tr>
+                    <tr>
+                        <td colspan="{{ $this->isGuru ? 7 : 8 }}" class="text-center text-muted py-5">
+                            Belum ada riwayat jurnal yang cocok dengan filter ini.
+                        </td>
+                    </tr>
 
                     @endforelse
 
@@ -486,9 +480,9 @@ new class extends Component
         </div>
 
         @if ($this->riwayat->hasPages())
-            <div class="p-3 border-top">
-                {{ $this->riwayat->links() }}
-            </div>
+        <div class="p-3 border-top">
+            {{ $this->riwayat->links() }}
+        </div>
         @endif
 
     </div>
