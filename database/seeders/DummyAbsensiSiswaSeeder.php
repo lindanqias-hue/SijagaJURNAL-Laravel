@@ -18,9 +18,6 @@ class DummyAbsensiSiswaSeeder extends Seeder
         $kelas = Kelas::where('nama_kelas', 'XI RPL 2')->firstOrFail();
         $siswa = Siswa::where('id_kelas', $kelas->id_kelas)->orderBy('id_siswa')->get();
 
-        if ($siswa->count() < 5) {
-            throw new \RuntimeException('Minimal lima siswa XI RPL 2 diperlukan untuk dummy absensi.');
-        }
 
         $contexts = [
             ['tanggal' => '2026-09-22', 'hari' => 'Selasa', 'jam_ke' => 2, 'guru' => 'Lutfia Marsalina, S.Pd.I, M.Pd'],

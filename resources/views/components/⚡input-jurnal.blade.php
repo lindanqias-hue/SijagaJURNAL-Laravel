@@ -143,6 +143,11 @@ public function loadJadwal()
        // Ambil semua jadwal guru ini KHUSUS untuk hari ini saja
     $jadwalHariIni = Jadwal::where('id_guru', $idGuru)
         ->where('hari', $hari)
+        ->whereExists(function ($query) {
+            $query->selectRaw('1')
+                ->from('siswa')
+                ->whereColumn('siswa.id_kelas', 'jadwal.id_kelas');
+        })
         ->orderBy('jam_ke')
         ->get();
 
@@ -171,8 +176,9 @@ public function loadJadwal()
         return;
     }
 
-    // Otomatis isi kelas
+    // Otomatis isi kelas dan jam dari jadwal terpilih
     $this->id_kelas = $this->jadwalAktif->id_kelas;
+    $this->jam_ke = $this->jadwalAktif->jam_ke;
 
     // Jam mulai
     $this->jamMulaiKe = $this->jadwalAktif->jam_ke;
@@ -252,6 +258,11 @@ public function loadJadwal()
 
         return Kelas::query()
             ->whereIn('id_kelas', $idKelas)
+            ->whereExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('siswa')
+                    ->whereColumn('siswa.id_kelas', 'kelas.id_kelas');
+            })
             ->orderBy('nama_kelas')
             ->get();
     }
@@ -267,6 +278,7 @@ public function loadJadwal()
         return Jadwal::query()
             ->where('id_guru', session('id_pengguna'))
             ->where('hari', $hari)
+            ->when($this->id_kelas, fn ($query) => $query->where('id_kelas', $this->id_kelas))
             ->orderBy('jam_ke')
             ->get(['jam_ke', 'jam_mulai', 'jam_selesai']);
     }
@@ -317,7 +329,7 @@ public function loadJadwal()
 
     public function setAbsensiSiswa(int|string $idSiswa, string $status): void
     {
-        $statusDiizinkan = ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi', 'Tanpa Keterangan'];
+        $statusDiizinkan = ['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'];
 
         if (!in_array($status, $statusDiizinkan, true)) {
             return;
@@ -343,6 +355,13 @@ public function loadJadwal()
     public function updatedIdKelas(): void
     {
         $this->jumlah_tidak_hadir = 0;
+
+        $jamPertama = $this->jamList->first();
+
+        if ($jamPertama) {
+            $this->jam_ke = $jamPertama->jam_ke;
+        }
+
         $this->loadSiswa();
         $this->sinkronkanJadwalTerpilih();
     }
@@ -381,6 +400,11 @@ public function loadJadwal()
             ->where('id_kelas', $this->id_kelas)
             ->where('hari', $hari)
             ->where('jam_ke', $this->jam_ke)
+            ->whereExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('siswa')
+                    ->whereColumn('siswa.id_kelas', 'jadwal.id_kelas');
+            })
             ->first();
     }
 
@@ -466,7 +490,9 @@ public function loadAbsensiLama()
 
     foreach ($absensiLama as $absen) {
 
-        $this->absensi[$absen->id_siswa] = $absen->keterangan;
+        $this->absensi[$absen->id_siswa] = $absen->keterangan === 'Tanpa Keterangan'
+            ? 'Alpa'
+            : $absen->keterangan;
 
         if ($absen->keteranganSiswa) {
             $this->keteranganTambahan[$absen->id_siswa] =
@@ -483,7 +509,7 @@ public function save()
         'tanggal' => 'required|date',
         'jam_ke' => 'required|integer|min:1|max:12',
         'materi' => 'required|string',
-        'absensi.*' => 'required|in:Hadir,Izin,Sakit,Alpa,Dispensasi,Tanpa Keterangan',
+        'absensi.*' => 'required|in:Hadir,Izin,Sakit,Alpa,Dispensasi',
     ], [
         'id_kelas.required' => 'Kelas wajib dipilih.',
         'id_kelas.exists' => 'Kelas tidak ditemukan.',
@@ -596,16 +622,7 @@ $jumlahDispensasi = collect($this->absensi)
     ->filter(fn ($status) => $status === 'Dispensasi')
     ->count();
 
-    $jumlahTanpaKeterangan = collect($this->absensi)
-        ->filter(fn ($status) => $status === 'Tanpa Keterangan')
-        ->count();
-
-$jumlahTidakHadir =
-    $jumlahIzin +
-    $jumlahSakit +
-    $jumlahAlpa +
-    $jumlahDispensasi +
-    $jumlahTanpaKeterangan;
+$jumlahTidakHadir = $jumlahIzin + $jumlahSakit + $jumlahAlpa + $jumlahDispensasi;
 
     $data = [
         'id_guru' => session('id_pengguna'),
@@ -805,7 +822,15 @@ $jumlahTidakHadir =
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 p-3 border rounded-3 bg-light">
             <div>
                 <div class="fw-semibold">Absensi Siswa</div>
-                <div class="small text-muted">{{ count($siswa) }} siswa</div>
+                <div class="small text-muted">
+                    @if ($id_kelas)
+                        {{ count($siswa) }} siswa
+                    @elseif ($this->kelasList->isEmpty())
+                        Tidak ada jadwal kelas dengan siswa terdaftar hari ini
+                    @else
+                        Pilih kelas untuk memuat siswa
+                    @endif
+                </div>
             </div>
             <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-primary px-4">
                 Kelola Kehadiran Siswa
@@ -920,8 +945,7 @@ $jumlahTidakHadir =
             $totalSakit = collect($absensi)->filter(fn ($status) => $status === 'Sakit')->count();
             $totalAlpa = collect($absensi)->filter(fn ($status) => $status === 'Alpa')->count();
             $totalDispensasi = collect($absensi)->filter(fn ($status) => $status === 'Dispensasi')->count();
-            $totalTanpaKeterangan = collect($absensi)->filter(fn ($status) => $status === 'Tanpa Keterangan')->count();
-            $totalTidakHadir = $totalIzin + $totalSakit + $totalAlpa + $totalDispensasi + $totalTanpaKeterangan;
+            $totalTidakHadir = $totalIzin + $totalSakit + $totalAlpa + $totalDispensasi;
             $siswaTidakHadir = collect($siswa)->filter(fn ($dataSiswa) => ($absensi[$dataSiswa->id_siswa] ?? 'Hadir') !== 'Hadir');
         @endphp
 
@@ -947,7 +971,6 @@ $jumlahTidakHadir =
                         <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">SAKIT</div><div class="fw-bold fs-5">{{ $totalSakit }} siswa</div></div><span aria-hidden="true">🤒</span></div></div>
                         <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">ALPA</div><div class="fw-bold fs-5">{{ $totalAlpa }} siswa</div></div><span aria-hidden="true">❔</span></div></div>
                         <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">DISPENSASI</div><div class="fw-bold fs-5">{{ $totalDispensasi }} siswa</div></div><span aria-hidden="true">📄</span></div></div>
-                        <div class="col-6 col-md-4"><div class="info-box-total"><div><div class="text-muted small">TANPA KETERANGAN</div><div class="fw-bold fs-5">{{ $totalTanpaKeterangan }} siswa</div></div><span aria-hidden="true">❔</span></div></div>
                     </div>
 
                     <h3 class="h6 mt-4">Siswa Tidak Hadir ({{ $totalTidakHadir }})</h3>

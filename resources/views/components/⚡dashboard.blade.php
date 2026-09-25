@@ -339,7 +339,7 @@ new class extends Component
     </div>
 
     {{-- TUGAS GURU PIKET --}}
-    <div x-show="tabAktif === 'jadwal'" role="tabpanel">
+    <div id="jadwal-saya" x-show="tabAktif === 'jadwal'" role="tabpanel">
     @if ($this->tugasPiketHariIni->isNotEmpty())
 
         <div class="card-custom mb-3 border-start border-4 border-primary">

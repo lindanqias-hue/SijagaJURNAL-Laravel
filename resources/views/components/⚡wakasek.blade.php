@@ -103,100 +103,134 @@ new class extends Component
 };
 ?>
 
-<div wire:poll.60s>
-    <div class="welcome-banner mb-4">
-        <div class="fw-bold" style="font-size:22px; color:#fff;">Monitoring Wakasek</div>
-        <div style="color:rgba(255,255,255,.7); font-size:13px; margin-top:6px;">
-            Pantau jurnal, kehadiran guru, dan dispensasi tanpa mengambil alih tugas guru piket.
-        </div>
-    </div>
+<style>
+    [x-cloak] { display: none !important; }
+</style>
 
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Jurnal Hari Ini</div><div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div></div></div>
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Valid</div><div class="stat-value">{{ $this->stats['valid'] }}</div></div></div>
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Belum Isi Jurnal</div><div class="stat-value text-warning">{{ $this->stats['belumIsiJurnal'] }}</div></div></div>
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Konfirmasi Sekretaris</div><div class="stat-value">{{ $this->stats['perluKonfirmasi'] }}</div></div></div>
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Dispensasi Menunggu</div><div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div></div></div>
-        <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Tanpa Keterangan</div><div class="stat-value text-danger">{{ $this->stats['tanpaKeterangan'] }}</div></div></div>
-    </div>
-
-    <div class="row g-3">
-        <div class="col-lg-7">
-            <div id="monitoring-jurnal" class="card-custom overflow-hidden mb-3">
-                <div class="card-header-custom">Rekap Jurnal Guru Hari Ini</div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Status Jurnal</th><th>Validasi</th></tr></thead>
-                        <tbody>
-                            @forelse ($this->monitoringGuru as $jadwal)
-                                <tr>
-                                    <td>{{ $jadwal->nama_guru }}</td>
-                                    <td>{{ $jadwal->mapel_diampu ?: '-' }}</td>
-                                    <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
-                                    <td>Ke-{{ $jadwal->jam_ke }}</td>
-                                    <td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Sudah Mengisi' : 'Belum Mengisi' }}</span></td>
-                                    <td><span class="badge {{ $jadwal->status_jurnal === 'Divalidasi' ? 'bg-success' : ($jadwal->status_jurnal === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_jurnal ?? '-' }}</span></td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="monitoring-guru" class="card-custom overflow-hidden">
-                <div class="card-header-custom">Jadwal Guru Mengajar Sekarang</div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Kehadiran</th></tr></thead>
-                        <tbody>
-                            @forelse ($this->jadwalMengajarSekarang as $jadwal)
-                                <tr>
-                                    <td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
-                                    <td>Ke-{{ $jadwal->jam_ke }}<div class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</div></td>
-                                    <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === KehadiranGuruService::STATUS_TANPA_KETERANGAN ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+<div wire:poll.60s
+    x-data="{
+        activeSection: 'dashboard',
+        searchJurnal: '',
+        searchGuru: '',
+        searchDispensasi: '',
+        syncSection() {
+            const section = window.location.hash.slice(1);
+            this.activeSection = ['monitoring-guru', 'monitoring-jurnal', 'dispensasi'].includes(section)
+                ? section
+                : 'dashboard';
+        }
+    }"
+    x-init="syncSection(); window.addEventListener('hashchange', () => syncSection())"
+>
+    <section x-cloak x-show="activeSection === 'dashboard'" id="wakasek-dashboard">
+        <div class="welcome-banner mb-4">
+            <div class="fw-bold" style="font-size:22px; color:#fff;">Monitoring Wakasek</div>
+            <div style="color:rgba(255,255,255,.7); font-size:13px; margin-top:6px;">
+                Pantau jurnal, kehadiran guru, dan dispensasi tanpa mengambil alih tugas guru piket.
             </div>
         </div>
 
-        <div class="col-lg-5">
-            <div id="dispensasi" class="card-custom overflow-hidden">
-                <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
-                <div class="list-group list-group-flush">
-                    @forelse ($this->dispensasiMenunggu as $dispensasi)
-                        <div class="list-group-item">
-                            <strong>{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</strong>
-                            <div class="text-muted small">{{ $dispensasi->kelas?->nama_kelas ?? '-' }} · {{ $dispensasi->jenis_dispensasi }}{{ $dispensasi->mapel ? ' · '.$dispensasi->mapel : '' }}</div>
-                            <div class="text-muted small mb-2">{{ $dispensasi->tanggal?->format('d/m/Y') }}</div>
-                            @if ($dispensasi->token)
-                                <a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat & Validasi</a>
-                            @else
-                                <a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>
-                            @endif
-                        </div>
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Jurnal Hari Ini</div><div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div></div></div>
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Valid</div><div class="stat-value">{{ $this->stats['valid'] }}</div></div></div>
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Belum Isi Jurnal</div><div class="stat-value text-warning">{{ $this->stats['belumIsiJurnal'] }}</div></div></div>
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Konfirmasi Sekretaris</div><div class="stat-value">{{ $this->stats['perluKonfirmasi'] }}</div></div></div>
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Dispensasi Menunggu</div><div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div></div></div>
+            <div class="col-6 col-lg"><div class="stat-card"><div class="text-muted small">Tanpa Keterangan</div><div class="stat-value text-danger">{{ $this->stats['tanpaKeterangan'] }}</div></div></div>
+        </div>
+    </section>
+
+    <section x-cloak x-show="activeSection === 'monitoring-jurnal'" id="monitoring-jurnal" class="card-custom overflow-hidden">
+        <div class="card-header-custom">Rekap Jurnal Guru Hari Ini</div>
+        <div class="p-3">
+            <label class="visually-hidden" for="search-monitoring-jurnal">Cari jurnal guru</label>
+            <input id="search-monitoring-jurnal" type="search" class="form-control" placeholder="Cari guru, mapel, atau kelas..." x-model="searchJurnal" @input="searchJurnal = $event.target.value.toLocaleLowerCase()">
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Status Jurnal</th><th>Validasi</th></tr></thead>
+                <tbody>
+                    @forelse ($this->monitoringGuru->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)
+                        <tr wire:key="monitoring-jurnal-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchJurnal || $el.dataset.search.includes(searchJurnal)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}">
+                            <td>{{ $jadwal->nama_guru }}</td>
+                            <td>{{ $jadwal->mapel_diampu ?: '-' }}</td>
+                            <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
+                            <td>Ke-{{ $jadwal->jam_ke }}</td>
+                            <td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Sudah Mengisi' : 'Belum Mengisi' }}</span></td>
+                            <td><span class="badge {{ $jadwal->status_jurnal === 'Divalidasi' ? 'bg-success' : ($jadwal->status_jurnal === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_jurnal ?? '-' }}</span></td>
+                        </tr>
                     @empty
-                        <div class="p-3 text-muted">Tidak ada dispensasi yang menunggu.</div>
+                        <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>
                     @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section x-cloak x-show="activeSection === 'monitoring-guru'" id="monitoring-guru" class="card-custom overflow-hidden">
+        <div class="card-header-custom">Jadwal Guru Mengajar Sekarang</div>
+        <div class="p-3">
+            <label class="visually-hidden" for="search-monitoring-guru">Cari guru</label>
+            <input id="search-monitoring-guru" type="search" class="form-control" placeholder="Cari guru, mapel, atau kelas..." x-model="searchGuru" @input="searchGuru = $event.target.value.toLocaleLowerCase()">
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Kehadiran</th></tr></thead>
+                <tbody>
+                    @forelse ($this->jadwalMengajarSekarang->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)
+                        <tr wire:key="monitoring-guru-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchGuru || $el.dataset.search.includes(searchGuru)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}">
+                            <td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
+                            <td>Ke-{{ $jadwal->jam_ke }}<div class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</div></td>
+                            <td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === KehadiranGuruService::STATUS_TANPA_KETERANGAN ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($this->guruTanpaKeterangan->isNotEmpty())
+            <div class="border-top border-start border-4 border-danger">
+                <div class="card-header-custom text-danger">Guru Tanpa Keterangan</div>
+                <div class="list-group list-group-flush">
+                    @foreach ($this->guruTanpaKeterangan->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)
+                        <div class="list-group-item d-flex justify-content-between"><span>{{ $jadwal->nama_guru }} · {{ $jadwal->mapel_diampu ?: '-' }}</span><span class="badge bg-danger">Tanpa Keterangan</span></div>
+                    @endforeach
                 </div>
             </div>
-        </div>
-    </div>
+        @endif
+    </section>
 
-    @if ($this->guruTanpaKeterangan->isNotEmpty())
-        <div class="card-custom overflow-hidden mt-3 border-start border-4 border-danger">
-            <div class="card-header-custom text-danger">Guru Tanpa Keterangan</div>
-            <div class="list-group list-group-flush">
-                @foreach ($this->guruTanpaKeterangan as $jadwal)
-                    <div class="list-group-item d-flex justify-content-between"><span>{{ $jadwal->nama_guru }} · {{ $jadwal->mapel_diampu ?: '-' }}</span><span class="badge bg-danger">Tanpa Keterangan</span></div>
-                @endforeach
-            </div>
+    <section x-cloak x-show="activeSection === 'dispensasi'" id="dispensasi" class="card-custom overflow-hidden">
+        <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
+        <div class="p-3">
+            <label class="visually-hidden" for="search-dispensasi-wakasek">Cari dispensasi</label>
+            <input id="search-dispensasi-wakasek" type="search" class="form-control" placeholder="Cari siswa, kelas, jenis, atau mapel..." x-model="searchDispensasi" @input="searchDispensasi = $event.target.value.toLocaleLowerCase()">
         </div>
-    @endif
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead><tr><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Mapel</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    @forelse ($this->dispensasiMenunggu as $dispensasi)
+                        <tr wire:key="wakasek-dispensasi-{{ $dispensasi->id_dispensasi }}" x-show="!searchDispensasi || $el.dataset.search.includes(searchDispensasi)" data-search="{{ mb_strtolower(($dispensasi->siswa?->nama_siswa ?? '').' '.($dispensasi->kelas?->nama_kelas ?? '').' '.$dispensasi->jenis_dispensasi.' '.($dispensasi->mapel ?? ''), 'UTF-8') }}">
+                            <td>{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</td>
+                            <td>{{ $dispensasi->kelas?->nama_kelas ?? '-' }}</td>
+                            <td>{{ $dispensasi->jenis_dispensasi }}</td>
+                            <td>{{ $dispensasi->mapel ?: '-' }}</td>
+                            <td>{{ $dispensasi->tanggal?->format('d/m/Y') }}</td>
+                            <td>
+                                @if ($dispensasi->token)
+                                    <a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat & Validasi</a>
+                                @else
+                                    <a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada dispensasi yang menunggu.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>

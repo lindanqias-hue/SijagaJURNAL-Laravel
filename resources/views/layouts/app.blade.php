@@ -197,12 +197,14 @@
     @foreach ($navItems as $key => $item)
 
         @php
-            $isActive = request()->routeIs($item['route']);
+            $isActive = request()->routeIs($item['route']) && empty($item['anchor']);
         @endphp
 
         <a
             href="{{ Route::has($item['route']) ? route($item['route']).(!empty($item['anchor']) ? '#'.$item['anchor'] : '') : '#' }}"
             class="nav-link {{ $isActive ? 'active' : '' }}"
+            data-nav-anchor="{{ $item['anchor'] ?? '' }}"
+            data-route-active="{{ $isActive ? 'true' : 'false' }}"
         >
 
             <span
@@ -213,9 +215,7 @@
 
             {{ $item['label'] }}
 
-            @if ($isActive)
-                <span class="dot"></span>
-            @endif
+            <span class="dot" @if (!$isActive) hidden @endif></span>
 
         </a>
 
@@ -323,6 +323,42 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 @livewireScripts
+
+<script>
+    (() => {
+        const nav = document.querySelector('.sidebar-nav');
+
+        if (!nav) {
+            return;
+        }
+
+        const links = [...nav.querySelectorAll('.nav-link')];
+
+        const syncActiveLink = () => {
+            const currentHash = decodeURIComponent(window.location.hash.slice(1));
+            const hashLink = currentHash
+                ? links.find((link) => link.dataset.navAnchor === currentHash)
+                : null;
+            const activeLink = hashLink ?? links.find((link) => link.dataset.routeActive === 'true');
+
+            links.forEach((link) => {
+                const isActive = link === activeLink;
+
+                link.classList.toggle('active', isActive);
+                const dot = link.querySelector('.dot');
+
+                if (dot) {
+                    dot.hidden = !isActive;
+                }
+            });
+        };
+
+        syncActiveLink();
+        window.addEventListener('hashchange', syncActiveLink);
+        window.addEventListener('pageshow', syncActiveLink);
+        document.addEventListener('livewire:navigated', syncActiveLink);
+    })();
+</script>
 
 </body>
 </html>

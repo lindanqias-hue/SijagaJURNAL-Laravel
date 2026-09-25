@@ -8,6 +8,10 @@ use Livewire\Component;
 
 new class extends Component
 {
+    public bool $showDaftarJadwal = false;
+
+    public string $searchJadwal = '';
+
     public function mount(): void
     {
         $bertugasPiket = JadwalPiket::query()
@@ -32,6 +36,7 @@ new class extends Component
             ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
             ->where('jadwal.hari', $hari)
             ->select(['jadwal.*', 'pengguna.nama as nama_guru', 'pengguna.mapel_diampu'])
+            ->orderBy('pengguna.nama')
             ->orderBy('jadwal.jam_ke')
             ->get()
             ->map(function (Jadwal $jadwal) use ($kehadiranGuru, $sekarang): Jadwal {
@@ -49,11 +54,48 @@ new class extends Component
             });
     }
 
+    public function getJadwalTersaringProperty(): \Illuminate\Support\Collection
+    {
+        $search = mb_strtolower(trim($this->searchJadwal));
+
+        if ($search === '') {
+            return $this->statusKehadiranGuru;
+        }
+
+        return $this->statusKehadiranGuru->filter(function (Jadwal $jadwal) use ($search): bool {
+            $kolomPencarian = [
+                $jadwal->nama_guru,
+                $jadwal->mapel_diampu,
+                $jadwal->kelas?->nama_kelas,
+            ];
+
+            foreach ($kolomPencarian as $nilai) {
+                if ($nilai !== null && mb_stripos((string) $nilai, $search) !== false) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
     public function getBelumMengisiProperty()
     {
         return $this->statusKehadiranGuru->filter(
             fn(Jadwal $jadwal): bool => $jadwal->status_sistem === 'Tidak hadir tanpa keterangan'
         );
+    }
+
+    public function openDaftarJadwal(): void
+    {
+        $this->searchJadwal = '';
+        $this->showDaftarJadwal = true;
+    }
+
+    public function closeDaftarJadwal(): void
+    {
+        $this->showDaftarJadwal = false;
+        $this->searchJadwal = '';
     }
 };
 ?>
@@ -105,46 +147,76 @@ new class extends Component
     </div>
     @endif
 
-    <div class="card-custom overflow-hidden">
-        <div class="card-header-custom">Status Jadwal & Pemantauan Kelas</div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Guru / Mata Pelajaran</th>
-                        <th>Kelas</th>
-                        <th>Jam</th>
-                        <th>Status Sistem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($this->statusKehadiranGuru as $jadwal)
-                    <tr wire:key="jadwal-{{ $jadwal->id_jadwal }}">
-                        <td><strong>{{ $jadwal->nama_guru }}</strong>
-                            <div class="text-muted small">{{ $jadwal->mapel_diampu ?: '-' }}</div>
-                        </td>
-                        <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
-                        <td>Ke-{{ $jadwal->jam_ke }}
-                            <div class="text-muted small">
-                                {{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}
-                            </div>
-                        </td>
-                        <td>
-                            <span @class([ 'badge' , 'bg-success'=> $jadwal->status_sistem === 'Hadir (jurnal diisi)',
-                                'bg-danger' => $jadwal->status_sistem === 'Tidak hadir tanpa keterangan',
-                                'bg-warning text-dark' => in_array($jadwal->status_sistem, ['Izin resmi', 'Sakit
-                                resmi'], true),
-                                'bg-secondary' => $jadwal->status_sistem === 'Menunggu jam selesai',
-                                ])>{{ $jadwal->status_sistem }}</span>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">Tidak ada jadwal hari ini.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <div class="card-custom p-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <div class="fw-semibold">Status Jadwal & Pemantauan Kelas</div>
+            <div class="text-muted small">{{ $this->statusKehadiranGuru->count() }} jadwal hari ini · nama guru urut A–Z</div>
         </div>
+        <button type="button" class="btn btn-app-primary" wire:click="openDaftarJadwal">
+            Lihat Jadwal Hari Ini
+        </button>
     </div>
+
+    @if ($showDaftarJadwal)
+    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+        style="z-index: 1060; background: rgba(15, 23, 42, .58);"
+        wire:click.self="closeDaftarJadwal" wire:keydown.escape.window="closeDaftarJadwal">
+        <section class="card-custom w-100 overflow-hidden" style="max-width: 1000px; max-height: 90vh;"
+            role="dialog" aria-modal="true" aria-labelledby="piket-jadwal-title">
+            <div class="card-header-custom d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                    <div id="piket-jadwal-title">Status Jadwal & Pemantauan Kelas</div>
+                    <div class="small fw-normal opacity-75">Nama guru diurutkan A–Z</div>
+                </div>
+                <button type="button" class="btn-close" aria-label="Tutup" wire:click="closeDaftarJadwal"></button>
+            </div>
+            <div class="p-3 border-bottom">
+                <input type="search" class="form-control" placeholder="Cari nama guru, mata pelajaran, atau kelas..."
+                    aria-label="Cari jadwal guru" wire:model.live.debounce.300ms="searchJadwal">
+            </div>
+            <div class="table-responsive" style="max-height: calc(90vh - 150px); overflow-y: auto;">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                        <tr>
+                            <th>Guru / Mata Pelajaran</th>
+                            <th>Kelas</th>
+                            <th>Jam</th>
+                            <th>Status Sistem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($this->jadwalTersaring as $jadwal)
+                        <tr wire:key="jadwal-{{ $jadwal->id_jadwal }}">
+                            <td><strong>{{ $jadwal->nama_guru }}</strong>
+                                <div class="text-muted small">{{ $jadwal->mapel_diampu ?: '-' }}</div>
+                            </td>
+                            <td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td>
+                            <td>Ke-{{ $jadwal->jam_ke }}
+                                <div class="text-muted small">
+                                    {{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}
+                                </div>
+                            </td>
+                            <td>
+                                <span @class([
+                                    'badge',
+                                    'bg-success' => $jadwal->status_sistem === 'Hadir (jurnal diisi)',
+                                    'bg-danger' => $jadwal->status_sistem === 'Tidak hadir tanpa keterangan',
+                                    'bg-warning text-dark' => in_array($jadwal->status_sistem, ['Izin resmi', 'Sakit resmi'], true),
+                                    'bg-secondary' => $jadwal->status_sistem === 'Menunggu jam selesai',
+                                ])>{{ $jadwal->status_sistem }}</span>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                {{ trim($searchJadwal) !== '' ? 'Tidak ada jadwal yang cocok dengan pencarian.' : 'Tidak ada jadwal hari ini.' }}
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    @endif
 </div>
