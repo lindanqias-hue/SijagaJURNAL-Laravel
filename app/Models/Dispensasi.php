@@ -10,7 +10,10 @@ class Dispensasi extends Model
 
     protected $primaryKey = 'id_dispensasi';
 
-    // Status kolom plain string
+    // Status kolom ini sekarang plain string (bukan DB enum) supaya
+    // menambah/mengubah status di masa depan tidak perlu migration
+    // ALTER TABLE lagi. Ini jadi satu-satunya sumber kebenaran daftar
+    // status yang valid, dipakai untuk validasi di form/controller.
     public const STATUS_MENUNGGU = 'Menunggu Persetujuan';
 
     public const STATUS_DISETUJUI = 'Disetujui';
@@ -29,7 +32,7 @@ class Dispensasi extends Model
     protected $fillable = [
         'id_siswa',
         'id_kelas',
-        'id_jadwal',         // Relasi ke jadwal / mapel
+        'id_jadwal',
         'id_guru',
         'mapel',
         'jenis_dispensasi',
@@ -56,7 +59,7 @@ class Dispensasi extends Model
     public function wakasek()
     {
         return $this->belongsTo(
-            Pengguna::class,
+            pengguna::class,
             'id_wakasek',
             'id_pengguna'
         );
@@ -92,18 +95,7 @@ class Dispensasi extends Model
         );
     }
 
-    // Relasi ke jadwal / mapel (bisa disesuaikan dengan foreign key yang dipakai di database)
     public function jadwal()
-    {
-        return $this->belongsTo(
-            Jadwal::class,
-            'id_jadwal',
-            'id_jadwal'
-        );
-    }
-
-    // Alias atau fungsi tambahan jika ingin menggunakan penamaan jadwalPelajaran
-    public function jadwalPelajaran()
     {
         return $this->belongsTo(
             Jadwal::class,

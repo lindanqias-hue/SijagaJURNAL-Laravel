@@ -9,13 +9,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('dispensasi', function (Blueprint $table) {
-            $table->enum('jenis_dispensasi', [
-                'Per Jam',
-                'Sehari Penuh',
-                'Per Mapel'
-            ])->change();
-        });
+        DB::statement(
+            "ALTER TABLE dispensasi MODIFY jenis_dispensasi ENUM('Per Jam', 'Sehari Penuh', 'Per Mapel') NOT NULL"
+        );
 
         Schema::table('dispensasi', function (Blueprint $table) {
             if (! Schema::hasColumn('dispensasi', 'id_jadwal')) {
@@ -58,3 +54,4 @@ return new class extends Migration
         );
     }
 };
+
