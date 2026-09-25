@@ -440,14 +440,7 @@ public function getJadwalHariIniProperty()
                     </div>
                 </div>
 
-<<<<<<< HEAD
-    {{-- TUGAS GURU PIKET --}}
-    <div id="jadwal-saya" x-show="tabAktif === 'jadwal'" role="tabpanel">
-    @if ($this->tugasPiketHariIni->isNotEmpty())
-=======
                 @if($this->jadwalHariIni->isEmpty())
->>>>>>> 7e7bc01 (update alur dispensasi dan jurnal)
-
                     <div class="text-center text-muted py-4">
                         Tidak ada jadwal mengajar hari ini.
                     </div>
