@@ -170,6 +170,13 @@
         </div>
 
         <div class="row">
+            <div class="label">Keterangan</div>
+            <div class="value">
+                {{ $dispensasi->alasan ?: '-' }}
+            </div>
+        </div>
+
+        <div class="row">
             <div class="label">Tanggal</div>
             <div class="value">
                 {{ \Carbon\Carbon::parse($dispensasi->tanggal)->translatedFormat('d F Y') }}

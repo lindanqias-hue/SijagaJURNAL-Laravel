@@ -143,17 +143,17 @@
             $navItems = [
                 'admin' => [
                     'label' => 'Dashboard Admin',
-                    'icon' => '&#9881;',
+                    'icon' => '',
                     'route' => 'admin',
                 ],
-                'pengguna' => ['label' => 'Pengguna', 'icon' => '&#128100;', 'route' => 'admin', 'anchor' => 'pengguna'],
-                'guru' => ['label' => 'Guru', 'icon' => '&#127979;', 'route' => 'admin', 'anchor' => 'guru'],
-                'siswa' => ['label' => 'Siswa', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' => 'siswa'],
-                'kelas' => ['label' => 'Kelas', 'icon' => '&#127891;', 'route' => 'admin', 'anchor' => 'kelas'],
-                'jadwal' => ['label' => 'Jadwal Mengajar', 'icon' => '&#128197;', 'route' => 'admin', 'anchor' => 'jadwal'],
-                'jadwal_piket' => ['label' => 'Jadwal Piket', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' => 'jadwal-piket'],
-                'jurnal' => ['label' => 'Jurnal', 'icon' => '&#128203;', 'route' => 'admin', 'anchor' => 'jurnal'],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'admin', 'anchor' => 'dispensasi'],
+                'pengguna' => ['label' => 'Pengguna', 'icon' => '', 'route' => 'admin', 'anchor' => 'pengguna'],
+                'guru' => ['label' => 'Guru', 'icon' => '', 'route' => 'admin', 'anchor' => 'guru'],
+                'siswa' => ['label' => 'Siswa', 'icon' => '', 'route' => 'admin', 'anchor' => 'siswa'],
+                'kelas' => ['label' => 'Kelas', 'icon' => '', 'route' => 'admin', 'anchor' => 'kelas'],
+                'jadwal' => ['label' => 'Jadwal Mengajar', 'icon' => '', 'route' => 'admin', 'anchor' => 'jadwal'],
+                'jadwal_piket' => ['label' => 'Jadwal Piket', 'icon' => '', 'route' => 'admin', 'anchor' => 'jadwal-piket'],
+                'jurnal' => ['label' => 'Jurnal', 'icon' => '', 'route' => 'admin', 'anchor' => 'jurnal'],
+                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '', 'route' => 'admin', 'anchor' => 'dispensasi'],
             ];
         } elseif ($role === 'wakasek') {
             $navItems = [
@@ -249,11 +249,13 @@
             data-route-active="{{ $isActive ? 'true' : 'false' }}"
         >
 
-            <span
-                style="font-size:15px; width:20px; text-align:center;"
-            >
-                {!! $item['icon'] !!}
-            </span>
+            @if ($item['icon'] !== '')
+                <span
+                    style="font-size:15px; width:20px; text-align:center;"
+                >
+                    {!! $item['icon'] !!}
+                </span>
+            @endif
 
             {{ $item['label'] }}
 
