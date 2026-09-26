@@ -6,84 +6,27 @@ use App\Models\AbsensiSiswa;
 use App\Models\Dispensasi;
 use App\Models\Jurnal;
 use App\Models\KeteranganSiswa;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class DispensasiJurnalService
 {
-    public function sync(Dispensasi $dispensasi)
+    public function sync(Dispensasi $dispensasi): void
     {
-        // Hanya dispensasi yang sudah disetujui
-        if ($dispensasi->status !== 'Disetujui') {
-            return;
-        }
+        DB::transaction(function () use ($dispensasi): void {
+            $jurnalList = $this->jurnalUntukDispensasi($dispensasi)->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Cari jurnal yang sesuai
-        |--------------------------------------------------------------------------
-        | Cocok berdasarkan:
-        | - kelas
-        | - tanggal
-        | - jam ke
-        |--------------------------------------------------------------------------
-        */
-
-        $jurnalQuery = Jurnal::where(
-            'id_kelas',
-            $dispensasi->id_kelas
-        )
-            ->where(
-                'tanggal',
-                $dispensasi->tanggal
-            );
-
-        if ($dispensasi->jenis_dispensasi === 'Per Mapel') {
-            $jurnalQuery
-                ->where('id_guru', $dispensasi->id_guru)
-                ->where('jam_ke', $dispensasi->jam_ke_mulai);
-        } elseif ($dispensasi->jenis_dispensasi === 'Per Jam') {
-
-            $jurnalQuery->whereBetween('jam_ke', [
-                $dispensasi->jam_ke_mulai,
-                $dispensasi->jam_ke_selesai,
-            ]);
-        }
-
-        $jurnalList = $jurnalQuery->get();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Update absensi kalau jurnal sudah ada
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($jurnalList as $jurnal) {
-
-            $absensi = AbsensiSiswa::updateOrCreate(
-                [
-                    'id_jurnal' => $jurnal->id_jurnal,
-                    'id_siswa' => $dispensasi->id_siswa,
-                ],
-                [
-                    'keterangan' => 'Dispensasi',
-                ]
-            );
-
-            $siswa = $dispensasi->siswa()->with('kelas')->first();
-
-            if ($siswa) {
-                KeteranganSiswa::updateOrCreate(
-                    ['id_absensi' => $absensi->id_absensi],
-                    [
-                        'id_siswa' => $siswa->id_siswa,
-                        'nama_siswa' => $siswa->nama_siswa,
-                        'kelas' => $siswa->kelas?->nama_kelas ?? '-',
-                        'status' => 'Dispensasi',
-                        'keterangan' => $dispensasi->alasan,
-                        'tanggal' => $dispensasi->tanggal,
-                    ]
-                );
+            foreach ($jurnalList as $jurnal) {
+                $this->terapkanPadaJurnal($dispensasi, $jurnal);
             }
+
+            foreach ($jurnalList as $jurnal) {
+                $this->hitungUlangRingkasan($jurnal);
+            }
+        });
+
+        if ($dispensasi->status !== Dispensasi::STATUS_DISETUJUI) {
+            return;
         }
 
         /*
@@ -114,6 +57,108 @@ class DispensasiJurnalService
                 ]
             );
         }
+    }
+
+    public function syncUntukJurnal(Jurnal $jurnal): void
+    {
+        $dispensasiDisetujui = Dispensasi::query()
+            ->where('id_kelas', $jurnal->id_kelas)
+            ->whereDate('tanggal', $jurnal->tanggal)
+            ->where('status', Dispensasi::STATUS_DISETUJUI)
+            ->whereHas('siswa', fn ($query) => $query->where('id_kelas', $jurnal->id_kelas))
+            ->where(function ($query) use ($jurnal): void {
+                $query->where('jenis_dispensasi', 'Sehari Penuh')
+                    ->orWhere(function ($query) use ($jurnal): void {
+                        $query->where('jenis_dispensasi', 'Per Jam')
+                            ->where('jam_ke_mulai', '<=', $jurnal->jam_ke)
+                            ->where('jam_ke_selesai', '>=', $jurnal->jam_ke);
+                    })
+                    ->orWhere(function ($query) use ($jurnal): void {
+                        $query->where('jenis_dispensasi', 'Per Mapel')
+                            ->where('id_guru', $jurnal->id_guru)
+                            ->where('jam_ke_mulai', $jurnal->jam_ke);
+                    });
+            })
+            ->get();
+
+        foreach ($dispensasiDisetujui as $dispensasi) {
+            $this->terapkanPadaJurnal($dispensasi, $jurnal);
+        }
+
+        $this->hitungUlangRingkasan($jurnal->fresh());
+    }
+
+    private function terapkanPadaJurnal(Dispensasi $dispensasi, Jurnal $jurnal): void
+    {
+        if ($dispensasi->status !== Dispensasi::STATUS_DISETUJUI) {
+            return;
+        }
+
+        $absensi = AbsensiSiswa::updateOrCreate(
+            [
+                'id_jurnal' => $jurnal->id_jurnal,
+                'id_siswa' => $dispensasi->id_siswa,
+            ],
+            ['keterangan' => 'Dispensasi']
+        );
+        $siswa = $dispensasi->siswa()->with('kelas')->first();
+
+        if ($siswa) {
+            KeteranganSiswa::updateOrCreate(
+                ['id_absensi' => $absensi->id_absensi],
+                [
+                    'id_siswa' => $siswa->id_siswa,
+                    'nama_siswa' => $siswa->nama_siswa,
+                    'kelas' => $siswa->kelas?->nama_kelas ?? '-',
+                    'status' => 'Dispensasi',
+                    'keterangan' => $dispensasi->alasan,
+                    'tanggal' => $dispensasi->tanggal,
+                ]
+            );
+        }
+
+    }
+
+    private function jurnalUntukDispensasi(Dispensasi $dispensasi): Builder
+    {
+        $query = Jurnal::query()
+            ->where('id_kelas', $dispensasi->id_kelas)
+            ->whereDate('tanggal', $dispensasi->tanggal);
+
+        if ($dispensasi->jenis_dispensasi === 'Per Mapel') {
+            return $query->where('id_guru', $dispensasi->id_guru)
+                ->where('jam_ke', $dispensasi->jam_ke_mulai);
+        }
+
+        if ($dispensasi->jenis_dispensasi === 'Per Jam') {
+            return $query->whereBetween('jam_ke', [
+                $dispensasi->jam_ke_mulai,
+                $dispensasi->jam_ke_selesai,
+            ]);
+        }
+
+        return $query;
+    }
+
+    private function hitungUlangRingkasan(?Jurnal $jurnal): void
+    {
+        if (! $jurnal) {
+            return;
+        }
+
+        $jumlahHadir = AbsensiSiswa::query()
+            ->where('id_jurnal', $jurnal->id_jurnal)
+            ->where('keterangan', 'Hadir')
+            ->count();
+        $jumlahTidakHadir = AbsensiSiswa::query()
+            ->where('id_jurnal', $jurnal->id_jurnal)
+            ->whereIn('keterangan', ['Izin', 'Sakit', 'Alpa', 'Dispensasi', 'Tanpa Keterangan'])
+            ->count();
+
+        $jurnal->update([
+            'jumlah_hadir' => $jumlahHadir,
+            'jumlah_tidak_hadir' => $jumlahTidakHadir,
+        ]);
     }
 
     /*

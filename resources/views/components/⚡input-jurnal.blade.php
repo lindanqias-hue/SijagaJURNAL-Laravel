@@ -679,6 +679,9 @@ $jumlahTidakHadir = $jumlahIzin + $jumlahSakit + $jumlahAlpa + $jumlahDispensasi
                 ]);
             }
         }
+
+        app(\App\Services\DispensasiJurnalService::class)
+            ->syncUntukJurnal(Jurnal::findOrFail($idJurnal));
     });
 
     app(KehadiranGuruService::class)->statusUntukJadwal(
