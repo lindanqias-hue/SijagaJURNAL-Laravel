@@ -10,40 +10,82 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-{
-    Schema::create('jurnal', function (Blueprint $table) {
-        $table->increments('id_jurnal');
+    {
+        Schema::create('jurnal', function (Blueprint $table) {
+            $table->increments('id_jurnal');
 
-        $table->integer('id_guru');
-        $table->integer('id_kelas');
+            // Relasi guru dan kelas
+            $table->unsignedInteger('id_guru');
+            $table->unsignedInteger('id_kelas');
 
-        $table->date('tanggal');
-        $table->integer('jam_ke');
-        $table->string('materi', 255);
+            // Informasi jurnal
+            $table->date('tanggal');
+            $table->unsignedInteger('jam_ke');
+            $table->string('materi', 255);
 
-        $table->integer('jumlah_hadir')->nullable();
-        $table->integer('jumlah_tidak_hadir')->nullable();
+            // Kehadiran siswa
+            $table->unsignedInteger('jumlah_hadir')->default(0);
+            $table->unsignedInteger('jumlah_tidak_hadir')->default(0);
 
-        $table->enum('status_kehadiran_guru', [
-            'Hadir',
-            'Izin',
-            'Sakit',
-            'Tanpa Keterangan'
-        ])->default('Hadir');
+            // Kehadiran guru
+            $table->enum('status_kehadiran_guru', [
+                'Hadir',
+                'Izin',
+                'Sakit',
+                'Tanpa Keterangan'
+            ])->default('Hadir');
 
-        $table->text('catatan')->nullable();
+            $table->text('catatan')->nullable();
 
-        $table->enum('status_validasi', [
-            'Menunggu',
-            'Divalidasi',
-            'Ditolak'
-        ])->default('Menunggu');
+            // Validasi jurnal
+            $table->enum('status_validasi', [
+                'Menunggu',
+                'Divalidasi',
+                'Ditolak'
+            ])->default('Menunggu');
 
-        $table->integer('id_validator')->nullable();
-        $table->dateTime('tanggal_validasi')->nullable();
-        $table->text('catatan_validasi')->nullable();
-    });
-}
+            $table->unsignedInteger('id_validator')->nullable();
+            $table->dateTime('tanggal_validasi')->nullable();
+            $table->text('catatan_validasi')->nullable();
+
+            /*
+             * Mencegah jurnal duplikat.
+             *
+             * Satu guru tidak boleh mempunyai
+             * lebih dari satu jurnal untuk:
+             * guru + kelas + tanggal + jam
+             */
+            $table->unique(
+                [
+                    'id_guru',
+                    'id_kelas',
+                    'tanggal',
+                    'jam_ke'
+                ],
+                'jurnal_guru_kelas_tanggal_jam_unique'
+            );
+
+            // Foreign key guru
+            $table->foreign('id_guru')
+                ->references('id_pengguna')
+                ->on('pengguna')
+                ->cascadeOnDelete();
+
+            // Foreign key kelas
+            $table->foreign('id_kelas')
+                ->references('id_kelas')
+                ->on('kelas')
+                ->cascadeOnDelete();
+
+            // Foreign key validator
+            $table->foreign('id_validator')
+                ->references('id_pengguna')
+                ->on('pengguna')
+                ->nullOnDelete();
+
+            $table->timestamps();
+        });
+    }
 
     /**
      * Reverse the migrations.

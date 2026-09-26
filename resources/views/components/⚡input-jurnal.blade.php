@@ -7,19 +7,35 @@ use App\Models\Jadwal;
 use App\Models\AbsensiSiswa;
 use App\Models\KeteranganSiswa;
 use App\Models\Siswa;
-use App\Services\DispensasiJurnalService;
+use App\Services\KehadiranGuruService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 new class extends Component
 {
+    /*
+    |--------------------------------------------------------------------------
+    | FORM
+    |--------------------------------------------------------------------------
+    */
+
+    // Property ini boleh ada untuk kebutuhan tampilan Livewire.
+    // TETAPI saat save, nilainya TIDAK dipercaya sebagai sumber id_kelas.
     public $id_kelas = '';
+
     public $tanggal;
     public $jam_ke = 1;
     public $materi = '';
     public $jumlah_tidak_hadir = 0;
     public $catatan = '';
+
     public string $cariSiswa = '';
+
+    /*
+    |--------------------------------------------------------------------------
+    | JADWAL
+    |--------------------------------------------------------------------------
+    */
 
     public $jadwalAktif = null;
     public $mapelAktif = '';
@@ -29,71 +45,176 @@ new class extends Component
     public $jamMulaiKe = null;
     public $jamSelesaiKe = null;
 
+    /*
+    |--------------------------------------------------------------------------
+    | STATUS
+    |--------------------------------------------------------------------------
+    */
+
     public $editing = null;
     public $saved = false;
     public $isSaving = false;
 
+    /*
+    |--------------------------------------------------------------------------
+    | SISWA & ABSENSI
+    |--------------------------------------------------------------------------
+    */
+
     public $siswa = [];
     public $absensi = [];
-    public array $absensiTerikat = [];
-
     public $keteranganTambahan = [];
+
+    protected const STATUS_BUTUH_KETERANGAN = [
+        'Sakit',
+        'Izin',
+        'Dispensasi',
+    ];
 
     public bool $showAbsensiSiswa = false;
     public bool $showReview = false;
 
-    protected const STATUS_BUTUH_KETERANGAN = ['Sakit', 'Izin', 'Dispensasi'];
+    /*
+    |--------------------------------------------------------------------------
+    | MOUNT
+    |--------------------------------------------------------------------------
+    */
 
     public function mount()
     {
-        $this->tanggal = Carbon::now('Asia/Jakarta')->toDateString();
+        /*
+         * Pastikan guru sudah login.
+         */
+        if (!session('id_pengguna')) {
+            $this->redirectRoute('login');
+            return;
+        }
+
+        /*
+         * Gunakan timezone Asia/Jakarta.
+         */
+        $this->tanggal = Carbon::now('Asia/Jakarta')
+            ->format('Y-m-d');
+
+        /*
+         * Ambil mapel guru yang sedang login.
+         */
         $this->mapelAktif = DB::table('pengguna')
-            ->where('id_pengguna', session('id_pengguna'))
+            ->where(
+                'id_pengguna',
+                session('id_pengguna')
+            )
             ->value('mapel_diampu') ?? '';
 
+        /*
+        |--------------------------------------------------------------------------
+        | MODE EDIT
+        |--------------------------------------------------------------------------
+        */
+
         if (request()->has('edit')) {
+
             $id = request()->get('edit');
 
-            $this->editing = Jurnal::where('id_jurnal', $id)
-                ->where('id_guru', session('id_pengguna'))
+            /*
+             * Jurnal hanya boleh dicari milik guru yang sedang login.
+             */
+            $this->editing = Jurnal::query()
+                ->where(
+                    'id_jurnal',
+                    $id
+                )
+                ->where(
+                    'id_guru',
+                    session('id_pengguna')
+                )
                 ->first();
 
-            if ($this->editing) {
-                // Hanya izinkan edit jika belum dikonfirmasi sekretaris
-                if ($this->editing->status_konfirmasi_sekretaris === 'Dikonfirmasi') {
-                    $this->editing = null;
-                    return;
-                }
-
-                $this->id_kelas = $this->editing->id_kelas;
-                $this->tanggal = Carbon::parse($this->editing->tanggal)->toDateString();
-                $this->jam_ke = $this->editing->jam_ke;
-                $this->materi = $this->editing->materi;
-                $this->jumlah_tidak_hadir = $this->editing->jumlah_tidak_hadir ?? 0;
-                $this->catatan = $this->editing->catatan ?? '';
-
-                $this->sinkronkanJadwalTerpilih();
-                $this->loadSiswa();
-                $this->loadAbsensiLama();
-                $this->loadDispensasiDisetujui();
+            if (!$this->editing) {
+                return;
             }
-        } else {
-            $this->loadJadwal();
-        }
-    }
 
-    public function updatedTanggal(): void
-    {
-        $this->tanggal = $this->tanggalUntukForm();
+            /*
+             * Jurnal hanya boleh diedit jika:
+             * - status validasi masih Menunggu
+             * - sekretaris belum mengonfirmasi
+             */
+            if (
+                $this->editing->status_validasi !== 'Menunggu' ||
+                $this->editing->status_konfirmasi_sekretaris !== 'Menunggu'
+            ) {
+
+                $this->editing = null;
+
+                $this->addError(
+                    'editing',
+                    'Jurnal sudah tidak dapat diedit karena sudah diproses.'
+                );
+
+                return;
+            }
+
+            /*
+             * Nilai ini hanya untuk tampilan awal.
+             * Saat save nanti TETAP diambil ulang dari jadwal server.
+             */
+            $this->id_kelas =
+                $this->editing->id_kelas;
+
+            $this->tanggal = Carbon::parse(
+                $this->editing->tanggal,
+                'Asia/Jakarta'
+            )->format('Y-m-d');
+
+            $this->jam_ke =
+                $this->editing->jam_ke;
+
+            $this->materi =
+                $this->editing->materi ?? '';
+
+            $this->jumlah_tidak_hadir =
+                $this->editing->jumlah_tidak_hadir ?? 0;
+
+            $this->catatan =
+                $this->editing->catatan ?? '';
+
+            /*
+             * Sinkronkan jadwal dari database.
+             */
+            $this->sinkronkanJadwalTerpilih();
+
+            /*
+             * Load siswa berdasarkan kelas dari jadwal.
+             */
+            if ($this->jadwalAktif) {
+                $this->id_kelas =
+                    $this->jadwalAktif->id_kelas;
+            }
+
+            $this->loadSiswa();
+
+            /*
+             * Pulihkan absensi lama.
+             */
+            $this->loadAbsensiLama();
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | MODE INPUT BARU
+        |--------------------------------------------------------------------------
+        */
+
         $this->loadJadwal();
     }
 
-    private function tanggalUntukForm(): string
-    {
-        return $this->editing
-            ? Carbon::parse($this->editing->tanggal, 'Asia/Jakarta')->toDateString()
-            : Carbon::now('Asia/Jakarta')->toDateString();
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD JADWAL AKTIF
+    |--------------------------------------------------------------------------
+    */
 
     public function loadJadwal()
     {
@@ -103,56 +224,151 @@ new class extends Component
             return;
         }
 
-        $sekarang = Carbon::parse($this->tanggal, 'Asia/Jakarta');
-        $hariInggris = $sekarang->format('l');
+        $hari = $this->namaHariUntukTanggal();
 
-        $hariMap = [
-            'Monday' => 'Senin',
-            'Tuesday' => 'Selasa',
-            'Wednesday' => 'Rabu',
-            'Thursday' => 'Kamis',
-            'Friday' => 'Jumat',
-            'Saturday' => 'Sabtu',
-            'Sunday' => 'Minggu',
-        ];
+        if (!$hari) {
+            return;
+        }
 
-        $hari = $hariMap[$hariInggris] ?? 'Senin';
-        $jamSekarang = $sekarang->format('H:i:s');
+        $jamSekarang = Carbon::now('Asia/Jakarta')
+            ->format('H:i:s');
 
-        $jadwalHariIni = Jadwal::where('id_guru', $idGuru)
-            ->where('hari', $hari)
+        /*
+         * Ambil seluruh jadwal guru pada hari tersebut.
+         */
+        $jadwalHariIni = Jadwal::query()
+            ->where(
+                'id_guru',
+                $idGuru
+            )
+            ->where(
+                'hari',
+                $hari
+            )
             ->whereExists(function ($query) {
+
                 $query->selectRaw('1')
                     ->from('siswa')
-                    ->whereColumn('siswa.id_kelas', 'jadwal.id_kelas');
+                    ->whereColumn(
+                        'siswa.id_kelas',
+                        'jadwal.id_kelas'
+                    );
+
             })
             ->orderBy('jam_ke')
             ->get();
 
-        if ($jadwalHariIni->isEmpty()) {
-            $this->jadwalAktif = Jadwal::where('id_guru', $idGuru)
-                ->whereExists(function ($query) {
-                    $query->selectRaw('1')
-                        ->from('siswa')
-                        ->whereColumn('siswa.id_kelas', 'jadwal.id_kelas');
-                })
-                ->orderBy('id_jadwal')
-                ->first();
-        } else {
-            $this->jadwalAktif = $jadwalHariIni->first(
-                fn($j) => $j->jam_mulai <= $jamSekarang && $j->jam_selesai >= $jamSekarang
-            ) ?? $jadwalHariIni->first();
-        }
+        /*
+         * HANYA jadwal yang sedang berlangsung.
+         *
+         * Tidak ada fallback ke jadwal terdekat.
+         */
+        $this->jadwalAktif =
+            $jadwalHariIni->first(
+                function ($jadwal) use ($jamSekarang) {
 
+                    return $jadwal->jam_mulai <= $jamSekarang
+                        && $jadwal->jam_selesai >= $jamSekarang;
+                }
+            );
+
+        /*
+         * Tidak ada jadwal aktif.
+         */
         if (!$this->jadwalAktif) {
+
+            $this->id_kelas = '';
+            $this->jam_ke = 1;
+
+            $this->jamMulaiKe = null;
+            $this->jamSelesaiKe = null;
+
+            $this->jamMulaiPembelajaran = null;
+            $this->jamSelesaiPembelajaran = null;
+
+            $this->siswa = [];
+            $this->absensi = [];
+
             return;
         }
 
-        $this->id_kelas = $this->jadwalAktif->id_kelas;
-        $this->jam_ke = $this->jadwalAktif->jam_ke;
-        $this->sinkronkanJadwalTerpilih();
+        /*
+        |--------------------------------------------------------------------------
+        | DATA DARI SERVER
+        |--------------------------------------------------------------------------
+        */
+
+        $this->id_kelas =
+            $this->jadwalAktif->id_kelas;
+
+        $this->jam_ke =
+            $this->jadwalAktif->jam_ke;
+
+        $this->jamMulaiKe =
+            $this->jadwalAktif->jam_ke;
+
+        $this->jamMulaiPembelajaran =
+            $this->jadwalAktif->jam_mulai;
+
+        $this->jamSelesaiKe =
+            $this->jadwalAktif->jam_ke;
+
+        $this->jamSelesaiPembelajaran =
+            $this->jadwalAktif->jam_selesai;
+
+        /*
+         * Cari jam berikutnya yang menyambung.
+         */
+        $jamSaatIni =
+            $this->jadwalAktif;
+
+        while (true) {
+
+            $jadwalBerikutnya = Jadwal::query()
+                ->where(
+                    'id_guru',
+                    $idGuru
+                )
+                ->where(
+                    'id_kelas',
+                    $this->jadwalAktif->id_kelas
+                )
+                ->where(
+                    'hari',
+                    $hari
+                )
+                ->where(
+                    'jam_ke',
+                    $jamSaatIni->jam_ke + 1
+                )
+                ->where(
+                    'jam_mulai',
+                    $jamSaatIni->jam_selesai
+                )
+                ->first();
+
+            if (!$jadwalBerikutnya) {
+                break;
+            }
+
+            $this->jamSelesaiKe =
+                $jadwalBerikutnya->jam_ke;
+
+            $this->jamSelesaiPembelajaran =
+                $jadwalBerikutnya->jam_selesai;
+
+            $jamSaatIni =
+                $jadwalBerikutnya;
+        }
+
         $this->loadSiswa();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KELAS AKTIF
+    |--------------------------------------------------------------------------
+    */
 
     public function getKelasAktifProperty()
     {
@@ -160,69 +376,154 @@ new class extends Component
             return null;
         }
 
-        return Kelas::where('id_kelas', $this->id_kelas)->first();
+        return Kelas::where(
+            'id_kelas',
+            $this->id_kelas
+        )->first();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DAFTAR KELAS GURU
+    |--------------------------------------------------------------------------
+    */
 
     public function getKelasListProperty()
     {
-        $idGuru = session('id_pengguna');
-        if (!$idGuru) {
-            return Kelas::all();
+        $hari = $this->namaHariUntukTanggal();
+
+        if (
+            !$hari ||
+            !session('id_pengguna')
+        ) {
+            return collect();
         }
 
         $idKelas = Jadwal::query()
-            ->where('id_guru', $idGuru)
-            ->pluck('id_kelas');
+            ->where(
+                'id_guru',
+                session('id_pengguna')
+            )
+            ->where(
+                'hari',
+                $hari
+            )
+            ->pluck('id_kelas')
+            ->unique();
 
         return Kelas::query()
-            ->whereIn('id_kelas', $idKelas)
+            ->whereIn(
+                'id_kelas',
+                $idKelas
+            )
+            ->whereExists(function ($query) {
+
+                $query->selectRaw('1')
+                    ->from('siswa')
+                    ->whereColumn(
+                        'siswa.id_kelas',
+                        'kelas.id_kelas'
+                    );
+
+            })
             ->orderBy('nama_kelas')
             ->get();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | DAFTAR JAM
+    |--------------------------------------------------------------------------
+    */
+
     public function getJamListProperty()
     {
-        if (!$this->id_kelas || !session('id_pengguna')) {
-            return Jadwal::query()->orderBy('jam_ke')->limit(12)->get(['jam_ke', 'jam_mulai', 'jam_selesai']);
+        $hari = $this->namaHariUntukTanggal();
+
+        if (
+            !$hari ||
+            !session('id_pengguna')
+        ) {
+            return collect();
         }
 
         return Jadwal::query()
-            ->where('id_guru', session('id_pengguna'))
-            ->where('id_kelas', $this->id_kelas)
+            ->where(
+                'id_guru',
+                session('id_pengguna')
+            )
+            ->where(
+                'hari',
+                $hari
+            )
+            ->when(
+                $this->id_kelas,
+                fn ($query) =>
+                    $query->where(
+                        'id_kelas',
+                        $this->id_kelas
+                    )
+            )
             ->orderBy('jam_ke')
-            ->get(['jam_ke', 'jam_mulai', 'jam_selesai']);
+            ->get([
+                'jam_ke',
+                'jam_mulai',
+                'jam_selesai',
+            ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOTAL SISWA
+    |--------------------------------------------------------------------------
+    */
+
+    public function getTotalSiswaProperty()
+    {
+        if (!$this->id_kelas) {
+            return 0;
+        }
+
+        return Siswa::where(
+            'id_kelas',
+            $this->id_kelas
+        )->count();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILTER SISWA
+    |--------------------------------------------------------------------------
+    */
 
     public function getSiswaTersaringProperty()
     {
-        $pencarian = trim($this->cariSiswa);
+        $pencarian =
+            trim($this->cariSiswa);
 
         if ($pencarian === '') {
             return collect($this->siswa);
         }
 
-        return collect($this->siswa)->filter(
-            fn($siswa) => str_contains(
-                mb_strtolower($siswa->nama_siswa),
-                mb_strtolower($pencarian)
-            )
-        );
+        return collect($this->siswa)
+            ->filter(
+                fn (Siswa $siswa) =>
+                    str_contains(
+                        mb_strtolower(
+                            $siswa->nama_siswa
+                        ),
+                        mb_strtolower(
+                            $pencarian
+                        )
+                    )
+            );
     }
 
-    // Properti Ringkasan Kehadiran Siswa
-    public function getRingkasanAbsensiProperty(): array
-    {
-        $koleksiAbsensi = collect($this->absensi);
-
-        return [
-            'hadir'      => $koleksiAbsensi->filter(fn($status) => $status === 'Hadir')->count(),
-            'sakit'      => $koleksiAbsensi->filter(fn($status) => $status === 'Sakit')->count(),
-            'izin'       => $koleksiAbsensi->filter(fn($status) => $status === 'Izin')->count(),
-            'dispensasi' => $koleksiAbsensi->filter(fn($status) => $status === 'Dispensasi')->count(),
-            'alpa'       => $koleksiAbsensi->filter(fn($status) => $status === 'Alpa' || $status === 'Tanpa Keterangan')->count(),
-            'total'      => count($this->siswa),
-        ];
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | MODAL
+    |--------------------------------------------------------------------------
+    */
 
     public function bukaAbsensiSiswa(): void
     {
@@ -231,91 +532,392 @@ new class extends Component
         $this->showAbsensiSiswa = true;
     }
 
-    public function tutupAbsensiSiswa(): void
+    public function bukaReview(): void
     {
         $this->showAbsensiSiswa = false;
+        $this->showReview = true;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SET ABSENSI
+    |--------------------------------------------------------------------------
+    */
+
+    public function setAbsensiSiswa(
+        int|string $idSiswa,
+        string $status
+    ): void {
+
+        $statusDiizinkan = [
+            'Hadir',
+            'Izin',
+            'Sakit',
+            'Alpa',
+            'Dispensasi',
+        ];
+
+        if (!in_array(
+            $status,
+            $statusDiizinkan,
+            true
+        )) {
+            return;
+        }
+
+        $ada = collect($this->siswa)
+            ->contains(
+                'id_siswa',
+                $idSiswa
+            );
+
+        if (!$ada) {
+            return;
+        }
+
+        $this->absensi[$idSiswa] =
+            $status;
+
+        /*
+         * Kalau kembali Hadir,
+         * hapus keterangan tambahan.
+         */
+        if ($status === 'Hadir') {
+
+            unset(
+                $this->keteranganTambahan[
+                    $idSiswa
+                ]
+            );
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUTUH KETERANGAN
+    |--------------------------------------------------------------------------
+    */
+
+    public function butuhKeterangan(
+        int|string $idSiswa
+    ): bool {
+
+        return in_array(
+            $this->absensi[$idSiswa] ?? '',
+            self::STATUS_BUTUH_KETERANGAN,
+            true
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE KELAS
+    |--------------------------------------------------------------------------
+    */
 
     public function updatedIdKelas(): void
     {
+        /*
+         * Property dari browser hanya memengaruhi tampilan.
+         * Saat save tetap diverifikasi ulang dari server.
+         */
+
         $this->jumlah_tidak_hadir = 0;
+
+        $jamPertama =
+            $this->jamList->first();
+
+        if ($jamPertama) {
+
+            $this->jam_ke =
+                $jamPertama->jam_ke;
+        }
+
         $this->loadSiswa();
+
         $this->sinkronkanJadwalTerpilih();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE JAM
+    |--------------------------------------------------------------------------
+    */
 
     public function updatedJamKe(): void
     {
         $this->loadDispensasiDisetujui();
+
         $this->sinkronkanJadwalTerpilih();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | NAMA HARI
+    |--------------------------------------------------------------------------
+    */
+
+    private function namaHariUntukTanggal(): ?string
+    {
+        if (!$this->tanggal) {
+            return null;
+        }
+
+        $hariInggris =
+            Carbon::parse(
+                $this->tanggal,
+                'Asia/Jakarta'
+            )->format('l');
+
+        return [
+            'Monday' => 'Senin',
+            'Tuesday' => 'Selasa',
+            'Wednesday' => 'Rabu',
+            'Thursday' => 'Kamis',
+            'Friday' => 'Jumat',
+            'Saturday' => 'Sabtu',
+            'Sunday' => 'Minggu',
+        ][$hariInggris] ?? null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CARI JADWAL DARI SERVER
+    |--------------------------------------------------------------------------
+    |
+    | PENTING:
+    |
+    | id_kelas TIDAK dipakai untuk menentukan kelas.
+    |
+    | Server mencari:
+    | - guru dari session
+    | - tanggal
+    | - hari
+    | - jam_ke
+    |
+    | Kemudian id_kelas diambil dari tabel jadwal.
+    |
+    */
+
     private function findJadwalTerpilih(): ?Jadwal
     {
-        if (!$this->id_kelas || !$this->jam_ke) {
-            return Jadwal::where('id_guru', session('id_pengguna'))->first();
+        $hari =
+            $this->namaHariUntukTanggal();
+
+        $idGuru =
+            session('id_pengguna');
+
+        if (
+            !$hari ||
+            !$this->jam_ke ||
+            !$idGuru
+        ) {
+            return null;
         }
 
         return Jadwal::query()
-            ->where('id_guru', session('id_pengguna'))
-            ->where('id_kelas', $this->id_kelas)
-            ->where('jam_ke', $this->jam_ke)
-            ->first() ?? Jadwal::where('id_guru', session('id_pengguna'))->first();
+            ->where(
+                'id_guru',
+                $idGuru
+            )
+            ->where(
+                'hari',
+                $hari
+            )
+            ->where(
+                'jam_ke',
+                $this->jam_ke
+            )
+            ->whereExists(function ($query) {
+
+                $query->selectRaw('1')
+                    ->from('siswa')
+                    ->whereColumn(
+                        'siswa.id_kelas',
+                        'jadwal.id_kelas'
+                    );
+
+            })
+            ->first();
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SINKRONKAN JADWAL
+    |--------------------------------------------------------------------------
+    */
 
     private function sinkronkanJadwalTerpilih(): void
     {
-        $this->jadwalAktif = $this->findJadwalTerpilih();
+        $this->jadwalAktif =
+            $this->findJadwalTerpilih();
 
-        $this->jamMulaiKe = $this->jadwalAktif?->jam_ke;
-        $this->jamMulaiPembelajaran = $this->jadwalAktif?->jam_mulai;
-        $this->jamSelesaiKe = $this->jadwalAktif?->jam_ke;
-        $this->jamSelesaiPembelajaran = $this->jadwalAktif?->jam_selesai;
+        if (!$this->jadwalAktif) {
+
+            $this->jamMulaiKe = null;
+            $this->jamSelesaiKe = null;
+
+            $this->jamMulaiPembelajaran = null;
+            $this->jamSelesaiPembelajaran = null;
+
+            return;
+        }
+
+        /*
+         * ID KELAS DIAMBIL DARI SERVER.
+         */
+        $this->id_kelas =
+            $this->jadwalAktif->id_kelas;
+
+        $this->jamMulaiKe =
+            $this->jadwalAktif->jam_ke;
+
+        $this->jamMulaiPembelajaran =
+            $this->jadwalAktif->jam_mulai;
+
+        $this->jamSelesaiKe =
+            $this->jadwalAktif->jam_ke;
+
+        $this->jamSelesaiPembelajaran =
+            $this->jadwalAktif->jam_selesai;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD SISWA
+    |--------------------------------------------------------------------------
+    */
 
     public function loadSiswa(): void
     {
         if (!$this->id_kelas) {
-            $this->siswa = Siswa::limit(36)->get();
-        } else {
-            $this->siswa = Siswa::where('id_kelas', $this->id_kelas)
-                ->orderBy('id_siswa')
-                ->get();
+
+            $this->siswa = [];
+            $this->absensi = [];
+
+            return;
         }
 
+        $this->siswa = Siswa::query()
+            ->where(
+                'id_kelas',
+                $this->id_kelas
+            )
+            ->orderBy('id_siswa')
+            ->get();
+
         foreach ($this->siswa as $siswa) {
-            if (!isset($this->absensi[$siswa->id_siswa])) {
-                $this->absensi[$siswa->id_siswa] = 'Hadir';
+
+            if (!isset(
+                $this->absensi[
+                    $siswa->id_siswa
+                ]
+            )) {
+
+                $this->absensi[
+                    $siswa->id_siswa
+                ] = 'Hadir';
             }
         }
 
         $this->loadDispensasiDisetujui();
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD DISPENSASI
+    |--------------------------------------------------------------------------
+    */
+
     public function loadDispensasiDisetujui(): void
     {
-        if (!$this->id_kelas || !$this->tanggal || !$this->jam_ke) {
-            $this->absensiTerikat = [];
+        if (
+            !$this->id_kelas ||
+            !$this->tanggal ||
+            !$this->jam_ke
+        ) {
             return;
         }
 
-        try {
-            $this->absensiTerikat = app(DispensasiJurnalService::class)
-                ->statusTerikatUntukJurnal(
-                    (int) $this->id_kelas,
-                    (string) $this->tanggal,
-                    (int) $this->jam_ke,
-                    (int) session('id_pengguna')
-                )
-                ->all();
-        } catch (\Throwable $e) {
-            $this->absensiTerikat = [];
-        }
+        $dispensasi = DB::table('dispensasi')
+            ->where(
+                'id_kelas',
+                $this->id_kelas
+            )
+            ->where(
+                'tanggal',
+                $this->tanggal
+            )
+            ->where(
+                'status',
+                'Disetujui'
+            )
+            ->where(function ($query) {
 
-        foreach ($this->absensiTerikat as $idSiswa => $data) {
-            $this->absensi[$idSiswa] = $data['status'];
-            $this->keteranganTambahan[$idSiswa] = $data['keterangan'] ?? '';
+                $query
+                    ->where(
+                        'jenis_dispensasi',
+                        'Sehari Penuh'
+                    )
+
+                    ->orWhere(function ($q) {
+
+                        $q
+                            ->where(
+                                'jenis_dispensasi',
+                                'Per Jam'
+                            )
+                            ->where(
+                                'jam_ke_mulai',
+                                '<=',
+                                $this->jam_ke
+                            )
+                            ->where(
+                                'jam_ke_selesai',
+                                '>=',
+                                $this->jam_ke
+                            );
+
+                    })
+
+                    ->orWhere(function ($q) {
+
+                        $q
+                            ->where(
+                                'jenis_dispensasi',
+                                'Per Mapel'
+                            )
+                            ->where(
+                                'id_guru',
+                                session('id_pengguna')
+                            )
+                            ->where(
+                                'jam_ke_mulai',
+                                $this->jam_ke
+                            );
+
+                    });
+
+            })
+            ->get();
+
+        foreach ($dispensasi as $data) {
+
+            $this->absensi[
+                $data->id_siswa
+            ] = 'Dispensasi';
+
+            $this->keteranganTambahan[
+                $data->id_siswa
+            ] = $data->alasan;
         }
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD ABSENSI LAMA
+    |--------------------------------------------------------------------------
+    */
 
     public function loadAbsensiLama()
     {
@@ -323,327 +925,708 @@ new class extends Component
             return;
         }
 
-        $absensiLama = AbsensiSiswa::with('keteranganSiswa')
-            ->where('id_jurnal', $this->editing->id_jurnal)
-            ->get();
+        $absensiLama =
+            AbsensiSiswa::with(
+                'keteranganSiswa'
+            )
+                ->where(
+                    'id_jurnal',
+                    $this->editing->id_jurnal
+                )
+                ->get();
 
         foreach ($absensiLama as $absen) {
-            $this->absensi[$absen->id_siswa] = $absen->keterangan === 'Tanpa Keterangan'
-                ? 'Alpa'
-                : $absen->keterangan;
+
+            $status =
+                $absen->keterangan ===
+                'Tanpa Keterangan'
+                    ? 'Alpa'
+                    : $absen->keterangan;
+
+            $this->absensi[
+                $absen->id_siswa
+            ] = $status;
 
             if ($absen->keteranganSiswa) {
-                $this->keteranganTambahan[$absen->id_siswa] =
-                    $absen->keteranganSiswa->keterangan;
+
+                $this->keteranganTambahan[
+                    $absen->id_siswa
+                ] =
+                    $absen
+                        ->keteranganSiswa
+                        ->keterangan;
             }
         }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | SAVE
+    |--------------------------------------------------------------------------
+    */
+
     public function save()
     {
-        $this->validate([
-            'id_kelas' => 'required|exists:kelas,id_kelas',
-            'tanggal'  => 'required|date',
-            'jam_ke'   => 'required|integer|min:1|max:12',
-            'materi'   => 'required|string|max:500',
-        ]);
+        /*
+         * Cegah submit ganda.
+         */
+        if ($this->isSaving) {
+            return;
+        }
 
-        $ringkasan = $this->ringkasanAbsensi;
-        $jumlahTidakHadir = $ringkasan['sakit'] + $ringkasan['izin'] + $ringkasan['dispensasi'] + $ringkasan['alpa'];
+        $this->isSaving = true;
 
-        $data = [
-            'id_guru'                       => session('id_pengguna'),
-            'id_kelas'                      => $this->id_kelas,
-            'tanggal'                       => $this->tanggal,
-            'jam_ke'                        => $this->jam_ke,
-            'materi'                        => $this->materi,
-            'jumlah_hadir'                  => $ringkasan['hadir'],
-            'jumlah_tidak_hadir'            => $jumlahTidakHadir,
-            'status_kehadiran_guru'         => 'Hadir',
-            'catatan'                       => $this->catatan ?: null,
-            'status_validasi'               => 'Menunggu',
-            'status_konfirmasi_sekretaris' => 'Menunggu',
-            'catatan_validasi'              => null,
-        ];
+        try {
 
-        DB::transaction(function () use ($data): void {
-            if ($this->editing) {
-                $this->editing->update($data);
-                $idJurnal = $this->editing->id_jurnal;
-                AbsensiSiswa::where('id_jurnal', $idJurnal)->delete();
-            } else {
-                $jurnal = Jurnal::create($data);
-                $idJurnal = $jurnal->id_jurnal;
+            /*
+            |--------------------------------------------------------------------------
+            | VALIDASI DASAR
+            |--------------------------------------------------------------------------
+            |
+            | ID KELAS SENGAJA TIDAK divalidasi dari browser.
+            |
+            | Kelas akan diambil dari jadwal server.
+            |
+            */
+
+            $this->validate([
+
+                'tanggal' =>
+                    'required|date',
+
+                'jam_ke' =>
+                    'required|integer|min:1|max:12',
+
+                'materi' =>
+                    'required|string|max:1000',
+
+                'absensi.*' =>
+                    'required|in:Hadir,Izin,Sakit,Alpa,Dispensasi',
+
+            ], [
+
+                'materi.required' =>
+                    'Materi wajib diisi.',
+
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | CEK LOGIN
+            |--------------------------------------------------------------------------
+            */
+
+            $idGuru =
+                session('id_pengguna');
+
+            if (!$idGuru) {
+
+                $this->addError(
+                    'save',
+                    'Session guru tidak ditemukan. Silakan login kembali.'
+                );
+
+                return;
             }
 
-            $namaKelas = $this->kelasAktif->nama_kelas ?? '-';
+            /*
+            |--------------------------------------------------------------------------
+            | CEK EDITING
+            |--------------------------------------------------------------------------
+            */
 
-            foreach ($this->absensi as $idSiswa => $statusSiswa) {
-                $absensiSiswa = AbsensiSiswa::create([
-                    'id_jurnal'  => $idJurnal,
-                    'id_siswa'   => $idSiswa,
-                    'keterangan' => $statusSiswa,
-                ]);
+            if ($this->editing) {
 
-                if (in_array($statusSiswa, self::STATUS_BUTUH_KETERANGAN, true)) {
-                    $siswaData = collect($this->siswa)->firstWhere('id_siswa', $idSiswa);
+                $this->editing =
+                    Jurnal::query()
+                        ->where(
+                            'id_jurnal',
+                            $this->editing->id_jurnal
+                        )
+                        ->where(
+                            'id_guru',
+                            $idGuru
+                        )
+                        ->where(
+                            'status_validasi',
+                            'Menunggu'
+                        )
+                        ->where(
+                            'status_konfirmasi_sekretaris',
+                            'Menunggu'
+                        )
+                        ->first();
 
-                    KeteranganSiswa::create([
-                        'id_absensi' => $absensiSiswa->id_absensi,
-                        'id_siswa'   => $idSiswa,
-                        'nama_siswa' => $siswaData->nama_siswa ?? '-',
-                        'kelas'      => $namaKelas,
-                        'status'     => $statusSiswa,
-                        'keterangan' => trim($this->keteranganTambahan[$idSiswa] ?? ''),
-                        'tanggal'    => $this->tanggal,
-                    ]);
+                if (!$this->editing) {
+
+                    $this->addError(
+                        'editing',
+                        'Jurnal sudah tidak dapat diedit karena sudah diproses.'
+                    );
+
+                    return;
                 }
             }
-        });
 
-        $this->saved = true;
-        return redirect()->route('riwayat')->with('success', 'Jurnal mengajar berhasil disimpan.');
+            /*
+            |--------------------------------------------------------------------------
+            | AMBIL JADWAL DARI SERVER
+            |--------------------------------------------------------------------------
+            |
+            | INI BAGIAN PALING PENTING.
+            |
+            | Tidak menggunakan:
+            |
+            | $this->id_kelas
+            |
+            | untuk menentukan kelas.
+            |
+            | Server mencari jadwal berdasarkan:
+            |
+            | guru + hari + jam_ke
+            |
+            */
+
+            $jadwalTerpilih =
+                $this->findJadwalTerpilih();
+
+            if (!$jadwalTerpilih) {
+
+                $this->addError(
+                    'jam_ke',
+                    'Jam tersebut tidak terdapat pada jadwal mengajar Anda untuk tanggal tersebut.'
+                );
+
+                return;
+            }
+
+            /*
+             * ID KELAS RESMI DARI DATABASE.
+             */
+            $idKelasServer =
+                $jadwalTerpilih->id_kelas;
+
+            /*
+             * Sinkronkan property Livewire
+             * dengan nilai dari server.
+             */
+            $this->id_kelas =
+                $idKelasServer;
+
+            $this->jadwalAktif =
+                $jadwalTerpilih;
+
+            $this->jamMulaiKe =
+                $jadwalTerpilih->jam_ke;
+
+            $this->jamMulaiPembelajaran =
+                $jadwalTerpilih->jam_mulai;
+
+            $this->jamSelesaiKe =
+                $jadwalTerpilih->jam_ke;
+
+            $this->jamSelesaiPembelajaran =
+                $jadwalTerpilih->jam_selesai;
+
+            /*
+            |--------------------------------------------------------------------------
+            | PASTIKAN KELAS BENAR-BENAR ADA
+            |--------------------------------------------------------------------------
+            */
+
+            $kelasServer =
+                Kelas::find(
+                    $idKelasServer
+                );
+
+            if (!$kelasServer) {
+
+                $this->addError(
+                    'save',
+                    'Kelas pada jadwal tidak ditemukan.'
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | CEK DUPLIKAT
+            |--------------------------------------------------------------------------
+            |
+            | Gunakan id_kelas dari SERVER,
+            | bukan dari browser.
+            |
+            */
+
+            $jurnalDuplikat =
+                Jurnal::query()
+                    ->where(
+                        'id_guru',
+                        $idGuru
+                    )
+                    ->where(
+                        'id_kelas',
+                        $idKelasServer
+                    )
+                    ->whereDate(
+                        'tanggal',
+                        $this->tanggal
+                    )
+                    ->where(
+                        'jam_ke',
+                        $jadwalTerpilih->jam_ke
+                    )
+                    ->when(
+                        $this->editing,
+                        fn ($query) =>
+                            $query->where(
+                                'id_jurnal',
+                                '!=',
+                                $this->editing->id_jurnal
+                            )
+                    )
+                    ->exists();
+
+            if ($jurnalDuplikat) {
+
+                $this->addError(
+                    'jam_ke',
+                    'Jurnal untuk kelas dan jam ini sudah tercatat.'
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | AMBIL SISWA BERDASARKAN KELAS SERVER
+            |--------------------------------------------------------------------------
+            */
+
+            $siswaValid =
+                Siswa::query()
+                    ->where(
+                        'id_kelas',
+                        $idKelasServer
+                    )
+                    ->orderBy('id_siswa')
+                    ->get();
+
+            if ($siswaValid->isEmpty()) {
+
+                $this->addError(
+                    'save',
+                    'Kelas tersebut belum memiliki data siswa.'
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | FILTER ABSENSI
+            |--------------------------------------------------------------------------
+            |
+            | Hanya siswa dari kelas server yang boleh masuk.
+            |
+            */
+
+            $idSiswaValid =
+                $siswaValid
+                    ->pluck('id_siswa')
+                    ->map(
+                        fn ($id) =>
+                            (string) $id
+                    )
+                    ->all();
+
+            $this->absensi =
+                collect($this->absensi)
+                    ->only($idSiswaValid)
+                    ->all();
+
+            /*
+            |--------------------------------------------------------------------------
+            | CEK SEMUA ABSENSI
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($siswaValid as $siswa) {
+
+                $statusSiswa =
+                    $this->absensi[
+                        $siswa->id_siswa
+                    ] ?? null;
+
+                if (!$statusSiswa) {
+
+                    $this->addError(
+                        'absensi',
+                        'Status kehadiran semua siswa harus diisi.'
+                    );
+
+                    return;
+                }
+
+                /*
+                 * Izin, sakit, dispensasi
+                 * wajib punya keterangan.
+                 */
+                if (
+                    in_array(
+                        $statusSiswa,
+                        self::STATUS_BUTUH_KETERANGAN,
+                        true
+                    )
+                    &&
+                    trim(
+                        $this->keteranganTambahan[
+                            $siswa->id_siswa
+                        ] ?? ''
+                    ) === ''
+                ) {
+
+                    $this->addError(
+                        'keteranganTambahan.' .
+                        $siswa->id_siswa,
+                        "Keterangan untuk {$siswa->nama_siswa} ({$statusSiswa}) wajib diisi."
+                    );
+
+                    return;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | HITUNG ABSENSI
+            |--------------------------------------------------------------------------
+            */
+
+            $jumlahHadir =
+                collect($this->absensi)
+                    ->filter(
+                        fn ($status) =>
+                            $status === 'Hadir'
+                    )
+                    ->count();
+
+            $jumlahIzin =
+                collect($this->absensi)
+                    ->filter(
+                        fn ($status) =>
+                            $status === 'Izin'
+                    )
+                    ->count();
+
+            $jumlahSakit =
+                collect($this->absensi)
+                    ->filter(
+                        fn ($status) =>
+                            $status === 'Sakit'
+                    )
+                    ->count();
+
+            $jumlahAlpa =
+                collect($this->absensi)
+                    ->filter(
+                        fn ($status) =>
+                            $status === 'Alpa'
+                    )
+                    ->count();
+
+            $jumlahDispensasi =
+                collect($this->absensi)
+                    ->filter(
+                        fn ($status) =>
+                            $status === 'Dispensasi'
+                    )
+                    ->count();
+
+            $jumlahTidakHadir =
+                $jumlahIzin +
+                $jumlahSakit +
+                $jumlahAlpa +
+                $jumlahDispensasi;
+
+            /*
+            |--------------------------------------------------------------------------
+            | DATA JURNAL
+            |--------------------------------------------------------------------------
+            |
+            | id_kelas berasal dari SERVER.
+            | jam_ke juga berasal dari SERVER.
+            |
+            */
+
+            $data = [
+
+                'id_guru' =>
+                    $idGuru,
+
+                'id_kelas' =>
+                    $idKelasServer,
+
+                'tanggal' =>
+                    $this->tanggal,
+
+                'jam_ke' =>
+                    $jadwalTerpilih->jam_ke,
+
+                'materi' =>
+                    trim($this->materi),
+
+                'jumlah_hadir' =>
+                    $jumlahHadir,
+
+                'jumlah_tidak_hadir' =>
+                    $jumlahTidakHadir,
+
+                'status_kehadiran_guru' =>
+                    'Hadir',
+
+                'catatan' =>
+                    $this->catatan ?: null,
+
+                /*
+                 * Guru mengirim jurnal.
+                 * Status awal = Menunggu.
+                 */
+                'status_validasi' =>
+                    'Menunggu',
+
+                'id_validator' =>
+                    null,
+
+                'tanggal_validasi' =>
+                    null,
+
+                'catatan_validasi' =>
+                    null,
+            ];
+
+            /*
+            |--------------------------------------------------------------------------
+            | TRANSAKSI DATABASE
+            |--------------------------------------------------------------------------
+            */
+
+            DB::transaction(
+                function () use (
+                    $data,
+                    $siswaValid,
+                    $kelasServer
+                ) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | CREATE / UPDATE JURNAL
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if ($this->editing) {
+
+                        $this->editing->update(
+                            $data
+                        );
+
+                        $idJurnal =
+                            $this->editing->id_jurnal;
+
+                        /*
+                         * PENTING:
+                         * Hapus KeteranganSiswa DULU.
+                         *
+                         * Jangan hapus AbsensiSiswa terlebih dahulu,
+                         * karena KeteranganSiswa masih membutuhkan
+                         * relasi tersebut untuk whereHas().
+                         */
+
+                        KeteranganSiswa::whereHas(
+                            'absensi',
+                            function ($query) use (
+                                $idJurnal
+                            ) {
+
+                                $query->where(
+                                    'id_jurnal',
+                                    $idJurnal
+                                );
+
+                            }
+                        )->delete();
+
+                        /*
+                         * Baru hapus absensi lama.
+                         */
+                        AbsensiSiswa::where(
+                            'id_jurnal',
+                            $idJurnal
+                        )->delete();
+
+                    } else {
+
+                        $jurnal =
+                            Jurnal::create(
+                                $data
+                            );
+
+                        $idJurnal =
+                            $jurnal->id_jurnal;
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SIMPAN ABSENSI SISWA
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $namaKelas =
+                        $kelasServer->nama_kelas
+                            ?? '-';
+
+                    foreach (
+                        $this->absensi
+                        as $idSiswa => $statusSiswa
+                    ) {
+
+                        /*
+                         * Pastikan siswa benar-benar
+                         * berasal dari kelas server.
+                         */
+                        $siswaData =
+                            $siswaValid->firstWhere(
+                                'id_siswa',
+                                $idSiswa
+                            );
+
+                        if (!$siswaData) {
+                            continue;
+                        }
+
+                        $absensiSiswa =
+                            AbsensiSiswa::create([
+
+                                'id_jurnal' =>
+                                    $idJurnal,
+
+                                'id_siswa' =>
+                                    $idSiswa,
+
+                                'keterangan' =>
+                                    $statusSiswa,
+
+                            ]);
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | SIMPAN KETERANGAN TAMBAHAN
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if (
+                            in_array(
+                                $statusSiswa,
+                                self::STATUS_BUTUH_KETERANGAN,
+                                true
+                            )
+                        ) {
+
+                            KeteranganSiswa::create([
+
+                                'id_absensi' =>
+                                    $absensiSiswa
+                                        ->id_absensi,
+
+                                'id_siswa' =>
+                                    $idSiswa,
+
+                                'nama_siswa' =>
+                                    $siswaData
+                                        ->nama_siswa,
+
+                                'kelas' =>
+                                    $namaKelas,
+
+                                'status' =>
+                                    $statusSiswa,
+
+                                'keterangan' =>
+                                    trim(
+                                        $this
+                                            ->keteranganTambahan[
+                                                $idSiswa
+                                            ] ?? ''
+                                    ),
+
+                                'tanggal' =>
+                                    $this->tanggal,
+
+                            ]);
+                        }
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | SINKRON DISPENSASI
+                    |--------------------------------------------------------------------------
+                    */
+
+                    app(
+                        \App\Services\DispensasiJurnalService::class
+                    )->syncUntukJurnal(
+                        Jurnal::findOrFail(
+                            $idJurnal
+                        )
+                    );
+                }
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | STATUS KEHADIRAN GURU
+            |--------------------------------------------------------------------------
+            */
+
+            app(
+                KehadiranGuruService::class
+            )->statusUntukJadwal(
+
+                $jadwalTerpilih,
+
+                Carbon::now(
+                    'Asia/Jakarta'
+                ),
+
+                Carbon::parse(
+                    $this->tanggal,
+                    'Asia/Jakarta'
+                )
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BERHASIL
+            |--------------------------------------------------------------------------
+            */
+
+            $this->saved = true;
+
+            /*
+             * Refresh data jika sedang edit.
+             */
+            if ($this->editing) {
+
+                $this->editing =
+                    Jurnal::find(
+                        $this->editing->id_jurnal
+                    );
+            }
+
+        } finally {
+
+            $this->isSaving = false;
+        }
     }
 };
 ?>
-
-<div>
-    <div class="mb-4">
-        <a href="{{ route('riwayat') }}" class="text-decoration-none text-muted d-inline-block mb-2"
-            style="font-size:13px;">
-            &larr; Kembali ke Riwayat
-        </a>
-
-        <div class="page-title">
-            {{ $editing ? 'Edit Jurnal Mengajar' : 'Input Jurnal Mengajar' }}
-        </div>
-    </div>
-
-    <form wire:submit="save" style="width:100%; max-width:none;">
-        <div class="form-section mb-4">
-            <div class="form-section-title mb-3 fw-bold">Informasi Pembelajaran</div>
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label-sm">Mata Pelajaran</label>
-                    <input type="text" value="{{ $mapelAktif ?: '-' }}" readonly
-                        class="form-control form-control-custom bg-light">
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label-sm">Kelas</label>
-                    <select wire:model.live="id_kelas"
-                        class="form-select form-control-custom @error('id_kelas') is-invalid @enderror">
-                        <option value="">Pilih Kelas</option>
-                        @foreach ($this->kelasList as $kelas)
-                        <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>
-                        @endforeach
-                    </select>
-                    @error('id_kelas')
-                    <div class="text-danger small">{{ $message }}</div>
-                    @enderror
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label-sm">Tanggal</label>
-                    <div class="form-control form-control-custom bg-light text-muted">
-                        {{ \Carbon\Carbon::parse($tanggal)->translatedFormat('d F Y') }}
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label-sm">Jam Ke</label>
-                    <select wire:model.live="jam_ke"
-                        class="form-select form-control-custom @error('jam_ke') is-invalid @enderror">
-                        @forelse ($this->jamList as $jam)
-                        <option value="{{ $jam->jam_ke }}">
-                            Jam ke-{{ $jam->jam_ke }}
-                            ({{ substr($jam->jam_mulai, 0, 5) }}–{{ substr($jam->jam_selesai, 0, 5) }})
-                        </option>
-                        @empty
-                        <option value="">Tidak ada jadwal</option>
-                        @endforelse
-                    </select>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label-sm">Jam Mulai</label>
-                    <div class="form-control form-control-custom bg-light">
-                        {{ $jamMulaiPembelajaran ? substr($jamMulaiPembelajaran, 0, 5) : '-' }}
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label-sm">Jam Selesai</label>
-                    <div class="form-control form-control-custom bg-light">
-                        {{ $jamSelesaiPembelajaran ? substr($jamSelesaiPembelajaran, 0, 5) : '-' }}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-section mb-4">
-            <div class="form-section-title mb-3 fw-bold">Pembelajaran</div>
-            <div class="row g-3">
-                <div class="col-12">
-                    <label class="form-label-sm">Materi Pembelajaran</label>
-                    <input type="text" wire:model="materi" placeholder="Contoh: Pengenalan Dasar"
-                        class="form-control form-control-custom @error('materi') is-invalid @enderror">
-                    @error('materi')
-                    <div class="text-danger small">{{ $message }}</div>
-                    @enderror
-                </div>
-            </div>
-        </div>
-
-        {{-- BAGIAN KEHADIRAN & ABSENSI SISWA DENGAN RINGKASAN --}}
-        <div class="form-section mb-4">
-            <div class="form-section-title mb-3 fw-bold">Kehadiran & Absensi Siswa</div>
-            <div class="mb-3">
-                <div class="p-3 border rounded-3 bg-light">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-                        <div>
-                            <div class="fw-semibold">Absensi Siswa (Sinkronisasi Otomatis Piket)</div>
-                            <div class="small text-muted">{{ count($siswa) }} siswa terdaftar. Data kehadiran dikelola
-                                oleh Petugas Piket.</div>
-                        </div>
-                        <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-outline-primary px-4">
-                            Lihat Daftar Kehadiran Siswa
-                        </button>
-                    </div>
-
-                    {{-- Kotak Ringkasan Cepat Kehadiran --}}
-                    @php $sum = $this->ringkasanAbsensi; @endphp
-                    <div class="row g-2 text-center pt-2 border-top">
-                        <div class="col">
-                            <div class="p-2 bg-white border rounded shadow-sm">
-                                <div class="small text-muted">Hadir</div>
-                                <div class="fw-bold text-success fs-5">{{ $sum['hadir'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="p-2 bg-white border rounded shadow-sm">
-                                <div class="small text-muted">Sakit</div>
-                                <div class="fw-bold text-warning fs-5">{{ $sum['sakit'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="p-2 bg-white border rounded shadow-sm">
-                                <div class="small text-muted">Izin</div>
-                                <div class="fw-bold text-info fs-5">{{ $sum['izin'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="p-2 bg-white border rounded shadow-sm">
-                                <div class="small text-muted" style="font-size: 11px;">Dispensasi</div>
-                                <div class="fw-bold text-primary fs-5">{{ $sum['dispensasi'] }}</div>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="p-2 bg-white border rounded shadow-sm">
-                                <div class="small text-muted">Alpa</div>
-                                <div class="fw-bold text-danger fs-5">{{ $sum['alpa'] }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-4">
-            <button type="submit" class="btn btn-success px-4" wire:loading.attr="disabled">
-                Simpan Jurnal
-            </button>
-        </div>
-    </form>
-
-    {{-- MODAL DAFTAR KEHADIRAN SISWA DENGAN RINGKASAN DI DALAMNYA --}}
-    @if($showAbsensiSiswa)
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Daftar Kehadiran Siswa (Dari Piket)</h5>
-                    <button type="button" class="btn-close" wire:click="tutupAbsensiSiswa"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-secondary py-2 small mb-3" role="alert">
-                        ℹ️ Status kehadiran siswa di bawah ini bersumber langsung dari rekapitulasi Petugas Piket dan
-                        akan otomatis tersimpan ke dalam jurnal.
-                    </div>
-
-                    {{-- Ringkasan Ringkas di Modal --}}
-                    <div class="row g-2 mb-3 text-center">
-                        <div class="col"><span class="badge bg-success w-15 py-2">Hadir: {{ $sum['hadir'] }}</span>
-                        </div>
-                        <div class="col"><span class="badge bg-warning text-dark w-100 py-2">Sakit:
-                                {{ $sum['sakit'] }}</span></div>
-                        <div class="col"><span class="badge bg-info text-dark w-100 py-2">Izin:
-                                {{ $sum['izin'] }}</span></div>
-                        <div class="col"><span class="badge bg-primary w-100 py-2">Disp: {{ $sum['dispensasi'] }}</span>
-                        </div>
-                        <div class="col"><span class="badge bg-danger w-100 py-2">Alpa: {{ $sum['alpa'] }}</span></div>
-                    </div>
-
-                    <div class="mb-3">
-                        <input type="text" wire:model.live.debounce.300ms="cariSiswa" class="form-control"
-                            placeholder="Cari nama siswa...">
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-bordered align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 5%;">No</th>
-                                    <th style="width: 40%;">Nama Siswa</th>
-                                    <th style="width: 25%;">Status Kehadiran</th>
-                                    <th style="width: 30%;">Keterangan / Catatan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($this->siswaTersaring as $index => $s)
-                                @php
-                                $idS = $s->id_siswa;
-                                $statusAktif = $absensi[$idS] ?? 'Hadir';
-
-                                $badgeClass = match($statusAktif) {
-                                'Hadir' => 'bg-success',
-                                'Sakit' => 'bg-warning text-dark',
-                                'Izin' => 'bg-info text-dark',
-                                'Dispensasi' => 'bg-primary',
-                                default => 'bg-danger'
-                                };
-                                @endphp
-                                <tr>
-                                    <td>{{ $loop->iteration }}</td>
-                                    <td>
-                                        <div class="fw-semibold">{{ $s->nama_siswa }}</div>
-                                    </td>
-                                    <td>
-                                        <span class="badge {{ $badgeClass }} px-3 py-2 w-100" style="font-size: 12px;">
-                                            {{ $statusAktif }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="small text-muted">
-                                            {{ $keteranganTambahan[$idS] ?? '-' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">Tidak ada siswa ditemukan.</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" wire:click="tutupAbsensiSiswa">Tutup</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-</div>
