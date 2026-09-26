@@ -167,11 +167,11 @@
             ];
         } elseif ($role === 'wakasek') {
             $navItems = [
-                'wakasek' => ['label' => 'Dashboard', 'icon' => '&#128202;', 'route' => 'wakasek'],
-                'monitoring_guru' => ['label' => 'Monitoring Guru', 'icon' => '&#128100;', 'route' => 'wakasek', 'anchor' => 'monitoring-guru'],
-                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'icon' => '&#128203;', 'route' => 'wakasek', 'anchor' => 'monitoring-jurnal'],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'wakasek', 'anchor' => 'dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'wakasek', 'anchor' => 'rekap'],
+                'wakasek' => ['label' => 'Dashboard', 'icon' => '', 'route' => 'wakasek'],
+                'monitoring_guru' => ['label' => 'Monitoring Guru', 'icon' => '', 'route' => 'wakasek', 'anchor' => 'monitoring-guru'],
+                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'icon' => '', 'route' => 'wakasek', 'anchor' => 'monitoring-jurnal'],
+                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '', 'route' => 'wakasek', 'anchor' => 'dispensasi'],
+                'rekap' => ['label' => 'Rekap', 'icon' => '', 'route' => 'wakasek', 'anchor' => 'rekap'],
             ];
         } elseif ($role === 'guru') {
 
