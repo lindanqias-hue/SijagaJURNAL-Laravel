@@ -209,6 +209,21 @@ new class extends Component
         );
     }
 
+    // Properti Ringkasan Kehadiran Siswa
+    public function getRingkasanAbsensiProperty(): array
+    {
+        $koleksiAbsensi = collect($this->absensi);
+
+        return [
+            'hadir'      => $koleksiAbsensi->filter(fn($status) => $status === 'Hadir')->count(),
+            'sakit'      => $koleksiAbsensi->filter(fn($status) => $status === 'Sakit')->count(),
+            'izin'       => $koleksiAbsensi->filter(fn($status) => $status === 'Izin')->count(),
+            'dispensasi' => $koleksiAbsensi->filter(fn($status) => $status === 'Dispensasi')->count(),
+            'alpa'       => $koleksiAbsensi->filter(fn($status) => $status === 'Alpa' || $status === 'Tanpa Keterangan')->count(),
+            'total'      => count($this->siswa),
+        ];
+    }
+
     public function bukaAbsensiSiswa(): void
     {
         $this->cariSiswa = '';
@@ -333,13 +348,8 @@ new class extends Component
             'materi'   => 'required|string|max:500',
         ]);
 
-        $jumlahHadir = collect($this->absensi)->filter(fn($status) => $status === 'Hadir')->count();
-        $jumlahIzin = collect($this->absensi)->filter(fn($status) => $status === 'Izin')->count();
-        $jumlahSakit = collect($this->absensi)->filter(fn($status) => $status === 'Sakit')->count();
-        $jumlahAlpa = collect($this->absensi)->filter(fn($status) => $status === 'Alpa')->count();
-        $jumlahDispensasi = collect($this->absensi)->filter(fn($status) => $status === 'Dispensasi')->count();
-
-        $jumlahTidakHadir = $jumlahIzin + $jumlahSakit + $jumlahAlpa + $jumlahDispensasi;
+        $ringkasan = $this->ringkasanAbsensi;
+        $jumlahTidakHadir = $ringkasan['sakit'] + $ringkasan['izin'] + $ringkasan['dispensasi'] + $ringkasan['alpa'];
 
         $data = [
             'id_guru'                       => session('id_pengguna'),
@@ -347,7 +357,7 @@ new class extends Component
             'tanggal'                       => $this->tanggal,
             'jam_ke'                        => $this->jam_ke,
             'materi'                        => $this->materi,
-            'jumlah_hadir'                  => $jumlahHadir,
+            'jumlah_hadir'                  => $ringkasan['hadir'],
             'jumlah_tidak_hadir'            => $jumlahTidakHadir,
             'status_kehadiran_guru'         => 'Hadir',
             'catatan'                       => $this->catatan ?: null,
@@ -486,19 +496,56 @@ new class extends Component
             </div>
         </div>
 
+        {{-- BAGIAN KEHADIRAN & ABSENSI SISWA DENGAN RINGKASAN --}}
         <div class="form-section mb-4">
             <div class="form-section-title mb-3 fw-bold">Kehadiran & Absensi Siswa</div>
             <div class="mb-3">
-                <div
-                    class="d-flex flex-wrap justify-content-between align-items-center gap-3 p-3 border rounded-3 bg-light">
-                    <div>
-                        <div class="fw-semibold">Absensi Siswa (Sinkronisasi Otomatis Piket)</div>
-                        <div class="small text-muted">{{ count($siswa) }} siswa terdaftar. Data kehadiran dikelola oleh
-                            Petugas Piket.</div>
+                <div class="p-3 border rounded-3 bg-light">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <div>
+                            <div class="fw-semibold">Absensi Siswa (Sinkronisasi Otomatis Piket)</div>
+                            <div class="small text-muted">{{ count($siswa) }} siswa terdaftar. Data kehadiran dikelola
+                                oleh Petugas Piket.</div>
+                        </div>
+                        <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-outline-primary px-4">
+                            Lihat Daftar Kehadiran Siswa
+                        </button>
                     </div>
-                    <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-outline-primary px-4">
-                        Lihat Daftar Kehadiran Siswa
-                    </button>
+
+                    {{-- Kotak Ringkasan Cepat Kehadiran --}}
+                    @php $sum = $this->ringkasanAbsensi; @endphp
+                    <div class="row g-2 text-center pt-2 border-top">
+                        <div class="col">
+                            <div class="p-2 bg-white border rounded shadow-sm">
+                                <div class="small text-muted">Hadir</div>
+                                <div class="fw-bold text-success fs-5">{{ $sum['hadir'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 bg-white border rounded shadow-sm">
+                                <div class="small text-muted">Sakit</div>
+                                <div class="fw-bold text-warning fs-5">{{ $sum['sakit'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 bg-white border rounded shadow-sm">
+                                <div class="small text-muted">Izin</div>
+                                <div class="fw-bold text-info fs-5">{{ $sum['izin'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 bg-white border rounded shadow-sm">
+                                <div class="small text-muted" style="font-size: 11px;">Dispensasi</div>
+                                <div class="fw-bold text-primary fs-5">{{ $sum['dispensasi'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="p-2 bg-white border rounded shadow-sm">
+                                <div class="small text-muted">Alpa</div>
+                                <div class="fw-bold text-danger fs-5">{{ $sum['alpa'] }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -510,6 +557,7 @@ new class extends Component
         </div>
     </form>
 
+    {{-- MODAL DAFTAR KEHADIRAN SISWA DENGAN RINGKASAN DI DALAMNYA --}}
     @if($showAbsensiSiswa)
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -519,9 +567,22 @@ new class extends Component
                     <button type="button" class="btn-close" wire:click="tutupAbsensiSiswa"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-secondary py-2 small" role="alert">
+                    <div class="alert alert-secondary py-2 small mb-3" role="alert">
                         ℹ️ Status kehadiran siswa di bawah ini bersumber langsung dari rekapitulasi Petugas Piket dan
                         akan otomatis tersimpan ke dalam jurnal.
+                    </div>
+
+                    {{-- Ringkasan Ringkas di Modal --}}
+                    <div class="row g-2 mb-3 text-center">
+                        <div class="col"><span class="badge bg-success w-15 py-2">Hadir: {{ $sum['hadir'] }}</span>
+                        </div>
+                        <div class="col"><span class="badge bg-warning text-dark w-100 py-2">Sakit:
+                                {{ $sum['sakit'] }}</span></div>
+                        <div class="col"><span class="badge bg-info text-dark w-100 py-2">Izin:
+                                {{ $sum['izin'] }}</span></div>
+                        <div class="col"><span class="badge bg-primary w-100 py-2">Disp: {{ $sum['dispensasi'] }}</span>
+                        </div>
+                        <div class="col"><span class="badge bg-danger w-100 py-2">Alpa: {{ $sum['alpa'] }}</span></div>
                     </div>
 
                     <div class="mb-3">

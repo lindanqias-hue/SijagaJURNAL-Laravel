@@ -41,7 +41,6 @@ new class extends Component
                 ->copy()
                 ->endOfWeek(Carbon::SUNDAY)
                 ->format('Y-m-d');
-
         } else {
 
             $this->tanggalAwal = $sekarang
@@ -56,20 +55,20 @@ new class extends Component
         }
     }
 
-   public function getRekapProperty()
-{
-    return Dispensasi::with([
-        'siswa',
-        'kelas',
-        'guruPiket'
-    ])
-    ->whereBetween('tanggal', [
-        $this->tanggalAwal,
-        $this->tanggalAkhir
-    ])
-    ->orderByDesc('created_at')
-    ->get();
-}
+    public function getRekapProperty()
+    {
+        return Dispensasi::with([
+            'siswa',
+            'kelas',
+            'guruPiket'
+        ])
+            ->whereBetween('tanggal', [
+                $this->tanggalAwal,
+                $this->tanggalAkhir
+            ])
+            ->orderByDesc('created_at')
+            ->get();
+    }
 
     public function getTotalProperty()
     {
@@ -130,6 +129,8 @@ new class extends Component
 
     </div>
 
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke
+        Dashboard</a>
 
     {{-- PILIH PERIODE --}}
     <div style="
@@ -151,16 +152,13 @@ new class extends Component
                     Jenis Rekap
                 </label>
 
-                <select
-                    wire:model.live="mode"
-                    style="
+                <select wire:model.live="mode" style="
                         width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
                         background: white;
-                    "
-                >
+                    ">
                     <option value="mingguan">Mingguan</option>
                     <option value="bulanan">Bulanan</option>
                 </select>
@@ -176,16 +174,12 @@ new class extends Component
                     Dari
                 </label>
 
-                <input
-                    type="date"
-                    wire:model.live="tanggalAwal"
-                    style="
+                <input type="date" wire:model.live="tanggalAwal" style="
                         width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
-                    "
-                >
+                    ">
             </div>
 
 
@@ -198,16 +192,12 @@ new class extends Component
                     Sampai
                 </label>
 
-                <input
-                    type="date"
-                    wire:model.live="tanggalAkhir"
-                    style="
+                <input type="date" wire:model.live="tanggalAkhir" style="
                         width: 100%;
                         padding: 10px 12px;
                         border: 1px solid #d1d5db;
                         border-radius: 8px;
-                    "
-                >
+                    ">
             </div>
 
         </div>
@@ -227,7 +217,7 @@ new class extends Component
                 height: 100%;
             ">
                 <div style="color: #6b7280;">
-                    Total Dispensasi
+                    Total
                 </div>
 
                 <div style="
@@ -407,233 +397,230 @@ new class extends Component
 
                 @forelse ($this->rekap as $index => $dispensasi)
 
-                    <tr style="
+                <tr style="
                         border-bottom: 1px solid #f0f0f0;
                     ">
 
-                        <td style="
+                    <td style="
                             padding: 13px;
                             text-align: center;
                         ">
-                            {{ $index + 1 }}
-                        </td>
+                        {{ $index + 1 }}
+                    </td>
 
 
-                        <td style="padding: 13px;">
-                            {{ $dispensasi->tanggal
+                    <td style="padding: 13px;">
+                        {{ $dispensasi->tanggal
                                 ? $dispensasi->tanggal->locale('id')->translatedFormat('d F Y')
                                 : '-'
                             }}
-                        </td>
+                    </td>
 
 
-                        <td style="
+                    <td style="
                             padding: 13px;
                             font-weight: 600;
                         ">
-                            {{ $dispensasi->siswa->nama_siswa ?? '-' }}
-                        </td>
+                        {{ $dispensasi->siswa->nama_siswa ?? '-' }}
+                    </td>
 
 
-                        <td style="padding: 13px;">
-                            {{ $dispensasi->kelas->nama_kelas ?? '-' }}
-                        </td>
+                    <td style="padding: 13px;">
+                        {{ $dispensasi->kelas->nama_kelas ?? '-' }}
+                    </td>
 
 
-                        <td style="
+                    <td style="
                             padding: 13px;
                             text-align: center;
                         ">
 
-                            @if ($dispensasi->jenis_dispensasi === 'Per Jam')
+                        @if ($dispensasi->jenis_dispensasi === 'Per Jam')
 
-                                <span style="
+                        <span style="
                                     padding: 5px 10px;
                                     border-radius: 20px;
                                     background: #dbeafe;
                                     color: #1d4ed8;
                                     font-size: 13px;
                                 ">
-                                    Per Jam
-                                </span>
+                            Per Jam
+                        </span>
 
-                            @else
+                        @else
 
-                                <span style="
+                        <span style="
                                     padding: 5px 10px;
                                     border-radius: 20px;
                                     background: #ede9fe;
                                     color: #6d28d9;
                                     font-size: 13px;
                                 ">
-                                    Sehari Penuh
-                                </span>
+                            Sehari Penuh
+                        </span>
 
-                            @endif
+                        @endif
 
-                        </td>
+                    </td>
 
 
-                        <td style="
+                    <td style="
                             padding: 13px;
                             text-align: center;
                         ">
 
-                            @if ($dispensasi->jenis_dispensasi === 'Per Jam')
+                        @if ($dispensasi->jenis_dispensasi === 'Per Jam')
 
-                                Jam ke-{{ $dispensasi->jam_ke_mulai }}
+                        Jam ke-{{ $dispensasi->jam_ke_mulai }}
 
-                                @if ($dispensasi->jam_ke_selesai &&
-                                    $dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
+                        @if ($dispensasi->jam_ke_selesai &&
+                        $dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
 
-                                    s/d {{ $dispensasi->jam_ke_selesai }}
+                        s/d {{ $dispensasi->jam_ke_selesai }}
 
-                                @endif
+                        @endif
 
-                            @else
+                        @else
 
-                                -
+                        -
 
-                            @endif
+                        @endif
 
-                        </td>
+                    </td>
 
 
-                        <td style="
+                    <td style="
                             padding: 13px;
                             max-width: 250px;
                         ">
-                            {{ $dispensasi->alasan }}
-                        </td>
+                        {{ $dispensasi->alasan }}
+                    </td>
 
 
-                        <td style="padding: 13px;">
+                    <td style="padding: 13px;">
 
-                            <div style="
+                        <div style="
                                 font-weight: 600;
                             ">
-                                {{ $dispensasi->guruPiket->nama ?? '-' }}
-                            </div>
+                            {{ $dispensasi->guruPiket->nama ?? '-' }}
+                        </div>
 
-                            @if ($dispensasi->guruPiket)
-                                <div style="
+                        @if ($dispensasi->guruPiket)
+                        <div style="
                                     font-size: 12px;
                                     color: #6b7280;
                                     margin-top: 3px;
                                 ">
-                                    {{ $dispensasi->guruPiket->nip }}
-                                </div>
-                            @endif
+                            {{ $dispensasi->guruPiket->nip }}
+                        </div>
+                        @endif
 
-                        </td>
+                    </td>
 
 
-                        <td style="
+                    <td style="
     padding: 13px;
     text-align: center;
 ">
 
-    @if ($dispensasi->status === 'Menunggu Persetujuan')
+                        @if ($dispensasi->status === 'Menunggu Persetujuan')
 
-        <span style="
+                        <span style="
             padding: 5px 10px;
             border-radius: 20px;
             background: #fef3c7;
             color: #92400e;
             font-size: 13px;
         ">
-            🟡 Menunggu Persetujuan
-        </span>
+                            🟡 Menunggu Persetujuan
+                        </span>
 
-    @elseif ($dispensasi->status === 'Disetujui')
+                        @elseif ($dispensasi->status === 'Disetujui')
 
-        <span style="
+                        <span style="
             padding: 5px 10px;
             border-radius: 20px;
             background: #dcfce7;
             color: #166534;
             font-size: 13px;
         ">
-            🟢 Disetujui
-        </span>
+                            🟢 Disetujui
+                        </span>
 
-    @elseif ($dispensasi->status === 'Ditolak')
+                        @elseif ($dispensasi->status === 'Ditolak')
 
-        <span style="
+                        <span style="
             padding: 5px 10px;
             border-radius: 20px;
             background: #fee2e2;
             color: #991b1b;
             font-size: 13px;
         ">
-            🔴 Ditolak
-        </span>
+                            🔴 Ditolak
+                        </span>
 
-    @else
+                        @else
 
-        <span style="
+                        <span style="
             padding: 5px 10px;
             border-radius: 20px;
             background: #f3f4f6;
             color: #374151;
             font-size: 13px;
         ">
-            {{ $dispensasi->status }}
-        </span>
+                            {{ $dispensasi->status }}
+                        </span>
 
-    @endif
+                        @endif
 
-</td>
+                    </td>
 
-<td style="padding: 13px;">
+                    <td style="padding: 13px;">
 
-    @if ($dispensasi->status === 'Disetujui' || $dispensasi->status === 'Ditolak')
+                        @if ($dispensasi->status === 'Disetujui' || $dispensasi->status === 'Ditolak')
 
-        <div style="font-weight: 600;">
-            {{ $dispensasi->wakasek->nama ?? '-' }}
-        </div>
+                        <div style="font-weight: 600;">
+                            {{ $dispensasi->wakasek->nama ?? '-' }}
+                        </div>
 
-        <div style="
+                        <div style="
             font-size: 12px;
             color: #6b7280;
             margin-top: 3px;
         ">
-            {{ $dispensasi->waktu_approval
+                            {{ $dispensasi->waktu_approval
                 ? Carbon::parse($dispensasi->waktu_approval)
                     ->locale('id')
                     ->translatedFormat('d F Y H:i')
                 : '-'
             }}
-        </div>
+                        </div>
 
-    @else
+                        @else
 
-        <span style="color: #9ca3af;">
-            Belum disetujui
-        </span>
+                        <span style="color: #9ca3af;">
+                            Belum disetujui
+                        </span>
 
-    @endif
+                        @endif
 
-</td>
+                    </td>
 
-                    </tr>
+                </tr>
 
                 @empty
 
-                    <tr>
+                <tr>
 
-                        <td
-                            colspan="9"
-                            style="
+                    <td colspan="9" style="
                                 padding: 40px;
                                 text-align: center;
                                 color: #6b7280;
-                            "
-                        >
-                            Belum ada dispensasi pada periode ini.
-                        </td>
+                            ">
+                        Belum ada dispensasi pada periode ini.
+                    </td>
 
-                    </tr>
+                </tr>
 
                 @endforelse
 

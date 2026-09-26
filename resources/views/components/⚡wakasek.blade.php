@@ -371,6 +371,13 @@ new class extends Component
         box-shadow: 0 12px 24px rgba(22, 33, 62, .09);
     }
 
+    .wakasek-dashboard .wakasek-stat-button {
+        width: 100%;
+        border: 1px solid var(--border);
+        cursor: pointer;
+        text-align: left;
+    }
+
     .wakasek-dashboard .wakasek-stat::before {
         content: '';
         position: absolute;
@@ -549,6 +556,31 @@ new class extends Component
         display: none;
     }
 
+    .rekap-back:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+
+    .wakasek-back-link {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 10px;
+    }
+
+    .wakasek-back-link:hover {
+        background: #dbeafe;
+        border-color: #93c5fd;
+        color: #1e40af;
+    }
+
+    .print-report {
+        display: none;
+    }
+
     @media (max-width: 767.98px) {
         .wakasek-page-header {
             padding: 20px;
@@ -677,6 +709,10 @@ new class extends Component
             this.activeSection = ['monitoring-guru', 'monitoring-jurnal', 'dispensasi', 'rekap'].includes(section)
                 ? section
                 : 'dashboard';
+        },
+        openSection(section) {
+            this.activeSection = section;
+            window.location.hash = section;
         }
     }" x-init="syncSection(); window.addEventListener('hashchange', () => syncSection())">
     @if ($this->dataCetak)
@@ -734,104 +770,166 @@ new class extends Component
                     <div class="fw-bold">Ringkasan Hari Ini</div>
                     <div class="text-muted small">Status pemantauan aktivitas sekolah</div>
                 </div>
-            </div>
+                <div class="mb-3">
+                    <div class="fw-bold">Ringkasan Hari Ini</div>
+                    <div class="text-muted small">Status pemantauan aktivitas sekolah</div>
+                </div>
 
-            <div class="row g-3 mb-4">
-                <div class="col-6 col-xl">
-                    <div class="stat-card wakasek-stat" style="--stat-color:#2563eb;--stat-tint:#dbeafe;"><span
-                            class="wakasek-stat-icon">&#128221;</span>
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-xl"><button type="button" class="stat-card wakasek-stat wakasek-stat-button"
+                            style="--stat-color:#2563eb;--stat-tint:#dbeafe;"
+                            x-on:click="openSection('monitoring-jurnal')">
+                            <div>
+                                <div class="text-muted small">Jurnal Hari Ini</div>
+                                <div class="stat-value" style="color:#1d4ed8;">{{ $this->stats['jurnalHariIni'] }}</div>
+                            </div>
+                        </button></div>
+                    <div class="col-6 col-xl"><button type="button" class="stat-card wakasek-stat wakasek-stat-button"
+                            style="--stat-color:#059669;--stat-tint:#d1fae5;"
+                            x-on:click="openSection('monitoring-jurnal')">
+                            <div>
+                                <div class="text-muted small">Jurnal Divalidasi</div>
+                                <div class="stat-value" style="color:#047857;">{{ $this->stats['valid'] }}</div>
+                            </div>
+                        </button></div>
+                    <div class="col-6 col-xl"><button type="button" class="stat-card wakasek-stat wakasek-stat-button"
+                            style="--stat-color:#d97706;--stat-tint:#fef3c7;"
+                            x-on:click="openSection('monitoring-jurnal')">
+                            <div>
+                                <div class="text-muted small">Belum Isi Jurnal</div>
+                                <div class="stat-value" style="color:#b45309;">{{ $this->stats['belumIsiJurnal'] }}
+                                </div>
+                            </div>
+                        </button></div>
+                    <div class="col-6 col-xl"><button type="button" class="stat-card wakasek-stat wakasek-stat-button"
+                            style="--stat-color:#7c3aed;--stat-tint:#f3e8ff;" x-on:click="openSection('dispensasi')">
+                            <div>
+                                <div class="text-muted small">Dispensasi Menunggu</div>
+                                <div class="stat-value" style="color:#6d28d9;">{{ $this->stats['dispensasiMenunggu'] }}
+                                </div>
+                            </div>
+                        </button></div>
+                    <div class="col-6 col-xl"><button type="button" class="stat-card wakasek-stat wakasek-stat-button"
+                            style="--stat-color:#dc2626;--stat-tint:#fee2e2;"
+                            x-on:click="openSection('monitoring-guru')">
+                            <div>
+                                <div class="text-muted small">Tanpa Keterangan</div>
+                                <div class="stat-value" style="color:#b91c1c;">{{ $this->stats['tanpaKeterangan'] }}
+                                </div>
+                            </div>
+                        </button></div>
+                </div>
+
+                <div
+                    class="wakasek-summary p-3 p-md-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-3">
                         <div>
-                            <div class="text-muted small">Jurnal Hari Ini</div>
-                            <div class="stat-value" style="color:#1d4ed8;">{{ $this->stats['jurnalHariIni'] }}</div>
+                            <div class="fw-bold">Pantauan sekolah aktif</div>
+                            <div class="text-muted small">Data diperbarui otomatis setiap menit.</div>
                         </div>
                     </div>
-                </div>
-                <div class="col-6 col-xl">
-                    <div class="stat-card wakasek-stat" style="--stat-color:#059669;--stat-tint:#d1fae5;"><span
-                            class="wakasek-stat-icon">&#10003;</span>
-                        <div>
-                            <div class="text-muted small">Jurnal Divalidasi</div>
-                            <div class="stat-value" style="color:#047857;">{{ $this->stats['valid'] }}</div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-xl">
+                            <div class="stat-card wakasek-stat" style="--stat-color:#2563eb;--stat-tint:#dbeafe;"><span
+                                    class="wakasek-stat-icon">&#128221;</span>
+                                <div>
+                                    <div class="text-muted small">Jurnal Hari Ini</div>
+                                    <div class="stat-value" style="color:#1d4ed8;">{{ $this->stats['jurnalHariIni'] }}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="col-6 col-xl">
-                    <div class="stat-card wakasek-stat" style="--stat-color:#d97706;--stat-tint:#fef3c7;"><span
-                            class="wakasek-stat-icon">&#9203;</span>
-                        <div>
-                            <div class="text-muted small">Belum Isi Jurnal</div>
-                            <div class="stat-value" style="color:#b45309;">{{ $this->stats['belumIsiJurnal'] }}</div>
+                        <div class="col-6 col-xl">
+                            <div class="stat-card wakasek-stat" style="--stat-color:#059669;--stat-tint:#d1fae5;"><span
+                                    class="wakasek-stat-icon">&#10003;</span>
+                                <div>
+                                    <div class="text-muted small">Jurnal Divalidasi</div>
+                                    <div class="stat-value" style="color:#047857;">{{ $this->stats['valid'] }}</div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="col-6 col-xl">
-                    <div class="stat-card wakasek-stat" style="--stat-color:#7c3aed;--stat-tint:#f3e8ff;"><span
-                            class="wakasek-stat-icon">&#128203;</span>
-                        <div>
-                            <div class="text-muted small">Dispensasi Menunggu</div>
-                            <div class="stat-value" style="color:#6d28d9;">{{ $this->stats['dispensasiMenunggu'] }}
+                        <div class="col-6 col-xl">
+                            <div class="stat-card wakasek-stat" style="--stat-color:#d97706;--stat-tint:#fef3c7;"><span
+                                    class="wakasek-stat-icon">&#9203;</span>
+                                <div>
+                                    <div class="text-muted small">Belum Isi Jurnal</div>
+                                    <div class="stat-value" style="color:#b45309;">{{ $this->stats['belumIsiJurnal'] }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-xl">
+                            <div class="stat-card wakasek-stat" style="--stat-color:#7c3aed;--stat-tint:#f3e8ff;"><span
+                                    class="wakasek-stat-icon">&#128203;</span>
+                                <div>
+                                    <div class="text-muted small">Dispensasi Menunggu</div>
+                                    <div class="stat-value" style="color:#6d28d9;">
+                                        {{ $this->stats['dispensasiMenunggu'] }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-xl">
+                            <div class="stat-card wakasek-stat" style="--stat-color:#dc2626;--stat-tint:#fee2e2;"><span
+                                    class="wakasek-stat-icon">&#9888;</span>
+                                <div>
+                                    <div class="text-muted small">Tanpa Keterangan</div>
+                                    <div class="stat-value" style="color:#b91c1c;">{{ $this->stats['tanpaKeterangan'] }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-6 col-xl">
-                    <div class="stat-card wakasek-stat" style="--stat-color:#dc2626;--stat-tint:#fee2e2;"><span
-                            class="wakasek-stat-icon">&#9888;</span>
-                        <div>
-                            <div class="text-muted small">Tanpa Keterangan</div>
-                            <div class="stat-value" style="color:#b91c1c;">{{ $this->stats['tanpaKeterangan'] }}</div>
+
+                    <div
+                        class="wakasek-summary p-3 p-md-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="wakasek-summary-mark" style="background:#dcfce7;color:#15803d;">&#10003;</span>
+                            <div>
+                                <div class="fw-bold">Pantauan sekolah aktif</div>
+                                <div class="text-muted small">Data diperbarui otomatis setiap menit.</div>
+                            </div>
+                        </div>
+                        <span class="badge rounded-pill px-3 py-2" style="background:#dcfce7;color:#15803d;">PEMANTAUAN
+                            AKTIF</span>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Jurnal Hari Ini</div>
+                                <div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Valid</div>
+                                <div class="stat-value">{{ $this->stats['valid'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Belum Isi Jurnal</div>
+                                <div class="stat-value text-warning">{{ $this->stats['belumIsiJurnal'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Konfirmasi Sekretaris</div>
+                                <div class="stat-value">{{ $this->stats['perluKonfirmasi'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Dispensasi Menunggu</div>
+                                <div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg">
+                            <div class="stat-card">
+                                <div class="text-muted small">Tanpa Keterangan</div>
+                                <div class="stat-value text-danger">{{ $this->stats['tanpaKeterangan'] }}</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="wakasek-summary p-3 p-md-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <div class="d-flex align-items-center gap-3">
-                    <span class="wakasek-summary-mark" style="background:#dcfce7;color:#15803d;">&#10003;</span>
-                    <div>
-                        <div class="fw-bold">Pantauan sekolah aktif</div>
-                        <div class="text-muted small">Data diperbarui otomatis setiap menit.</div>
-                    </div>
-                </div>
-                <span class="badge rounded-pill px-3 py-2" style="background:#dcfce7;color:#15803d;">PEMANTAUAN
-                    AKTIF</span>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Jurnal Hari Ini</div>
-                        <div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Valid</div>
-                        <div class="stat-value">{{ $this->stats['valid'] }}</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Belum Isi Jurnal</div>
-                        <div class="stat-value text-warning">{{ $this->stats['belumIsiJurnal'] }}</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Konfirmasi Sekretaris</div>
-                        <div class="stat-value">{{ $this->stats['perluKonfirmasi'] }}</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Dispensasi Menunggu</div>
-                        <div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg">
-                    <div class="stat-card">
-                        <div class="text-muted small">Tanpa Keterangan</div>
-                        <div class="stat-value text-danger">{{ $this->stats['tanpaKeterangan'] }}</div>
-                    </div>
-                </div>
-            </div>
         </section>
 
         <section x-cloak x-show="activeSection === 'monitoring-jurnal'"
@@ -1038,235 +1136,446 @@ new class extends Component
                             @endforelse
                         </tbody>
                     </table>
+                    <section x-cloak x-show="activeSection === 'dispensasi'"
+                        :class="{ 'd-none': activeSection !== 'dispensasi' }" id="dispensasi"
+                        class="card-custom wakasek-content-card">
+                        <div class="wakasek-page-header m-3 mb-0">
+                            <div class="fw-bold fs-5">Persetujuan Dispensasi</div>
+                            <div class="small opacity-75 mt-1">Tinjau pengajuan siswa yang menunggu persetujuan.</div>
+                        </div>
+                        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}"
+                                class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
+                        <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
+                        <div class="p-3">
+                            <label class="visually-hidden" for="search-dispensasi-wakasek">Cari dispensasi</label>
+                            <input id="search-dispensasi-wakasek" type="search" class="form-control"
+                                placeholder="Cari siswa, kelas, jenis, atau mapel..." x-model="searchDispensasi"
+                                @input="searchDispensasi = $event.target.value.toLocaleLowerCase()">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle wakasek-table">
+                                <thead>
+                                    <tr>
+                                        <th>Siswa</th>
+                                        <th>Kelas</th>
+                                        <th>Jenis</th>
+                                        <th>Mapel</th>
+                                        <th>Tanggal</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($this->dispensasiMenunggu as $dispensasi)
+                                    <tr wire:key="wakasek-dispensasi-{{ $dispensasi->id_dispensasi }}"
+                                        x-show="!searchDispensasi || $el.dataset.search.includes(searchDispensasi)"
+                                        data-search="{{ mb_strtolower(($dispensasi->siswa?->nama_siswa ?? '').' '.($dispensasi->kelas?->nama_kelas ?? '').' '.$dispensasi->jenis_dispensasi.' '.($dispensasi->mapel ?? ''), 'UTF-8') }}">
+                                        <td>{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</td>
+                                        <td>{{ $dispensasi->kelas?->nama_kelas ?? '-' }}</td>
+                                        <td>{{ $dispensasi->jenis_dispensasi }}</td>
+                                        <td>{{ $dispensasi->mapel ?: '-' }}</td>
+                                        <td>{{ $dispensasi->tanggal?->format('d/m/Y') }}</td>
+                                        <td>
+                                            @if ($dispensasi->token)
+                                            <a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}"
+                                                class="btn btn-sm btn-app-primary">Lihat & Validasi</a>
+                                            @else
+                                            <a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}"
+                                                class="btn btn-sm btn-outline-secondary">Lihat Detail</a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">Tidak ada dispensasi yang
+                                            menunggu.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section x-cloak x-show="activeSection === 'rekap'" :class="{ 'd-none': activeSection !== 'rekap' }"
+                        id="rekap" class="d-grid gap-4">
+                        <div class="wakasek-page-header">
+                            <div class="text-uppercase fw-bold"
+                                style="font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.72);">LAPORAN
+                                SEKOLAH</div>
+                            <div class="fw-bold mt-1" style="font-size:24px;">Rekap & Riwayat</div>
+                            <div class="small opacity-75 mt-1">Pilih periode, lalu ekspor atau cetak laporan lengkap.
+                            </div>
+                        </div>
+                        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}"
+                                class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
+
+                        @if ($rekapTerbuka === '')
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                    wire:click="bukaRekap('jurnal')"><span class="d-block fw-bold fs-5">Riwayat
+                                        Jurnal</span><span
+                                        class="d-block text-muted small mt-1">{{ $this->riwayatJurnal->count() }} entri
+                                        pada periode terpilih</span><span
+                                        class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
+                                            aria-hidden="true">→</span></span></button></div>
+                            <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                    wire:click="bukaRekap('belum-mengisi')"><span class="d-block fw-bold fs-5">Guru
+                                        Belum Mengisi</span><span
+                                        class="d-block text-muted small mt-1">{{ $this->rekapBelumMengisi->count() }}
+                                        jadwal tanpa jurnal</span><span
+                                        class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
+                                            aria-hidden="true">→</span></span></button></div>
+                            <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                    wire:click="bukaRekap('kehadiran')"><span class="d-block fw-bold fs-5">Monitoring
+                                        Kehadiran Guru</span><span
+                                        class="d-block text-muted small mt-1">{{ $this->rekapKehadiran->count() }}
+                                        jadwal pada periode terpilih</span><span
+                                        class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
+                                            aria-hidden="true">→</span></span></button></div>
+                            <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                    wire:click="bukaRekap('tanpa-keterangan')"><span class="d-block fw-bold fs-5">Guru
+                                        Tanpa Keterangan</span><span
+                                        class="d-block text-muted small mt-1">{{ $this->rekapTanpaKeterangan->count() }}
+                                        catatan pada periode terpilih</span><span
+                                        class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
+                                            aria-hidden="true">→</span></span></button></div>
+                        </div>
+                        @else
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <button type="button" class="rekap-back" wire:click="tutupRekap">← Kembali ke semua
+                                rekap</button>
+                            <span class="badge rounded-pill px-3 py-2"
+                                style="background:#dbeafe;color:#1d4ed8;">TAMPILAN REKAP</span>
+                        </div>
+                        @endif
+
+                        @if ($rekapTerbuka === 'jurnal')
+                        <section class="card-custom rekap-card" id="rekap-jurnal"
+                            style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                            <div
+                                class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                <div>
+                                    <div class="fw-bold">Riwayat Jurnal</div>
+                                    <div class="text-muted small">{{ $this->riwayatJurnal->count() }} entri sesuai
+                                        periode</div>
+                                </div>
+                                <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                    <select class="form-select form-select-sm" aria-label="Filter riwayat jurnal"
+                                        wire:model.live="filterJurnal">
+                                        <option value="minggu">Minggu ini</option>
+                                        <option value="bulan">Bulan ini</option>
+                                        <option value="tahun">Tahun ini</option>
+                                        <option value="terbaru">Jurnal terbaru (100)</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-primary" type="button"
+                                        wire:click="exportCsv('jurnal')">Ekspor Excel</button>
+                                    <a class="btn btn-sm btn-primary" target="_blank"
+                                        href="{{ $this->urlCetak('jurnal') }}">Cetak / Print</a>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section x-cloak x-show="activeSection === 'rekap'"
+                            :class="{ 'd-none': activeSection !== 'rekap' }" id="rekap" class="d-grid gap-4">
+                            <div class="wakasek-page-header">
+                                <div class="text-uppercase fw-bold"
+                                    style="font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.72);">LAPORAN
+                                    SEKOLAH</div>
+                                <div class="fw-bold mt-1" style="font-size:24px;">Rekap & Riwayat</div>
+                                <div class="small opacity-75 mt-1">Pilih periode, lalu ekspor atau cetak laporan
+                                    lengkap.</div>
+                            </div>
+
+                            @if ($rekapTerbuka === '')
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                        wire:click="bukaRekap('jurnal')"><span
+                                            class="rekap-choice-icon">&#128221;</span><span
+                                            class="d-block fw-bold fs-5 mt-3">Riwayat Jurnal</span><span
+                                            class="d-block text-muted small mt-1">{{ $this->riwayatJurnal->count() }}
+                                            entri pada periode
+                                            terpilih</span><span
+                                            class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
+                                                aria-hidden="true">→</span></span></button></div>
+                                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                        wire:click="bukaRekap('belum-mengisi')"><span
+                                            class="rekap-choice-icon">&#9203;</span><span
+                                            class="d-block fw-bold fs-5 mt-3">Guru Belum Mengisi</span><span
+                                            class="d-block text-muted small mt-1">{{ $this->rekapBelumMengisi->count() }}
+                                            jadwal tanpa
+                                            jurnal</span><span class="d-block text-primary small fw-semibold mt-3">Buka
+                                            rekap <span aria-hidden="true">→</span></span></button></div>
+                                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                        wire:click="bukaRekap('kehadiran')"><span
+                                            class="rekap-choice-icon">&#10003;</span><span
+                                            class="d-block fw-bold fs-5 mt-3">Monitoring Kehadiran Guru</span><span
+                                            class="d-block text-muted small mt-1">{{ $this->rekapKehadiran->count() }}
+                                            jadwal pada
+                                            periode terpilih</span><span
+                                            class="d-block text-primary small fw-semibold mt-3">Buka rekap
+                                            <span aria-hidden="true">→</span></span></button></div>
+                                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
+                                        wire:click="bukaRekap('tanpa-keterangan')"><span
+                                            class="rekap-choice-icon">&#9888;</span><span
+                                            class="d-block fw-bold fs-5 mt-3">Guru Tanpa Keterangan</span><span
+                                            class="d-block text-muted small mt-1">{{ $this->rekapTanpaKeterangan->count() }}
+                                            catatan
+                                            pada periode terpilih</span><span
+                                            class="d-block text-primary small fw-semibold mt-3">Buka
+                                            rekap <span aria-hidden="true">→</span></span></button></div>
+                            </div>
+                            @else
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <button type="button" class="rekap-back" wire:click="tutupRekap">← Kembali ke semua
+                                    rekap</button>
+                                <span class="badge rounded-pill px-3 py-2"
+                                    style="background:#dbeafe;color:#1d4ed8;">TAMPILAN
+                                    REKAP</span>
+                            </div>
+                            @endif
+
+                            @if ($rekapTerbuka === 'jurnal')
+                            <section class="card-custom rekap-card" id="rekap-jurnal"
+                                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                                <div
+                                    class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2"><span
+                                            class="rekap-heading-icon">&#128221;</span>
+                                        <div>
+                                            <div class="fw-bold">Riwayat Jurnal</div>
+                                            <div class="text-muted small">{{ $this->riwayatJurnal->count() }} entri
+                                                sesuai periode</div>
+                                        </div>
+                                    </div>
+                                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                        <select class="form-select form-select-sm" aria-label="Filter riwayat jurnal"
+                                            wire:model.live="filterJurnal">
+                                            <option value="minggu">Minggu ini</option>
+                                            <option value="bulan">Bulan ini</option>
+                                            <option value="tahun">Tahun ini</option>
+                                            <option value="terbaru">Jurnal terbaru (100)</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            wire:click="exportCsv('jurnal')">Ekspor Excel</button>
+                                        <a class="btn btn-sm btn-primary" target="_blank"
+                                            href="{{ $this->urlCetak('jurnal') }}">Cetak /
+                                            Print</a>
+                                    </div>
+                                </div>
+                                <div class="rekap-list d-grid gap-2">
+                                    @forelse ($this->riwayatJurnal as $jurnal)
+                                    <article class="rekap-row" wire:key="rekap-jurnal-{{ $jurnal->id_jurnal }}">
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Tanggal</span>{{ $jurnal->tanggal?->format('d/m/Y') }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Guru</span><strong>{{ $jurnal->guru?->nama ?? '-' }}</strong>
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Kelas</span>{{ $jurnal->kelas?->nama_kelas ?? '-' }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Jam</span>Ke-{{ $jurnal->jam_ke }}</div>
+                                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
+                                                class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : ($jurnal->status_validasi === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jurnal->status_validasi }}</span>
+                                        </div>
+                                        <div class="rekap-cell" style="grid-column:1/-1;"><span
+                                                class="rekap-label">Materi</span>{{ $jurnal->materi }} · Hadir
+                                            {{ $jurnal->jumlah_hadir ?? '-' }}, tidak hadir
+                                            {{ $jurnal->jumlah_tidak_hadir ?? '-' }} ·
+                                            {{ $jurnal->status_kehadiran_guru }}
+                                        </div>
+                                    </article>
+                                    @empty<div class="text-center text-muted py-4">Tidak ada jurnal untuk filter ini.
+                                    </div>@endforelse
+                                    @empty<div class="text-center text-muted py-4">Tidak ada jurnal untuk filter ini.
+                                    </div>@endforelse
+                                </div>
+                            </section>
+                            @endif
+
+                            @if ($rekapTerbuka === 'belum-mengisi')
+                            <section class="card-custom rekap-card" id="rekap-belum-mengisi"
+                                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                                <div
+                                    class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                    <div>
+                                        <div class="fw-bold">Guru Belum Mengisi Jurnal</div>
+                                        <div class="text-muted small">{{ $this->rekapBelumMengisi->count() }} jadwal
+                                            belum memiliki jurnal</div>
+                                    </div>
+                                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                        <select class="form-select form-select-sm"
+                                            aria-label="Filter guru belum mengisi" wire:model.live="filterBelumMengisi">
+                                            <option value="minggu">Minggu ini</option>
+                                            <option value="bulan">Bulan ini</option>
+                                            <option value="tahun">Tahun ini</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            wire:click="exportCsv('belum-mengisi')">Ekspor Excel</button>
+                                        <a class="btn btn-sm btn-primary" target="_blank"
+                                            href="{{ $this->urlCetak('belum-mengisi') }}">Cetak / Print</a>
+                                    </div>
+                            </section>
+                            @endif
+
+                            @if ($rekapTerbuka === 'belum-mengisi')
+                            <section class="card-custom rekap-card" id="rekap-belum-mengisi"
+                                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                                <div
+                                    class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2"><span
+                                            class="rekap-heading-icon">&#9203;</span>
+                                        <div>
+                                            <div class="fw-bold">Guru Belum Mengisi Jurnal</div>
+                                            <div class="text-muted small">{{ $this->rekapBelumMengisi->count() }} jadwal
+                                                belum memiliki
+                                                jurnal</div>
+                                        </div>
+                                    </div>
+                                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                        <select class="form-select form-select-sm"
+                                            aria-label="Filter guru belum mengisi" wire:model.live="filterBelumMengisi">
+                                            <option value="minggu">Minggu ini</option>
+                                            <option value="bulan">Bulan ini</option>
+                                            <option value="tahun">Tahun ini</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            wire:click="exportCsv('belum-mengisi')">Ekspor Excel</button>
+                                        <a class="btn btn-sm btn-primary" target="_blank"
+                                            href="{{ $this->urlCetak('belum-mengisi') }}">Cetak / Print</a>
+                                    </div>
+                                </div>
+                                <div class="rekap-list d-grid gap-2">
+                                    @forelse ($this->rekapBelumMengisi as $jadwal)
+                                    <article class="rekap-row"
+                                        wire:key="rekap-belum-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong>
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Waktu</span>{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}
+                                        </div>
+                                    </article>
+                                    @empty<div class="text-center text-muted py-4">Tidak ada jadwal tanpa jurnal untuk
+                                        filter ini.</div>
+                                    @endforelse
+                                </div>
+                            </section>
+                            @endif
+
+                            @if ($rekapTerbuka === 'kehadiran')
+                            <section class="card-custom rekap-card" id="rekap-kehadiran"
+                                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                                <div
+                                    class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2"><span
+                                            class="rekap-heading-icon">&#10003;</span>
+                                        <div>
+                                            <div class="fw-bold">Monitoring Kehadiran Guru</div>
+                                            <div class="text-muted small">{{ $this->rekapKehadiran->count() }} jadwal
+                                                dalam periode
+                                                terpilih</div>
+                                        </div>
+                                    </div>
+                                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                        <select class="form-select form-select-sm"
+                                            aria-label="Filter monitoring kehadiran" wire:model.live="filterKehadiran">
+                                            <option value="minggu">Minggu ini</option>
+                                            <option value="bulan">Bulan ini</option>
+                                            <option value="tahun">Tahun ini</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            wire:click="exportCsv('kehadiran')">Ekspor Excel</button>
+                                        <a class="btn btn-sm btn-primary" target="_blank"
+                                            href="{{ $this->urlCetak('kehadiran') }}">Cetak / Print</a>
+                                    </div>
+                                </div>
+                                <div class="rekap-list d-grid gap-2">
+                                    @forelse ($this->rekapKehadiran as $jadwal)
+                                    <article class="rekap-row"
+                                        wire:key="rekap-hadir-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong>
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
+                                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
+                                                class="badge {{ $jadwal->status_kehadiran === 'Hadir' ? 'bg-success' : ($jadwal->status_kehadiran === 'Tanpa Keterangan' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_kehadiran }}</span>
+                                        </div>
+                                    </article>
+                                    @empty<div class="text-center text-muted py-4">Tidak ada data kehadiran untuk filter
+                                        ini.</div>
+                                    @endforelse
+                                </div>
+                            </section>
+                            @endif
+
+                            @if ($rekapTerbuka === 'tanpa-keterangan')
+                            <section class="card-custom rekap-card" id="rekap-tanpa-keterangan"
+                                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
+                                <div
+                                    class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                    <div class="d-flex align-items-center gap-2"><span
+                                            class="rekap-heading-icon">&#9888;</span>
+                                        <div>
+                                            <div class="fw-bold">Guru Tanpa Keterangan</div>
+                                            <div class="text-muted small">{{ $this->rekapTanpaKeterangan->count() }}
+                                                jadwal tercatat
+                                                tanpa keterangan</div>
+                                        </div>
+                                    </div>
+                                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
+                                        <select class="form-select form-select-sm" aria-label="Filter tanpa keterangan"
+                                            wire:model.live="filterTanpaKeterangan">
+                                            <option value="minggu">Minggu ini</option>
+                                            <option value="bulan">Bulan ini</option>
+                                            <option value="tahun">Tahun ini</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            wire:click="exportCsv('tanpa-keterangan')">Ekspor Excel</button>
+                                        <a class="btn btn-sm btn-primary" target="_blank"
+                                            href="{{ $this->urlCetak('tanpa-keterangan') }}">Cetak / Print</a>
+                                    </div>
+                                </div>
+                                <div class="rekap-list d-grid gap-2">
+                                    @forelse ($this->rekapTanpaKeterangan as $jadwal)
+                                    <article class="rekap-row"
+                                        wire:key="rekap-tanpa-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong>
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}
+                                        </div>
+                                        <div class="rekap-cell"><span
+                                                class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
+                                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
+                                                class="badge bg-danger">{{ $jadwal->status_kehadiran }}</span></div>
+                                    </article>
+                                    @empty<div class="text-center text-muted py-4">Tidak ada guru tanpa keterangan untuk
+                                        filter ini.
+                                    </div>@endforelse
+                                </div>
+                            </section>
+                            @endif
+                        </section>
+                        @endif
             </div>
-        </section>
-
-        <section x-cloak x-show="activeSection === 'rekap'" :class="{ 'd-none': activeSection !== 'rekap' }" id="rekap"
-            class="d-grid gap-4">
-            <div class="wakasek-page-header">
-                <div class="text-uppercase fw-bold"
-                    style="font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.72);">LAPORAN SEKOLAH</div>
-                <div class="fw-bold mt-1" style="font-size:24px;">Rekap & Riwayat</div>
-                <div class="small opacity-75 mt-1">Pilih periode, lalu ekspor atau cetak laporan lengkap.</div>
-            </div>
-
-            @if ($rekapTerbuka === '')
-            <div class="row g-3">
-                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
-                        wire:click="bukaRekap('jurnal')"><span class="rekap-choice-icon">&#128221;</span><span
-                            class="d-block fw-bold fs-5 mt-3">Riwayat Jurnal</span><span
-                            class="d-block text-muted small mt-1">{{ $this->riwayatJurnal->count() }} entri pada periode
-                            terpilih</span><span class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
-                                aria-hidden="true">→</span></span></button></div>
-                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
-                        wire:click="bukaRekap('belum-mengisi')"><span class="rekap-choice-icon">&#9203;</span><span
-                            class="d-block fw-bold fs-5 mt-3">Guru Belum Mengisi</span><span
-                            class="d-block text-muted small mt-1">{{ $this->rekapBelumMengisi->count() }} jadwal tanpa
-                            jurnal</span><span class="d-block text-primary small fw-semibold mt-3">Buka rekap <span
-                                aria-hidden="true">→</span></span></button></div>
-                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
-                        wire:click="bukaRekap('kehadiran')"><span class="rekap-choice-icon">&#10003;</span><span
-                            class="d-block fw-bold fs-5 mt-3">Monitoring Kehadiran Guru</span><span
-                            class="d-block text-muted small mt-1">{{ $this->rekapKehadiran->count() }} jadwal pada
-                            periode terpilih</span><span class="d-block text-primary small fw-semibold mt-3">Buka rekap
-                            <span aria-hidden="true">→</span></span></button></div>
-                <div class="col-12 col-md-6"><button type="button" class="rekap-choice"
-                        wire:click="bukaRekap('tanpa-keterangan')"><span class="rekap-choice-icon">&#9888;</span><span
-                            class="d-block fw-bold fs-5 mt-3">Guru Tanpa Keterangan</span><span
-                            class="d-block text-muted small mt-1">{{ $this->rekapTanpaKeterangan->count() }} catatan
-                            pada periode terpilih</span><span class="d-block text-primary small fw-semibold mt-3">Buka
-                            rekap <span aria-hidden="true">→</span></span></button></div>
-            </div>
-            @else
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <button type="button" class="rekap-back" wire:click="tutupRekap">← Kembali ke semua rekap</button>
-                <span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1d4ed8;">TAMPILAN
-                    REKAP</span>
-            </div>
-            @endif
-
-            @if ($rekapTerbuka === 'jurnal')
-            <section class="card-custom rekap-card" id="rekap-jurnal"
-                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
-                <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div class="d-flex align-items-center gap-2"><span class="rekap-heading-icon">&#128221;</span>
-                        <div>
-                            <div class="fw-bold">Riwayat Jurnal</div>
-                            <div class="text-muted small">{{ $this->riwayatJurnal->count() }} entri sesuai periode</div>
-                        </div>
-                    </div>
-                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
-                        <select class="form-select form-select-sm" aria-label="Filter riwayat jurnal"
-                            wire:model.live="filterJurnal">
-                            <option value="minggu">Minggu ini</option>
-                            <option value="bulan">Bulan ini</option>
-                            <option value="tahun">Tahun ini</option>
-                            <option value="terbaru">Jurnal terbaru (100)</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-primary" type="button"
-                            wire:click="exportCsv('jurnal')">Ekspor Excel</button>
-                        <a class="btn btn-sm btn-primary" target="_blank" href="{{ $this->urlCetak('jurnal') }}">Cetak /
-                            Print</a>
-                    </div>
-                </div>
-                <div class="rekap-list d-grid gap-2">
-                    @forelse ($this->riwayatJurnal as $jurnal)
-                    <article class="rekap-row" wire:key="rekap-jurnal-{{ $jurnal->id_jurnal }}">
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Tanggal</span>{{ $jurnal->tanggal?->format('d/m/Y') }}</div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Guru</span><strong>{{ $jurnal->guru?->nama ?? '-' }}</strong></div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Kelas</span>{{ $jurnal->kelas?->nama_kelas ?? '-' }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Jam</span>Ke-{{ $jurnal->jam_ke }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
-                                class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : ($jurnal->status_validasi === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jurnal->status_validasi }}</span>
-                        </div>
-                        <div class="rekap-cell" style="grid-column:1/-1;"><span
-                                class="rekap-label">Materi</span>{{ $jurnal->materi }} · Hadir
-                            {{ $jurnal->jumlah_hadir ?? '-' }}, tidak hadir {{ $jurnal->jumlah_tidak_hadir ?? '-' }} ·
-                            {{ $jurnal->status_kehadiran_guru }}
-                        </div>
-                    </article>
-                    @empty<div class="text-center text-muted py-4">Tidak ada jurnal untuk filter ini.</div>@endforelse
-                </div>
-            </section>
-            @endif
-
-            @if ($rekapTerbuka === 'belum-mengisi')
-            <section class="card-custom rekap-card" id="rekap-belum-mengisi"
-                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
-                <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div class="d-flex align-items-center gap-2"><span class="rekap-heading-icon">&#9203;</span>
-                        <div>
-                            <div class="fw-bold">Guru Belum Mengisi Jurnal</div>
-                            <div class="text-muted small">{{ $this->rekapBelumMengisi->count() }} jadwal belum memiliki
-                                jurnal</div>
-                        </div>
-                    </div>
-                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
-                        <select class="form-select form-select-sm" aria-label="Filter guru belum mengisi"
-                            wire:model.live="filterBelumMengisi">
-                            <option value="minggu">Minggu ini</option>
-                            <option value="bulan">Bulan ini</option>
-                            <option value="tahun">Tahun ini</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-primary" type="button"
-                            wire:click="exportCsv('belum-mengisi')">Ekspor Excel</button>
-                        <a class="btn btn-sm btn-primary" target="_blank"
-                            href="{{ $this->urlCetak('belum-mengisi') }}">Cetak / Print</a>
-                    </div>
-                </div>
-                <div class="rekap-list d-grid gap-2">
-                    @forelse ($this->rekapBelumMengisi as $jadwal)
-                    <article class="rekap-row"
-                        wire:key="rekap-belum-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}</div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong></div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Waktu</span>{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}
-                        </div>
-                    </article>
-                    @empty<div class="text-center text-muted py-4">Tidak ada jadwal tanpa jurnal untuk filter ini.</div>
-                    @endforelse
-                </div>
-            </section>
-            @endif
-
-            @if ($rekapTerbuka === 'kehadiran')
-            <section class="card-custom rekap-card" id="rekap-kehadiran"
-                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
-                <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div class="d-flex align-items-center gap-2"><span class="rekap-heading-icon">&#10003;</span>
-                        <div>
-                            <div class="fw-bold">Monitoring Kehadiran Guru</div>
-                            <div class="text-muted small">{{ $this->rekapKehadiran->count() }} jadwal dalam periode
-                                terpilih</div>
-                        </div>
-                    </div>
-                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
-                        <select class="form-select form-select-sm" aria-label="Filter monitoring kehadiran"
-                            wire:model.live="filterKehadiran">
-                            <option value="minggu">Minggu ini</option>
-                            <option value="bulan">Bulan ini</option>
-                            <option value="tahun">Tahun ini</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-primary" type="button"
-                            wire:click="exportCsv('kehadiran')">Ekspor Excel</button>
-                        <a class="btn btn-sm btn-primary" target="_blank"
-                            href="{{ $this->urlCetak('kehadiran') }}">Cetak / Print</a>
-                    </div>
-                </div>
-                <div class="rekap-list d-grid gap-2">
-                    @forelse ($this->rekapKehadiran as $jadwal)
-                    <article class="rekap-row"
-                        wire:key="rekap-hadir-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}</div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong></div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
-                                class="badge {{ $jadwal->status_kehadiran === 'Hadir' ? 'bg-success' : ($jadwal->status_kehadiran === 'Tanpa Keterangan' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_kehadiran }}</span>
-                        </div>
-                    </article>
-                    @empty<div class="text-center text-muted py-4">Tidak ada data kehadiran untuk filter ini.</div>
-                    @endforelse
-                </div>
-            </section>
-            @endif
-
-            @if ($rekapTerbuka === 'tanpa-keterangan')
-            <section class="card-custom rekap-card" id="rekap-tanpa-keterangan"
-                style="--rekap-color:#2563eb;--rekap-tint:#eff6ff;">
-                <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div class="d-flex align-items-center gap-2"><span class="rekap-heading-icon">&#9888;</span>
-                        <div>
-                            <div class="fw-bold">Guru Tanpa Keterangan</div>
-                            <div class="text-muted small">{{ $this->rekapTanpaKeterangan->count() }} jadwal tercatat
-                                tanpa keterangan</div>
-                        </div>
-                    </div>
-                    <div class="rekap-toolbar d-flex flex-wrap justify-content-end gap-2">
-                        <select class="form-select form-select-sm" aria-label="Filter tanpa keterangan"
-                            wire:model.live="filterTanpaKeterangan">
-                            <option value="minggu">Minggu ini</option>
-                            <option value="bulan">Bulan ini</option>
-                            <option value="tahun">Tahun ini</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-primary" type="button"
-                            wire:click="exportCsv('tanpa-keterangan')">Ekspor Excel</button>
-                        <a class="btn btn-sm btn-primary" target="_blank"
-                            href="{{ $this->urlCetak('tanpa-keterangan') }}">Cetak / Print</a>
-                    </div>
-                </div>
-                <div class="rekap-list d-grid gap-2">
-                    @forelse ($this->rekapTanpaKeterangan as $jadwal)
-                    <article class="rekap-row"
-                        wire:key="rekap-tanpa-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}">
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}</div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Guru</span><strong>{{ $jadwal->guru?->nama ?? '-' }}</strong></div>
-                        <div class="rekap-cell"><span
-                                class="rekap-label">Kelas</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Jam</span>Ke-{{ $jadwal->jam_ke }}</div>
-                        <div class="rekap-cell"><span class="rekap-label">Status</span><span
-                                class="badge bg-danger">{{ $jadwal->status_kehadiran }}</span></div>
-                    </article>
-                    @empty<div class="text-center text-muted py-4">Tidak ada guru tanpa keterangan untuk filter ini.
-                    </div>@endforelse
-                </div>
-            </section>
-            @endif
-        </section>
-        @endif
-</div>
 </div>

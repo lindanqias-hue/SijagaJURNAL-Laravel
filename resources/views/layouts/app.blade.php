@@ -172,9 +172,9 @@
 
                 if (session('is_guru_piket')) {
                 $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'icon' => '&#128101;', 'route' => 'guru-piket'];
-                $navItems['dispensasi'] = ['label' => 'Izin & Dispensasi', 'icon' => '&#128221;', 'route' =>
+                $navItems['dispensasi_piket'] = ['label' => 'Izin & Dispensasi', 'icon' => '&#128221;', 'route' =>
                 'dispensasi'];
-                $navItems['rekap_dispensasi'] = ['label' => 'Rekap Dispensasi', 'icon' => '&#128202;', 'route' =>
+                $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'icon' => '&#128202;', 'route' =>
                 'rekap-dispensasi'];
                 }
                 } elseif ($role === 'sekretaris') {

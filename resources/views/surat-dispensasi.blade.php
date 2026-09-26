@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detail Surat Dispensasi</title>
+    <title>Detail Surat & Dispensasi Siswa</title>
 
     <style>
         body {
@@ -147,8 +147,16 @@
         <div class="card">
 
             <div class="header">
-                <h2>{{ $dispensasi->jenis_surat === 'Izin' ? 'Surat Izin Siswa' : 'Surat Dispensasi Siswa' }}</h2>
-                <p>Informasi dispensasi yang diproses</p>
+                <h2>
+                    @if($dispensasi->jenis_surat === 'Izin')
+                    Surat Izin Siswa
+                    @elseif($dispensasi->jenis_surat === 'Sakit')
+                    Surat Keterangan Sakit Siswa
+                    @else
+                    Surat Dispensasi Siswa
+                    @endif
+                </h2>
+                <p>Informasi pengajuan dan sinkronisasi kehadiran siswa</p>
             </div>
 
             <div class="status">
@@ -172,7 +180,7 @@
             </div>
 
             <div class="row">
-                <div class="label">Jenis Surat / Dispensasi</div>
+                <div class="label">Jenis Surat / Keterangan</div>
                 <div class="value">
                     {{ $dispensasi->jenis_surat ?? 'Dispensasi' }} · {{ $dispensasi->jenis_dispensasi }}
                 </div>
@@ -228,7 +236,7 @@
 
             @if ($dispensasi->lampiran_path && isset($ticketUrl))
             <div class="row">
-                <div class="label">Bukti Surat</div>
+                <div class="label">Bukti Surat / Lampiran</div>
                 <div class="value">
                     <a href="{{ route('surat-dispensasi.lampiran', ['id' => $dispensasi->id_dispensasi, 'token' => $dispensasi->ticket_token]) }}"
                         target="_blank">
@@ -251,14 +259,15 @@
                 <form action="{{ route('dispensasi.setujui', $dispensasi->id_dispensasi) }}" method="POST"
                     style="flex:1;">
                     @csrf
-                    <button type="submit" class="btn btn-success" onclick="return confirm('Setujui izin ini?')">
-                        ✔ Setujui & Sinkronkan ke Jurnal
+                    <button type="submit" class="btn btn-success"
+                        onclick="return confirm('Setujui pengajuan ini dan sinkronkan ke jurnal?')">
+                        ✔ Setujui & Sinkronkan
                     </button>
                 </form>
                 <form action="{{ route('dispensasi.tolak', $dispensasi->id_dispensasi) }}" method="POST"
                     style="flex:1;">
                     @csrf
-                    <button type="submit" class="btn btn-danger" onclick="return confirm('Tolak izin ini?')">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Tolak pengajuan ini?')">
                         ✖ Tolak
                     </button>
                 </form>
