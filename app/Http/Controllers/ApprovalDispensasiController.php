@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Dispensasi;
 use App\Models\Pengguna;
 use App\Services\DispensasiJurnalService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ApprovalDispensasiController extends Controller
 {
@@ -20,6 +22,7 @@ class ApprovalDispensasiController extends Controller
             'wakasek',
         ])
             ->where('token', $token)
+            ->where('id_wakasek', $wakasek)
             ->firstOrFail();
 
         $wakasekData = Pengguna::where('id_pengguna', $wakasek)
@@ -32,8 +35,10 @@ class ApprovalDispensasiController extends Controller
         ]);
     }
 
-    public function detail($id)
+    public function detail(int $id)
     {
+        abort_unless(session()->has('id_pengguna'), 403);
+
         $dispensasi = Dispensasi::with([
             'siswa',
             'kelas',
@@ -41,9 +46,50 @@ class ApprovalDispensasiController extends Controller
             'wakasek',
         ])->findOrFail($id);
 
+        $ticketUrl = $dispensasi->status === Dispensasi::STATUS_DISETUJUI && $dispensasi->ticket_token
+            ? route('surat-dispensasi.ticket', [
+                'id' => $dispensasi->id_dispensasi,
+                'ticketToken' => $dispensasi->ticket_token,
+            ])
+            : null;
+
         return view('surat-dispensasi', [
             'dispensasi' => $dispensasi,
+            'ticketUrl' => $ticketUrl,
         ]);
+    }
+
+    public function ticket(int $id, string $ticketToken)
+    {
+        $dispensasi = Dispensasi::query()
+            ->with(['siswa', 'kelas', 'guruPiket', 'wakasek'])
+            ->whereKey($id)
+            ->where('ticket_token', $ticketToken)
+            ->where('status', Dispensasi::STATUS_DISETUJUI)
+            ->firstOrFail();
+
+        return view('surat-dispensasi', [
+            'dispensasi' => $dispensasi,
+            'ticketUrl' => route('surat-dispensasi.ticket', [
+                'id' => $dispensasi->id_dispensasi,
+                'ticketToken' => $dispensasi->ticket_token,
+            ]),
+        ]);
+    }
+
+    public function lampiran(int $id, string $token): BinaryFileResponse
+    {
+        $dispensasi = Dispensasi::query()
+            ->whereKey($id)
+            ->where(function ($query) use ($token): void {
+                $query->where('token', $token)
+                    ->orWhere('ticket_token', $token);
+            })
+            ->firstOrFail();
+
+        abort_unless($dispensasi->lampiran_path && Storage::disk('local')->exists($dispensasi->lampiran_path), 404);
+
+        return response()->download(Storage::disk('local')->path($dispensasi->lampiran_path));
     }
 
     public function setujui(Request $request, $token, $wakasek)
@@ -61,6 +107,10 @@ class ApprovalDispensasiController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if ((int) $dispensasi->id_wakasek !== (int) $wakasek) {
+                return false;
+            }
+
             // Kalau sudah diproses Wakasek lain
             if ($dispensasi->status !== 'Menunggu Persetujuan') {
                 return false;
@@ -73,7 +123,7 @@ class ApprovalDispensasiController extends Controller
                 ->where('role', 'wakasek')
                 ->first();
 
-            if (!$wakasekData) {
+            if (! $wakasekData) {
                 return false;
             }
 
@@ -88,7 +138,7 @@ class ApprovalDispensasiController extends Controller
             return true;
         });
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return redirect()
                 ->route('approve-dispensasi', [
                     'token' => $token,
@@ -135,8 +185,7 @@ class ApprovalDispensasiController extends Controller
         $request->validate([
             'catatan_wakasek' => 'required|string|max:500',
         ], [
-            'catatan_wakasek.required' =>
-                'Catatan wajib diisi saat menolak.',
+            'catatan_wakasek.required' => 'Catatan wajib diisi saat menolak.',
         ]);
 
         $berhasil = DB::transaction(function () use (
@@ -147,6 +196,10 @@ class ApprovalDispensasiController extends Controller
             $dispensasi = Dispensasi::where('token', $token)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ((int) $dispensasi->id_wakasek !== (int) $wakasek) {
+                return false;
+            }
 
             if ($dispensasi->status !== 'Menunggu Persetujuan') {
                 return false;
@@ -159,7 +212,7 @@ class ApprovalDispensasiController extends Controller
                 ->where('role', 'wakasek')
                 ->first();
 
-            if (!$wakasekData) {
+            if (! $wakasekData) {
                 return false;
             }
 
@@ -174,7 +227,7 @@ class ApprovalDispensasiController extends Controller
             return true;
         });
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return redirect()
                 ->route('approve-dispensasi', [
                     'token' => $token,

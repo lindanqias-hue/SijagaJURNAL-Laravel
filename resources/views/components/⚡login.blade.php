@@ -3,9 +3,7 @@
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Pengguna;
-use App\Models\JadwalPiket;
-use App\Models\GuruPiket;
-use Carbon\Carbon;
+use App\Services\GuruPiketAccessService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
@@ -27,18 +25,9 @@ new #[Layout('layouts.guest')] class extends Component
             return;
         }
 
-        $sekarang = Carbon::now('Asia/Jakarta');
         $roleSistem = $user->role === 'guru_piket' ? 'guru' : $user->role;
-        $hariIni = $sekarang->locale('id')->translatedFormat('l');
-        $ditugaskanSebagaiGuruPiket = GuruPiket::query()
-            ->where('id_pengguna', $user->id_pengguna)
-            ->where('hari', $hariIni)
-            ->where('aktif', true)
-            ->exists() || JadwalPiket::query()
-            ->where('id_guru', $user->id_pengguna)
-            ->whereDate('tanggal', $sekarang->toDateString())
-            ->where('status', 'Aktif')
-            ->exists();
+        $ditugaskanSebagaiGuruPiket = app(GuruPiketAccessService::class)
+            ->bertugasHariIni($user->id_pengguna);
 
         Session::put([
             'id_pengguna' => $user->id_pengguna,
@@ -70,49 +59,49 @@ new #[Layout('layouts.guest')] class extends Component
 
 <div>
 
-<div class="login-wrapper">
+    <div class="login-wrapper">
 
-    <div class="deco-circle"
-         style="top:-120px; right:-120px; width:400px; height:400px;">
-    </div>
+        <div class="deco-circle"
+            style="top:-120px; right:-120px; width:400px; height:400px;">
+        </div>
 
-    <div class="deco-circle"
-         style="top:-60px; right:-60px; width:240px; height:240px;">
-    </div>
+        <div class="deco-circle"
+            style="top:-60px; right:-60px; width:240px; height:240px;">
+        </div>
 
-    <div class="deco-circle"
-         style="bottom:-100px; left:-100px; width:360px; height:360px;">
-    </div>
-
-
-    <div style="width:100%; max-width:440px; position:relative; z-index:1;">
-
-        <div class="login-card-header">
-
-            <div class="login-logo">🏫</div>
-
-            <div class="fw-bold"
-                 style="font-size:21px; color:#fff;">
-                Sistem Informasi
-            </div>
-
-            <div class="fw-bold"
-                 style="font-size:21px; color:#60a5fa;">
-                Jurnal &amp; Absensi Guru
-            </div>
-
-            <div style="color:rgba(255,255,255,.45);
-                        font-size:12px;
-                        margin-top:8px;">
-                SMK Negeri 1 Contoh — Tahun Ajaran 2026/2027
-            </div>
-
+        <div class="deco-circle"
+            style="bottom:-100px; left:-100px; width:360px; height:360px;">
         </div>
 
 
-        <div class="login-card-body">
+        <div style="width:100%; max-width:440px; position:relative; z-index:1;">
 
-            @if (!$showForgot)
+            <div class="login-card-header">
+
+                <div class="login-logo">🏫</div>
+
+                <div class="fw-bold"
+                    style="font-size:21px; color:#fff;">
+                    Sistem Informasi
+                </div>
+
+                <div class="fw-bold"
+                    style="font-size:21px; color:#60a5fa;">
+                    Jurnal &amp; Absensi Guru
+                </div>
+
+                <div style="color:rgba(255,255,255,.45);
+                        font-size:12px;
+                        margin-top:8px;">
+                    SMK Negeri 1 Contoh — Tahun Ajaran 2026/2027
+                </div>
+
+            </div>
+
+
+            <div class="login-card-body">
+
+                @if (!$showForgot)
 
                 <div class="fw-bold" style="font-size:16px;">
                     Masuk ke Sistem
@@ -137,8 +126,7 @@ new #[Layout('layouts.guest')] class extends Component
                             class="form-control-custom"
                             placeholder="Masukkan NIP atau ID Anda"
                             required
-                            autofocus
-                        >
+                            autofocus>
 
                     </div>
 
@@ -153,17 +141,16 @@ new #[Layout('layouts.guest')] class extends Component
                             wire:model="password"
                             class="form-control-custom"
                             placeholder="Masukkan password"
-                            required
-                        >
+                            required>
 
                     </div>
 
 
                     @if ($error)
 
-                        <div class="mb-3 alert-box alert-danger-box">
-                            ⚠️ {{ $error }}
-                        </div>
+                    <div class="mb-3 alert-box alert-danger-box">
+                        ⚠️ {{ $error }}
+                    </div>
 
                     @endif
 
@@ -197,7 +184,7 @@ new #[Layout('layouts.guest')] class extends Component
                 </div>
 
 
-            @else
+                @else
 
 
                 <div class="text-center mb-4">
@@ -211,7 +198,7 @@ new #[Layout('layouts.guest')] class extends Component
                     </div>
 
                     <div class="text-muted mt-2"
-                         style="font-size:13px; line-height:1.6;">
+                        style="font-size:13px; line-height:1.6;">
 
                         Silakan hubungi Administrator Sekolah
                         untuk mereset password Anda.
@@ -222,12 +209,12 @@ new #[Layout('layouts.guest')] class extends Component
 
 
                 <div class="p-3 mb-4"
-                     style="background:#f3f6fb;
+                    style="background:#f3f6fb;
                             border-radius:10px;
                             border:1px solid var(--border);">
 
                     <div class="fw-bold mb-1"
-                         style="font-size:12px;">
+                        style="font-size:12px;">
 
                         Kontak Admin Sekolah
 
@@ -261,12 +248,12 @@ new #[Layout('layouts.guest')] class extends Component
                 </button>
 
 
-            @endif
+                @endif
+
+            </div>
 
         </div>
 
     </div>
-
-</div>
 
 </div>

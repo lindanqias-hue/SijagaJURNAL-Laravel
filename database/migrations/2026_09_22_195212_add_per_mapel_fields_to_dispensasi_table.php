@@ -2,16 +2,15 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement(
-            "ALTER TABLE dispensasi MODIFY jenis_dispensasi ENUM('Per Jam', 'Sehari Penuh', 'Per Mapel') NOT NULL"
-        );
+        Schema::table('dispensasi', function (Blueprint $table) {
+            $table->string('jenis_dispensasi')->change();
+        });
 
         Schema::table('dispensasi', function (Blueprint $table) {
             if (! Schema::hasColumn('dispensasi', 'id_jadwal')) {
@@ -49,9 +48,6 @@ return new class extends Migration
             $table->dropColumn(['id_jadwal', 'id_guru', 'mapel']);
         });
 
-        DB::statement(
-            "ALTER TABLE dispensasi MODIFY jenis_dispensasi ENUM('Per Jam', 'Sehari Penuh') NOT NULL"
-        );
+        // Keep the expanded string type so stored Per Mapel rows remain valid.
     }
 };
-

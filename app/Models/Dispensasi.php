@@ -22,6 +22,10 @@ class Dispensasi extends Model
 
     public const STATUS_SELESAI = 'Selesai';
 
+    public const JENIS_SURAT_DISPENSASI = 'Dispensasi';
+
+    public const JENIS_SURAT_IZIN = 'Izin';
+
     public const STATUSES = [
         self::STATUS_MENUNGGU,
         self::STATUS_DISETUJUI,
@@ -36,6 +40,7 @@ class Dispensasi extends Model
         'id_guru',
         'mapel',
         'jenis_dispensasi',
+        'jenis_surat',
         'tanggal',
         'jam_ke',
         'jam_ke_mulai',
@@ -43,10 +48,12 @@ class Dispensasi extends Model
         'jam_mulai',
         'jam_selesai',
         'alasan',
+        'lampiran_path',
         'id_guru_piket',
         'status',
         'id_wakasek',
         'token',
+        'ticket_token',
         'waktu_approval',
         'catatan_wakasek',
     ];

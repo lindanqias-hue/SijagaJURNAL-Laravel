@@ -26,6 +26,7 @@ new class extends Component
             return;
         }
 
+        // Dikunci otomatis sesuai waktu kini dan tidak dapat diubah manual
         $this->bulanFilter = now()->format('Y-m-d');
     }
 
@@ -56,11 +57,6 @@ new class extends Component
         return session('role') === 'sekretaris';
     }
 
-    /**
-     * Query dasar riwayat, sudah memperhitungkan role:
-     * - guru       -> hanya jurnal miliknya sendiri ("Riwayat Saya")
-     * - selain itu -> semua jurnal semua kelas ("Riwayat Kelas" / laporan)
-     */
     protected function baseQuery()
     {
         $query = Jurnal::query()->with(['guru', 'kelas']);
@@ -105,9 +101,6 @@ new class extends Component
 
     public function getStatsProperty()
     {
-        // Stat card mengikuti filter kelas/bulan/pencarian yang aktif,
-        // tapi tidak ikut ke-filter oleh statusFilter (supaya angkanya
-        // tetap jadi acuan untuk keempat status sekaligus).
         $query = Jurnal::query();
 
         if ($this->isGuru) {
@@ -121,7 +114,6 @@ new class extends Component
             $query->where('id_kelas', $this->kelasFilter);
         }
 
-        // PERBAIKAN: Mengganti DATE_FORMAT (MySQL-only) dengan whereYear & whereMonth (SQLite & MySQL)
         if ($this->bulanFilter) {
             [$year, $month, $day] = explode('-', $this->bulanFilter);
             $query->whereYear('tanggal', $year)
@@ -297,7 +289,8 @@ new class extends Component
 
                 <div class="col-md-3">
                     <label class="form-label-sm">Status Validasi</label>
-                    <select wire:model.live="statusFilter" class="form-select form-select-sm">
+                    <select wire:model.live="statusFilter" class="form-select form-select-sm" @if($this->isGuru)
+                        disabled @endif>
                         <option value="Semua">Semua Status</option>
                         <option value="Menunggu">Menunggu</option>
                         <option value="Divalidasi">Valid</option>
@@ -318,9 +311,9 @@ new class extends Component
                 @endunless
 
                 <div class="col-md-3">
-                    <label class="form-label-sm">Bulan</label>
-                    <input type="month" wire:model.live="bulanFilter" class="form-control form-control-sm" ,
-                        disabled="{{ $this->isSekretaris ? 'disabled' : '' }}">
+                    <label class="form-label-sm">Tanggal / Waktu Kini</label>
+                    <input type="date" wire:model.live="bulanFilter" class="form-control form-control-sm bg-light"
+                        disabled>
                 </div>
 
                 <div class="col-md-3">

@@ -49,7 +49,7 @@
             border-radius: 14px;
             padding: 20px;
             margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
         }
 
         .judul {
@@ -181,110 +181,119 @@
 
 <body>
 
-<div class="container">
+    <div class="container">
 
-    <div class="header">
-        <h1>Approval Dispensasi</h1>
-        <p>Konfirmasi permohonan dispensasi siswa</p>
-    </div>
+        <div class="header">
+            <h1>Approval Dispensasi</h1>
+            <p>Konfirmasi permohonan dispensasi siswa</p>
+        </div>
 
-    @if (session('success'))
+        @if (session('success'))
         <div class="alert alert-success">
             ✅ {{ session('success') }}
         </div>
-    @endif
+        @endif
 
-    @if (session('error'))
+        @if (session('error'))
         <div class="alert alert-error">
             ❌ {{ session('error') }}
         </div>
-    @endif
+        @endif
 
-    <div class="wakasek">
-        <strong>Wakasek:</strong>
-        {{ $wakasek->nama }}
-    </div>
-
-    <div class="card">
-
-        <div class="judul">
-            📋 Data Dispensasi
+        <div class="wakasek">
+            <strong>Wakasek:</strong>
+            {{ $wakasek->nama }}
         </div>
 
-        <div class="data">
-            <div class="label">Nama Siswa</div>
-            <div class="value">
-                {{ $dispensasi->siswa->nama_siswa ?? '-' }}
+        <div class="card">
+
+            <div class="judul">
+                📋 Data Dispensasi
             </div>
-        </div>
 
-        <div class="data">
-            <div class="label">Kelas</div>
-            <div class="value">
-                {{ $dispensasi->kelas->nama_kelas ?? '-' }}
+            <div class="data">
+                <div class="label">Nama Siswa</div>
+                <div class="value">
+                    {{ $dispensasi->siswa->nama_siswa ?? '-' }}
+                </div>
             </div>
-        </div>
 
-        <div class="data">
-            <div class="label">Jenis Dispensasi</div>
-            <div class="value">
-                {{ $dispensasi->jenis_dispensasi }}
+            <div class="data">
+                <div class="label">Kelas</div>
+                <div class="value">
+                    {{ $dispensasi->kelas->nama_kelas ?? '-' }}
+                </div>
             </div>
-        </div>
 
-        <div class="data">
-            <div class="label">Tanggal</div>
-            <div class="value">
-                {{ \Carbon\Carbon::parse($dispensasi->tanggal)->translatedFormat('d F Y') }}
+            <div class="data">
+                <div class="label">Jenis Dispensasi</div>
+                <div class="value">
+                    {{ $dispensasi->jenis_dispensasi }}
+                </div>
             </div>
-        </div>
 
-        @if ($dispensasi->jenis_dispensasi === 'Per Jam')
+            <div class="data">
+                <div class="label">Tanggal</div>
+                <div class="value">
+                    {{ \Carbon\Carbon::parse($dispensasi->tanggal)->translatedFormat('d F Y') }}
+                </div>
+            </div>
+
+            @if ($dispensasi->jenis_dispensasi === 'Per Jam')
             <div class="data">
                 <div class="label">Jam</div>
                 <div class="value">
                     Jam ke-{{ $dispensasi->jam_ke_mulai }}
 
                     @if ($dispensasi->jam_ke_selesai != $dispensasi->jam_ke_mulai)
-                        s/d {{ $dispensasi->jam_ke_selesai }}
+                    s/d {{ $dispensasi->jam_ke_selesai }}
                     @endif
                 </div>
             </div>
-        @endif
+            @endif
 
-        <div class="data">
-            <div class="label">Alasan</div>
-            <div class="value">
-                {{ $dispensasi->alasan }}
+            <div class="data">
+                <div class="label">Alasan</div>
+                <div class="value">
+                    {{ $dispensasi->alasan }}
+                </div>
             </div>
-        </div>
 
-        <div class="data">
-            <div class="label">Diajukan oleh Guru Piket</div>
-            <div class="value">
-                {{ $dispensasi->guruPiket->nama ?? '-' }}
+            @if ($dispensasi->lampiran_path)
+            <div class="data">
+                <div class="label">Bukti Surat</div>
+                <div class="value">
+                    <a href="{{ route('surat-dispensasi.lampiran', ['id' => $dispensasi->id_dispensasi, 'token' => $dispensasi->token]) }}">Unduh lampiran</a>
+                </div>
             </div>
-        </div>
+            @endif
 
-        <div class="data">
-            <div class="label">Status</div>
+            <div class="data">
+                <div class="label">Diajukan oleh Guru Piket</div>
+                <div class="value">
+                    {{ $dispensasi->guruPiket->nama ?? '-' }}
+                </div>
+            </div>
 
-            @if ($dispensasi->status === 'Menunggu Persetujuan')
+            <div class="data">
+                <div class="label">Status</div>
+
+                @if ($dispensasi->status === 'Menunggu Persetujuan')
                 <span class="status menunggu">
                     🟡 Menunggu Persetujuan
                 </span>
-            @elseif ($dispensasi->status === 'Disetujui')
+                @elseif ($dispensasi->status === 'Disetujui')
                 <span class="status disetujui">
                     🟢 Disetujui
                 </span>
-            @elseif ($dispensasi->status === 'Ditolak')
+                @elseif ($dispensasi->status === 'Ditolak')
                 <span class="status ditolak">
                     🔴 Ditolak
                 </span>
-            @endif
-        </div>
+                @endif
+            </div>
 
-        @if ($dispensasi->status !== 'Menunggu Persetujuan')
+            @if ($dispensasi->status !== 'Menunggu Persetujuan')
 
             <div class="data">
                 <div class="label">Diproses oleh</div>
@@ -300,11 +309,17 @@
                 </div>
             </div>
 
-        @endif
+            @endif
 
-    </div>
+            @if ($dispensasi->status === 'Disetujui')
+            <a class="btn-setujui" href="{{ route('surat-dispensasi.ticket', ['id' => $dispensasi->id_dispensasi, 'ticketToken' => $dispensasi->ticket_token]) }}">
+                Buka Tiket Digital
+            </a>
+            @endif
 
-    @if ($dispensasi->status === 'Menunggu Persetujuan')
+        </div>
+
+        @if ($dispensasi->status === 'Menunggu Persetujuan')
 
         <div class="card">
 
@@ -318,8 +333,7 @@
                     'token' => $dispensasi->token,
                     'wakasek' => $wakasek->id_pengguna,
                 ]) }}"
-                onsubmit="return confirm('Apakah Anda yakin ingin menyetujui dispensasi ini?')"
-            >
+                onsubmit="return confirm('Apakah Anda yakin ingin menyetujui dispensasi ini?')">
                 @csrf
 
                 <div class="data">
@@ -329,16 +343,14 @@
 
                     <textarea
                         name="catatan_wakasek"
-                        placeholder="Tulis catatan jika diperlukan..."
-                    ></textarea>
+                        placeholder="Tulis catatan jika diperlukan..."></textarea>
                 </div>
 
                 <div class="buttons">
 
                     <button
                         type="submit"
-                        class="btn-setujui"
-                    >
+                        class="btn-setujui">
                         ✓ SETUJUI
                     </button>
 
@@ -351,32 +363,28 @@
                     'token' => $dispensasi->token,
                     'wakasek' => $wakasek->id_pengguna,
                 ]) }}"
-                onsubmit="return confirm('Apakah Anda yakin ingin menolak dispensasi ini?')"
-            >
+                onsubmit="return confirm('Apakah Anda yakin ingin menolak dispensasi ini?')">
                 @csrf
 
-                <input
-                    type="hidden"
-                    name="catatan_wakasek"
-                    id="catatan-tolak"
-                >
-
+                <div class="data">
+                    <label class="label" for="alasan-penolakan">Alasan Penolakan <span aria-hidden="true">*</span></label>
+                    <textarea
+                        id="alasan-penolakan"
+                        name="catatan_wakasek"
+                        maxlength="500"
+                        required
+                        placeholder="Wajib diisi saat menolak..."></textarea>
+                    @error('catatan_wakasek')
+                    <div class="alert alert-error">{{ $message }}</div>
+                    @enderror
+                </div>
                 <div class="buttons">
 
                     <button
                         type="submit"
                         class="btn-tolak"
-                        onclick="
-                            const catatan = document.querySelector('textarea[name=catatan_wakasek]').value;
-                            if (!catatan.trim()) {
-                                alert('Catatan wajib diisi jika menolak.');
-                                return false;
-                            }
-                            document.getElementById('catatan-tolak').value = catatan;
-                        "
-                    >
                         ✕ TOLAK
-                    </button>
+                        </button>
 
                 </div>
 
@@ -384,9 +392,10 @@
 
         </div>
 
-    @endif
+        @endif
 
-</div>
+    </div>
 
 </body>
+
 </html>

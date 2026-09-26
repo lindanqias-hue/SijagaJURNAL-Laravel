@@ -51,6 +51,10 @@ Route::middleware('auth.session')->group(function () {
     Route::livewire('/riwayat', 'riwayat')->name('riwayat');
     Route::livewire('/input-jurnal', 'input-jurnal')->name('input-jurnal');
 
+    Route::middleware('role:wakasek')->group(function () {
+        // approval dispensasi tetap tersedia lewat controller/token lama
+    });
+
     Route::middleware('role:admin')->group(function () {
         Route::livewire('/admin', 'admin')->name('admin');
     });

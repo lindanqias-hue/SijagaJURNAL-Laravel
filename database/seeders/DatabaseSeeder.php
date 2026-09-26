@@ -192,6 +192,7 @@ class DatabaseSeeder extends Seeder
         ], $guruIds);
 
         $this->seedJadwalPiket($guruIds);
+        $this->call(WeekendGuruPiketSeeder::class);
 
         $this->call(DummyAbsensiSiswaSeeder::class);
     }
@@ -251,13 +252,15 @@ class DatabaseSeeder extends Seeder
      */
     private function seedJadwalPiket($guruIds): void
     {
-        foreach ([
-            ['GURU001', 'Senin'],
-            ['GURU002', 'Selasa'],
-            ['GURU003', 'Rabu'],
-            ['GURU004', 'Kamis'],
-            ['GURU005', 'Jumat'],
-        ] as [$nip, $hari]) {
+        foreach (
+            [
+                ['GURU001', 'Senin'],
+                ['GURU002', 'Selasa'],
+                ['GURU003', 'Rabu'],
+                ['GURU004', 'Kamis'],
+                ['GURU005', 'Jumat'],
+            ] as [$nip, $hari]
+        ) {
             DB::table('guru_piket')->updateOrInsert(
                 ['id_pengguna' => $guruIds[$nip], 'hari' => $hari],
                 ['jam_mulai' => '07:00:00', 'jam_selesai' => '15:00:00', 'aktif' => true]

@@ -6,16 +6,19 @@ use App\Models\AbsensiSiswa;
 use App\Models\Dispensasi;
 use App\Models\Jurnal;
 use App\Models\KeteranganSiswa;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DispensasiJurnalService
 {
-    public function sync(Dispensasi $dispensasi)
+    public function sync(Dispensasi $dispensasi): void
     {
-        // Hanya dispensasi yang sudah disetujui
-        if ($dispensasi->status !== 'Disetujui') {
+        if ($dispensasi->status !== Dispensasi::STATUS_DISETUJUI) {
             return;
         }
+
+        $statusAbsensi = $this->statusAbsensi($dispensasi);
 
         /*
         |--------------------------------------------------------------------------
@@ -65,7 +68,7 @@ class DispensasiJurnalService
                     'id_siswa' => $dispensasi->id_siswa,
                 ],
                 [
-                    'keterangan' => 'Dispensasi',
+                    'keterangan' => $statusAbsensi,
                 ]
             );
 
@@ -78,7 +81,7 @@ class DispensasiJurnalService
                         'id_siswa' => $siswa->id_siswa,
                         'nama_siswa' => $siswa->nama_siswa,
                         'kelas' => $siswa->kelas?->nama_kelas ?? '-',
-                        'status' => 'Dispensasi',
+                        'status' => $statusAbsensi,
                         'keterangan' => $dispensasi->alasan,
                         'tanggal' => $dispensasi->tanggal,
                     ]
@@ -95,10 +98,11 @@ class DispensasiJurnalService
         $guruIds = $dispensasi->jenis_dispensasi === 'Per Mapel'
             ? collect([$dispensasi->id_guru])->filter()
             : DB::table('jadwal')
-                ->where('id_kelas', $dispensasi->id_kelas)
-                ->whereIn('jam_ke', $this->getJamKe($dispensasi))
-                ->pluck('id_guru')
-                ->unique();
+            ->where('id_kelas', $dispensasi->id_kelas)
+            ->where('hari', $this->getHariIndonesia($dispensasi->tanggal))
+            ->whereIn('jam_ke', $this->getJamKe($dispensasi))
+            ->pluck('id_guru')
+            ->unique();
 
         foreach ($guruIds as $idGuru) {
 
@@ -122,7 +126,47 @@ class DispensasiJurnalService
     |--------------------------------------------------------------------------
     */
 
-    private function getJamKe(Dispensasi $dispensasi)
+    public function statusTerikatUntukJurnal(
+        int $idKelas,
+        string $tanggal,
+        int $jamKe,
+        int $idGuru
+    ): Collection {
+        return Dispensasi::query()
+            ->where('id_kelas', $idKelas)
+            ->whereDate('tanggal', $tanggal)
+            ->where('status', Dispensasi::STATUS_DISETUJUI)
+            ->where(function ($query) use ($jamKe, $idGuru): void {
+                $query->where('jenis_dispensasi', 'Sehari Penuh')
+                    ->orWhere(function ($query) use ($jamKe): void {
+                        $query->where('jenis_dispensasi', 'Per Jam')
+                            ->where('jam_ke_mulai', '<=', $jamKe)
+                            ->where('jam_ke_selesai', '>=', $jamKe);
+                    })
+                    ->orWhere(function ($query) use ($jamKe, $idGuru): void {
+                        $query->where('jenis_dispensasi', 'Per Mapel')
+                            ->where('id_guru', $idGuru)
+                            ->where('jam_ke_mulai', $jamKe);
+                    });
+            })
+            ->get(['id_siswa', 'jenis_surat', 'alasan'])
+            ->mapWithKeys(fn(Dispensasi $dispensasi): array => [
+                $dispensasi->id_siswa => [
+                    'status' => $this->statusAbsensi($dispensasi),
+                    'keterangan' => $dispensasi->alasan,
+                ],
+            ]);
+    }
+
+    private function statusAbsensi(Dispensasi $dispensasi): string
+    {
+        return $dispensasi->jenis_surat === Dispensasi::JENIS_SURAT_IZIN
+            ? 'Izin'
+            : 'Dispensasi';
+    }
+
+    /** @return array<int, int> */
+    private function getJamKe(Dispensasi $dispensasi): array
     {
         // Sehari penuh → ambil semua jam pada hari tersebut
         if ($dispensasi->jenis_dispensasi === 'Sehari Penuh') {
@@ -153,7 +197,7 @@ class DispensasiJurnalService
     |--------------------------------------------------------------------------
     */
 
-    private function getHariIndonesia($tanggal)
+    private function getHariIndonesia(string|Carbon|\DateTimeInterface $tanggal): string
     {
         $hari = date('l', strtotime($tanggal));
 
