@@ -580,10 +580,6 @@ new class extends Component
                         Ringkasan jurnal, kehadiran guru, dan dispensasi sekolah.
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-pill" style="background:rgba(255,255,255,.13); color:#fff; font-size:12px; border:1px solid rgba(255,255,255,.18);">
-                    <span style="width:8px;height:8px;border-radius:50%;background:#6ee7b7;box-shadow:0 0 0 4px rgba(110,231,183,.18);"></span>
-                    {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
-                </div>
             </div>
         </div>
 

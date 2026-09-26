@@ -180,6 +180,24 @@ a { color: var(--primary); }
 }
 .topbar-mobile .brand-mini { color: #fff; font-weight: 700; font-size: 14px; }
 
+.layout-clock {
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.layout-clock-time { font-size: 17px; font-weight: 800; }
+.layout-clock-date { color: rgba(255,255,255,.68); font-size: 10px; }
+.layout-clock-mobile { display: none; }
+.layout-clock-desktop {
+  margin: 2px 18px 14px;
+  padding: 13px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,.06);
+}
+
 /* ===================== BADGES ===================== */
 .badge-status {
   padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; white-space: nowrap;
@@ -344,6 +362,10 @@ a { color: var(--primary); }
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 991.98px) {
   .topbar-mobile { display: flex; }
+  .layout-clock-mobile { display: flex; margin-left: auto; align-items: flex-end; text-align: right; }
+  .layout-clock-mobile .layout-clock-time { font-size: 15px; }
+  .layout-clock-mobile .layout-clock-date { font-size: 9px; }
+  .layout-clock-desktop { display: none; }
   .app-wrapper { flex-direction: column; }
   .main-content { padding: 18px; }
   .sidebar-brand { padding: 20px 18px; }

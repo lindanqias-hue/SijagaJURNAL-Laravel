@@ -269,33 +269,6 @@ public function getJadwalHariIniProperty()
         </div>
 
 
-        {{-- JAM & TANGGAL --}}
-<div class="d-flex flex-wrap gap-3 mt-3 pt-3"
-     style="
-        border-top:1px solid rgba(255,255,255,.25);
-     ">
-
-    <div id="clock"
-        style="
-            color:#fff;
-            font-size:24px;
-            font-weight:700;
-            line-height:1.1;
-        ">
-        {{ now('Asia/Jakarta')->format('H:i:s') }}
-    </div>
-
-    <div id="date"
-        style="
-            color:rgba(255,255,255,.8);
-            font-size:14px;
-            font-weight:600;
-            margin-top:2px;
-        ">
-        {{ now('Asia/Jakarta')->locale('id')->translatedFormat('l, d F Y') }}
-    </div>
-
-</div>
     </div>
 
 </div>
@@ -719,41 +692,3 @@ public function getJadwalHariIniProperty()
     {{-- /x-data tabAktif --}}
 
 </div>
-
-@script
-<script>
-    function updateClock() {
-        const now = new Date();
-
-        const time = now.toLocaleTimeString('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-        });
-
-        const date = now.toLocaleDateString('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            weekday: 'long',
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-        });
-
-        const clock = document.getElementById('clock');
-        const dateElement = document.getElementById('date');
-
-        if (clock) {
-            clock.textContent = time;
-        }
-
-        if (dateElement) {
-            dateElement.textContent = date;
-        }
-    }
-
-    updateClock();
-    setInterval(updateClock, 1000);
-</script>
-@endscript

@@ -84,6 +84,11 @@
             SIJAGA
         </div>
 
+        <div class="layout-clock layout-clock-mobile" aria-label="Jam dan tanggal saat ini">
+            <time class="layout-clock-time" data-layout-clock-time></time>
+            <time class="layout-clock-date" data-layout-clock-date></time>
+        </div>
+
     </div>
 
 
@@ -130,6 +135,11 @@
                 aria-label="Close"
             ></button>
 
+        </div>
+
+        <div class="layout-clock layout-clock-desktop" aria-label="Jam dan tanggal saat ini">
+            <time class="layout-clock-time" data-layout-clock-time></time>
+            <time class="layout-clock-date" data-layout-clock-date></time>
         </div>
 
 
@@ -207,11 +217,9 @@
         } elseif ($role === 'sekretaris') {
 
             $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'dashboard'],
-                'data_kelas' => ['label' => 'Data Kelas', 'icon' => '&#127891;', 'route' => 'sekretaris', 'anchor' => 'data-kelas'],
-                'jurnal_kelas' => ['label' => 'Jurnal Kelas', 'icon' => '&#128203;', 'route' => 'sekretaris', 'anchor' => 'jurnal-kelas'],
-                'kehadiran' => ['label' => 'Kehadiran', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' => 'kehadiran'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'sekretaris', 'anchor' => 'rekap'],
+                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'sekretaris', 'anchor' => 'dashboard'],
+                'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' => 'validasi-jurnal'],
+                'riwayat_validasi' => ['label' => 'Riwayat Validasi Jurnal', 'icon' => '&#128203;', 'route' => 'sekretaris', 'anchor' => 'riwayat-validasi'],
             ];
 
         } else {
@@ -240,10 +248,14 @@
 
         @php
             $isActive = request()->routeIs($item['route']) && empty($item['anchor']);
+            if (session('role') === 'sekretaris' && request()->routeIs('sekretaris')) {
+                $activeSection = request()->query('menu', 'dashboard');
+                $isActive = ($item['anchor'] ?? '') === $activeSection;
+            }
         @endphp
 
         <a
-            href="{{ Route::has($item['route']) ? route($item['route']).(!empty($item['anchor']) ? '#'.$item['anchor'] : '') : '#' }}"
+            href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
             class="nav-link {{ $isActive ? 'active' : '' }}"
             data-nav-anchor="{{ $item['anchor'] ?? '' }}"
             data-route-active="{{ $isActive ? 'true' : 'false' }}"
@@ -371,6 +383,41 @@
 
 <script>
     (() => {
+        const timeElements = document.querySelectorAll('[data-layout-clock-time]');
+        const dateElements = document.querySelectorAll('[data-layout-clock-date]');
+        const locale = 'id-ID';
+        const timeOptions = {
+            timeZone: 'Asia/Jakarta',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        };
+        const dateOptions = {
+            timeZone: 'Asia/Jakarta',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        };
+
+        const updateClock = () => {
+            const now = new Date();
+
+            timeElements.forEach((element) => {
+                element.textContent = new Intl.DateTimeFormat(locale, timeOptions).format(now);
+            });
+
+            dateElements.forEach((element) => {
+                element.textContent = new Intl.DateTimeFormat(locale, dateOptions).format(now);
+            });
+        };
+
+        updateClock();
+        window.setInterval(updateClock, 1000);
+    })();
+
+    (() => {
         const nav = document.querySelector('.sidebar-nav');
 
         if (!nav) {
@@ -402,6 +449,22 @@
         window.addEventListener('hashchange', syncActiveLink);
         window.addEventListener('pageshow', syncActiveLink);
         document.addEventListener('livewire:navigated', syncActiveLink);
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('sekretaris-menu-berubah', ({ section }) => {
+                links.forEach((link) => {
+                    const isActive = link.dataset.navAnchor === section;
+
+                    link.classList.toggle('active', isActive);
+                    link.dataset.routeActive = isActive ? 'true' : 'false';
+
+                    const dot = link.querySelector('.dot');
+
+                    if (dot) {
+                        dot.hidden = !isActive;
+                    }
+                });
+            });
+        });
     })();
 </script>
 
