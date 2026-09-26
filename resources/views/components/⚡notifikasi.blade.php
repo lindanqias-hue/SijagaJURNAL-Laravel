@@ -105,14 +105,6 @@ new class extends Component
     {{-- HEADER --}}
     <div class="mb-4">
 
-        <a
-            href="{{ route('dashboard') }}"
-            class="text-decoration-none text-muted d-inline-block mb-2"
-            style="font-size:13px;"
-        >
-            &larr; Kembali ke Dashboard
-        </a>
-
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
             <div>
@@ -140,6 +132,8 @@ new class extends Component
         </div>
 
     </div>
+
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
 
 
     {{-- JUMLAH NOTIFIKASI --}}

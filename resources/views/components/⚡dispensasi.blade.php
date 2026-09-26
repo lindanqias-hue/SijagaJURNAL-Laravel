@@ -754,6 +754,7 @@
 
     </div>
 
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
 
     {{-- FORM --}}
     <div class="card border-0 shadow-sm">

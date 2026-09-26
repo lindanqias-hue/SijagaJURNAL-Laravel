@@ -629,8 +629,8 @@ new class extends Component
     </section>
 
     <section x-cloak x-show="activeSection === 'monitoring-jurnal'" :class="{ 'd-none': activeSection !== 'monitoring-jurnal' }" id="monitoring-jurnal" class="card-custom wakasek-content-card">
-        <div class="pt-3 px-3"><a href="{{ route('wakasek') }}" class="btn wakasek-back-link">&larr; Kembali ke Dashboard Wakasek</a></div>
         <div class="wakasek-page-header m-3 mb-0"><div class="fw-bold fs-5">Monitoring Jurnal</div><div class="small opacity-75 mt-1">Status pengisian dan validasi jurnal guru hari ini.</div></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="card-header-custom">Jurnal Guru Hari Ini</div>
         <div class="p-3">
             <label class="visually-hidden" for="search-monitoring-jurnal">Cari jurnal guru</label>
@@ -658,8 +658,8 @@ new class extends Component
     </section>
 
     <section x-cloak x-show="activeSection === 'monitoring-guru'" :class="{ 'd-none': activeSection !== 'monitoring-guru' }" id="monitoring-guru" class="card-custom wakasek-content-card">
-        <div class="pt-3 px-3"><a href="{{ route('wakasek') }}" class="btn wakasek-back-link">&larr; Kembali ke Dashboard Wakasek</a></div>
         <div class="wakasek-page-header m-3 mb-0"><div class="fw-bold fs-5">Monitoring Kehadiran Guru</div><div class="small opacity-75 mt-1">Pantau jadwal yang sedang berlangsung dan status kehadiran.</div></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="card-header-custom">Jadwal Guru Mengajar Sekarang</div>
         <div class="p-3">
             <label class="visually-hidden" for="search-monitoring-guru">Cari guru</label>
@@ -694,8 +694,8 @@ new class extends Component
     </section>
 
     <section x-cloak x-show="activeSection === 'dispensasi'" :class="{ 'd-none': activeSection !== 'dispensasi' }" id="dispensasi" class="card-custom wakasek-content-card">
-        <div class="pt-3 px-3"><a href="{{ route('wakasek') }}" class="btn wakasek-back-link">&larr; Kembali ke Dashboard Wakasek</a></div>
         <div class="wakasek-page-header m-3 mb-0"><div class="fw-bold fs-5">Persetujuan Dispensasi</div><div class="small opacity-75 mt-1">Tinjau pengajuan siswa yang menunggu persetujuan.</div></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
         <div class="p-3">
             <label class="visually-hidden" for="search-dispensasi-wakasek">Cari dispensasi</label>
@@ -729,12 +729,12 @@ new class extends Component
     </section>
 
     <section x-cloak x-show="activeSection === 'rekap'" :class="{ 'd-none': activeSection !== 'rekap' }" id="rekap" class="d-grid gap-4">
-        <div><a href="{{ route('wakasek') }}" class="btn wakasek-back-link">&larr; Kembali ke Dashboard Wakasek</a></div>
         <div class="wakasek-page-header">
             <div class="text-uppercase fw-bold" style="font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.72);">LAPORAN SEKOLAH</div>
             <div class="fw-bold mt-1" style="font-size:24px;">Rekap & Riwayat</div>
             <div class="small opacity-75 mt-1">Pilih periode, lalu ekspor atau cetak laporan lengkap.</div>
         </div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
 
         @if ($rekapTerbuka === '')
         <div class="row g-3">

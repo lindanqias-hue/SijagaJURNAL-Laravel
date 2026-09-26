@@ -130,6 +130,7 @@ new class extends Component
 
     </div>
 
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
 
     {{-- PILIH PERIODE --}}
     <div style="

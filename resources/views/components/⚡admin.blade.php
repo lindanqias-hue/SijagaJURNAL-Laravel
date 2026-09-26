@@ -466,8 +466,8 @@ new class extends Component
     </section>
 
     <section id="pengguna" x-cloak x-show="activeSection === 'pengguna'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Pengguna</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('pengguna')">Tambah Pengguna</button></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="p-3 border-bottom"><div class="row g-2">
             <div class="col-md-8"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP/ID pengguna..."></div>
             <div class="col-md-4"><select wire:model.live="filterRole" class="form-select"><option value="">Semua Role</option><option value="admin">Admin</option><option value="wakasek">Wakasek</option><option value="guru">Guru</option><option value="sekretaris">Sekretaris</option></select></div>
@@ -480,56 +480,56 @@ new class extends Component
     </section>
 
     <section id="guru" x-cloak x-show="activeSection === 'guru'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom">Daftar Guru</div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP guru..."></div>
+        <div class="card-header-custom">Daftar Guru</div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP guru..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>NIP</th><th>Status Kepegawaian</th><th>No. HP</th><th>Mapel</th></tr></thead><tbody>
             @forelse ($this->guru as $guru)<tr wire:key="admin-guru-{{ $guru->id_pengguna }}"><td>{{ $guru->nama }}</td><td>{{ $guru->nip }}</td><td>{{ $guru->status_kepegawaian ?? '-' }}</td><td>{{ $guru->no_hp ?? '-' }}</td><td>{{ $guru->mapel_diampu ?: '-' }}</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->guru->links() }}</div>
     </section>
 
     <section id="siswa" x-cloak x-show="activeSection === 'siswa'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Siswa</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('siswa')">Tambah Siswa</button></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianSiswa" class="form-control" placeholder="Cari nama siswa atau kelas..."></div>
+        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Siswa</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('siswa')">Tambah Siswa</button></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianSiswa" class="form-control" placeholder="Cari nama siswa atau kelas..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
             @forelse ($this->siswa as $siswa)<tr wire:key="admin-siswa-{{ $siswa->id_siswa }}"><td>{{ $siswa->nama_siswa }}</td><td>{{ $siswa->nama_kelas ?? '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('siswa', {{ $siswa->id_siswa }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('siswa', {{ $siswa->id_siswa }})" wire:confirm="Hapus siswa ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" class="text-center text-muted py-4">Tidak ada siswa yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->siswa->links() }}</div>
     </section>
 
     <section id="kelas" x-cloak x-show="activeSection === 'kelas'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Kelas</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('kelas')">Tambah Kelas</button></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianKelas" class="form-control" placeholder="Cari nama kelas..."></div>
+        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Kelas</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('kelas')">Tambah Kelas</button></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianKelas" class="form-control" placeholder="Cari nama kelas..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama Kelas</th><th>Wali Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
             @forelse ($this->kelas as $kelas)<tr wire:key="admin-kelas-{{ $kelas->id_kelas }}"><td>{{ $kelas->nama_kelas }}</td><td>{{ $kelas->wali_kelas ?? '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('kelas', {{ $kelas->id_kelas }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('kelas', {{ $kelas->id_kelas }})" wire:confirm="Hapus kelas ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" class="text-center text-muted py-4">Tidak ada kelas yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->kelas->links() }}</div>
     </section>
 
     <section id="jadwal" x-cloak x-show="activeSection === 'jadwal'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Mengajar</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('jadwal')">Tambah Jadwal</button></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJadwal" class="form-control" placeholder="Cari guru, mata pelajaran, atau kelas..."></div>
+        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Mengajar</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('jadwal')">Tambah Jadwal</button></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJadwal" class="form-control" placeholder="Cari guru, mata pelajaran, atau kelas..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Hari</th><th>Jam</th><th>Guru</th><th>Mapel</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
             @forelse ($this->jadwalMengajarHariIni as $jadwal)<tr wire:key="admin-jadwal-{{ $jadwal->id_jadwal }}"><td>{{ $jadwal->hari }}</td><td>Ke-{{ $jadwal->jam_ke }} <span class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</span></td><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->nama_kelas }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('jadwal', {{ $jadwal->id_jadwal }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('jadwal', {{ $jadwal->id_jadwal }})" wire:confirm="Hapus jadwal ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal mengajar yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jadwalMengajarHariIni->links() }}</div>
     </section>
 
     <section id="jadwal-piket" x-cloak x-show="activeSection === 'jadwal-piket'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Piket</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('piket')">Tambah Jadwal Piket</button></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPiket" class="form-control" placeholder="Cari nama guru, status, atau keterangan piket..."></div>
+        <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Piket</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('piket')">Tambah Jadwal Piket</button></div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPiket" class="form-control" placeholder="Cari nama guru, status, atau keterangan piket..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Guru</th><th>Jam</th><th>Status</th><th>Keterangan</th><th class="text-end">Aksi</th></tr></thead><tbody>
             @forelse ($this->jadwalPiketHariIni as $piket)<tr wire:key="admin-piket-{{ $piket->id_jadwal_piket }}"><td>{{ \Illuminate\Support\Carbon::parse($piket->tanggal)->format('d/m/Y') }}</td><td>{{ $piket->nama }}</td><td>{{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}</td><td>{{ $piket->status }}</td><td>{{ $piket->keterangan ?: '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('piket', {{ $piket->id_jadwal_piket }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('piket', {{ $piket->id_jadwal_piket }})" wire:confirm="Hapus jadwal piket ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal piket yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jadwalPiketHariIni->links() }}</div>
     </section>
 
     <section id="jurnal" x-cloak x-show="activeSection === 'jurnal'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom">Jurnal</div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJurnal" class="form-control" placeholder="Cari guru atau kelas..."></div>
+        <div class="card-header-custom">Jurnal</div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJurnal" class="form-control" placeholder="Cari guru atau kelas..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Guru</th><th>Kelas</th><th>Status</th></tr></thead><tbody>
             @forelse ($this->jurnal as $jurnal)<tr wire:key="admin-jurnal-{{ $jurnal->id_jurnal }}"><td>{{ optional($jurnal->tanggal)->format('d/m/Y') }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->kelas?->nama_kelas ?? '-' }}</td><td><span class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}</span></td></tr>@empty<tr><td colspan="4" class="text-center text-muted py-4">Belum ada jurnal yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jurnal->links() }}</div>
     </section>
 
     <section id="dispensasi" x-cloak x-show="activeSection === 'dispensasi'" class="card-custom overflow-hidden mb-4">
-        <div class="pt-3 px-3"><a href="{{ route('admin') }}" class="btn admin-back-link">&larr; Kembali ke Dashboard Admin</a></div>
-        <div class="card-header-custom">Dispensasi</div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianDispensasi" class="form-control" placeholder="Cari siswa, kelas, atau status..."></div>
+        <div class="card-header-custom">Dispensasi</div>
+        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianDispensasi" class="form-control" placeholder="Cari siswa, kelas, atau status..."></div>
         <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>
             @forelse ($this->dispensasi as $dispensasi)<tr wire:key="admin-dispensasi-{{ $dispensasi->id_dispensasi }}"><td>{{ \Illuminate\Support\Carbon::parse($dispensasi->tanggal)->format('d/m/Y') }}</td><td>{{ $dispensasi->nama_siswa ?? '-' }}</td><td>{{ $dispensasi->nama_kelas ?? '-' }}</td><td>{{ $dispensasi->jenis_dispensasi }}</td><td>{{ $dispensasi->alasan ?: '-' }}</td><td>{{ $dispensasi->status }}</td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada dispensasi yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->dispensasi->links() }}</div>

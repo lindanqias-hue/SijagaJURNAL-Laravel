@@ -119,6 +119,8 @@ new class extends Component
         @endif
     </div>
 
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
+
     <div class="alert alert-info mb-4">Guru piket fokus mendistribusikan tugas titipan/izin luar kelas. Validasi
         kehadiran guru berjalan otomatis oleh sistem melalui jurnal.</div>
 

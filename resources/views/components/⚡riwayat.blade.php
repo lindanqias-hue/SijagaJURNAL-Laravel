@@ -233,6 +233,9 @@ new class extends Component
 
     </div>
 
+    @if ($this->isGuru)
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
+    @endif
 
     {{-- STAT CARDS --}}
     <div class="row g-3 mb-4">

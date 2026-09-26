@@ -723,6 +723,8 @@ $jumlahTidakHadir = $jumlahIzin + $jumlahSakit + $jumlahAlpa + $jumlahDispensasi
 
     </div>
 
+    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
+
 
     <form
     wire:submit="save"
