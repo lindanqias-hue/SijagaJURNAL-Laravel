@@ -65,6 +65,7 @@ class KehadiranGuruService
             ->where('id_kelas', $jadwal->id_kelas)
             ->whereDate('tanggal', $tanggal)
             ->where('jam_ke', $jadwal->jam_ke)
+            ->where('adalah_pengajuan_izin', false)
             ->exists();
 
         /*

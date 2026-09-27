@@ -157,6 +157,8 @@
                 'anchor' => 'monitoring-guru'],
                 'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'route' => 'wakasek',
                 'anchor' => 'monitoring-jurnal'],
+                'pengajuan_izin' => ['label' => 'Pengajuan Izin Guru', 'route' => 'wakasek',
+                'anchor' => 'pengajuan-izin'],
                 'dispensasi' => ['label' => 'Dispensasi', 'route' => 'wakasek', 'anchor' =>
                 'dispensasi'],
                 'rekap' => ['label' => 'Rekap', 'route' => 'wakasek', 'anchor' => 'rekap'],
@@ -186,6 +188,8 @@
                 'data-kelas'],
                 'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'route' => 'sekretaris', 'anchor' =>
                 'validasi-jurnal'],
+                'tugas_guru' => ['label' => 'Tugas Guru Tidak Hadir', 'route' => 'sekretaris', 'anchor' =>
+                'tugas-guru'],
                 'kehadiran' => ['label' => 'Kehadiran', 'route' => 'sekretaris', 'anchor' =>
                 'kehadiran'],
                 'rekap' => ['label' => 'Rekap', 'route' => 'sekretaris', 'anchor' => 'rekap'],

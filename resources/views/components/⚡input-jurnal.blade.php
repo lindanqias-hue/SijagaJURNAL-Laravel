@@ -1730,23 +1730,48 @@ new class extends Component
         };
 
         try {
-            Jurnal::query()->create([
-                'id_guru' => session('id_pengguna'),
-                'id_kelas' => $jadwal->id_kelas,
-                'tanggal' => $tanggal->toDateString(),
-                'jam_ke' => $jadwal->jam_ke,
-                'materi' => trim($this->materi),
-                'jumlah_hadir' => 0,
-                'jumlah_tidak_hadir' => 0,
-                'status_kehadiran_guru' => $statusKehadiran,
-                'adalah_pengajuan_izin' => true,
-                'jenis_izin' => trim($this->jenisIzin),
-                'catatan' => null,
-                'status_validasi' => 'Menunggu',
-                'id_validator' => null,
-                'tanggal_validasi' => null,
-                'catatan_validasi' => null,
-            ]);
+            $berhasilDibuat = DB::transaction(function () use ($jadwal, $tanggal, $statusKehadiran): bool {
+                DB::table('pengguna')
+                    ->where('id_pengguna', session('id_pengguna'))
+                    ->lockForUpdate()
+                    ->first();
+
+                $sudahAdaJurnal = Jurnal::query()
+                    ->where('id_guru', session('id_pengguna'))
+                    ->where('id_kelas', $jadwal->id_kelas)
+                    ->whereDate('tanggal', $tanggal->toDateString())
+                    ->where('jam_ke', $jadwal->jam_ke)
+                    ->exists();
+
+                if ($sudahAdaJurnal) {
+                    return false;
+                }
+
+                Jurnal::query()->create([
+                    'id_guru' => session('id_pengguna'),
+                    'id_kelas' => $jadwal->id_kelas,
+                    'tanggal' => $tanggal->toDateString(),
+                    'jam_ke' => $jadwal->jam_ke,
+                    'materi' => trim($this->materi),
+                    'jumlah_hadir' => 0,
+                    'jumlah_tidak_hadir' => 0,
+                    'status_kehadiran_guru' => $statusKehadiran,
+                    'adalah_pengajuan_izin' => true,
+                    'jenis_izin' => trim($this->jenisIzin),
+                    'catatan' => null,
+                    'status_validasi' => 'Menunggu',
+                    'id_validator' => null,
+                    'tanggal_validasi' => null,
+                    'catatan_validasi' => null,
+                ]);
+
+                return true;
+            });
+
+            if (! $berhasilDibuat) {
+                $this->addError('save', 'Sudah ada jurnal atau pengajuan izin untuk kelas dan jam ini pada tanggal tersebut.');
+                return;
+            }
         } catch (\Illuminate\Database\QueryException $exception) {
             if (str_contains($exception->getMessage(), 'jurnal_guru_kelas_tanggal_jam_unique')) {
                 $this->addError('save', 'Sudah ada jurnal atau pengajuan izin untuk kelas dan jam ini pada tanggal tersebut.');

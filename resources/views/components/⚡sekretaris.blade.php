@@ -20,7 +20,7 @@ new class extends Component
         $this->activeSection = match ($menu) {
             'jurnal-kelas' => 'validasi-jurnal',
             'riwayat-validasi' => 'rekap',
-            'dashboard', 'data-kelas', 'validasi-jurnal', 'kehadiran', 'rekap' => $menu,
+            'dashboard', 'data-kelas', 'validasi-jurnal', 'tugas-guru', 'kehadiran', 'rekap' => $menu,
             default => 'dashboard',
         };
 
@@ -36,7 +36,7 @@ new class extends Component
 
     public function bukaMenu(string $section): void
     {
-        if (!in_array($section, ['dashboard', 'data-kelas', 'validasi-jurnal', 'kehadiran', 'rekap'], true)) {
+        if (!in_array($section, ['dashboard', 'data-kelas', 'validasi-jurnal', 'tugas-guru', 'kehadiran', 'rekap'], true)) {
             return;
         }
 
@@ -166,7 +166,6 @@ new class extends Component
             ->where('id_kelas', session('id_kelas'))
             ->where('adalah_pengajuan_izin', true)
             ->where('status_validasi', 'Divalidasi')
-            ->where('status_konfirmasi_sekretaris', 'Menunggu')
             ->orderByDesc('tanggal')
             ->orderByDesc('id_jurnal')
             ->get();
@@ -482,6 +481,14 @@ new class extends Component
                 </button>
             </div>
             <div class="col-12 col-md-6">
+                <button type="button" wire:click="bukaMenu('tugas-guru')" class="role-menu-card w-100 text-start">
+                    <span class="role-menu-icon">&#128221;</span>
+                    <h2 class="h5 fw-bold">Tugas Guru Tidak Hadir</h2>
+                    <p>{{ $this->pengajuanIzinDisetujui->count() }} tugas dari pengajuan izin guru yang sudah disetujui Wakasek.</p>
+                    <span class="fw-bold text-primary">Buka tugas guru <span aria-hidden="true">→</span></span>
+                </button>
+            </div>
+            <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('rekap')" class="role-menu-card w-100 text-start">
                     <span class="role-menu-icon">&#128202;</span>
                     <h2 class="h5 fw-bold">Rekap</h2>
@@ -576,10 +583,6 @@ new class extends Component
         </div>
         <button type="button" wire:click="bukaMenu('dashboard')"
             class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
-
-        @if ($this->pengajuanIzinDisetujui->isNotEmpty())
-        <div class="sekretaris-panel mb-4"><div style="padding:20px;border-bottom:1px solid #ddd"><h3 class="h5 mb-1">Izin guru yang sudah disetujui</h3><p class="text-muted mb-0">Titipan tugas untuk kelas {{ $this->kelasSekretaris?->nama_kelas ?? '' }}.</p></div><div class="table-responsive"><table class="table sekretaris-table mb-0"><thead><tr><th>Tanggal</th><th>Jam</th><th>Guru</th><th>Jenis izin</th><th>Titipan tugas</th><th>Validasi Wakasek</th></tr></thead><tbody>@foreach ($this->pengajuanIzinDisetujui as $izin)<tr wire:key="sekretaris-izin-{{ $izin->id_jurnal }}"><td>{{ $izin->tanggal?->format('d/m/Y') }}</td><td>Jam {{ $izin->jam_ke }}</td><td>{{ $izin->guru?->nama ?? '-' }}</td><td>{{ $izin->jenis_izin }}</td><td>{{ $izin->materi }}</td><td>{{ $izin->validator?->nama ?? 'Disetujui' }}</td></tr>@endforeach</tbody></table></div></div>
-        @endif
 
         <div id="ringkasan-jurnal" class="row g-3 mb-4">
             <div class="col-12 col-sm-4">
@@ -800,6 +803,33 @@ new class extends Component
                         <tr wire:key="sekretaris-jurnal-{{ $jurnal->id_jurnal }}"><td>{{ $jurnal->tanggal?->format('d/m/Y') }}</td><td>{{ $jurnal->jam_ke }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->materi }}</td><td>{{ $jurnal->status_kehadiran_guru }}</td><td>{{ $jurnal->status_validasi }}</td><td>{{ $jurnal->status_konfirmasi_sekretaris }}</td></tr>
                         @empty
                         <tr><td colspan="7" class="text-center text-muted py-4">Belum ada jurnal yang dikirim untuk kelas ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    @endif
+
+    @if ($activeSection === 'tugas-guru')
+    <section id="tugas-guru">
+        <header class="role-page-header">
+            <div class="role-page-eyebrow">TUGAS GURU TIDAK HADIR</div>
+            <h1>Tugas Guru Tidak Hadir</h1>
+            <p>Daftar titipan tugas dari pengajuan izin guru yang sudah disetujui Wakasek untuk kelas {{ $this->kelasSekretaris?->nama_kelas ?? '-' }}.</p>
+        </header>
+        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
+
+        <div class="sekretaris-panel mb-4">
+            <div style="padding:20px;border-bottom:1px solid #ddd"><h2 class="h5 mb-1">Izin guru yang sudah disetujui</h2></div>
+            <div class="table-responsive">
+                <table class="table sekretaris-table mb-0">
+                    <thead><tr><th>Tanggal</th><th>Jam</th><th>Guru</th><th>Jenis izin</th><th>Titipan tugas</th><th>Validasi Wakasek</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->pengajuanIzinDisetujui as $izin)
+                        <tr wire:key="sekretaris-izin-{{ $izin->id_jurnal }}"><td>{{ $izin->tanggal?->format('d/m/Y') }}</td><td>Jam {{ $izin->jam_ke }}</td><td>{{ $izin->guru?->nama ?? '-' }}</td><td>{{ $izin->jenis_izin }}</td><td>{{ $izin->materi }}</td><td>{{ $izin->validator?->nama ?? 'Disetujui' }}</td></tr>
+                        @empty
+                        <tr><td colspan="6" class="text-center text-muted py-4">Belum ada tugas dari pengajuan izin guru yang disetujui.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
