@@ -258,34 +258,21 @@ new class extends Component
             ->orderBy('jam_ke')
             ->get();
 
-        /*
-         * HANYA jadwal yang sedang berlangsung.
-         *
-         * Tidak ada fallback ke jadwal terdekat.
-         */
-        $this->jadwalAktif =
-            $jadwalHariIni->first(
-                function ($jadwal) use ($jamSekarang) {
+        /* Pilih jadwal yang sedang berlangsung jika ada. */
+        $this->jadwalAktif = $jadwalHariIni->first(
+            function ($jadwal) use ($jamSekarang) {
+                return $jadwal->jam_mulai <= $jamSekarang
+                    && $jadwal->jam_selesai >= $jamSekarang;
+            }
+        );
 
-                    return $jadwal->jam_mulai <= $jamSekarang
-                        && $jadwal->jam_selesai >= $jamSekarang;
-                }
-            );
-
-        /*
-         * Tidak ada jadwal aktif.
-         */
         if (!$this->jadwalAktif) {
-
             $this->id_kelas = '';
             $this->jam_ke = 1;
-
             $this->jamMulaiKe = null;
             $this->jamSelesaiKe = null;
-
             $this->jamMulaiPembelajaran = null;
             $this->jamSelesaiPembelajaran = null;
-
             $this->siswa = [];
             $this->absensi = [];
 
@@ -1630,3 +1617,171 @@ new class extends Component
     }
 };
 ?>
+
+<div>
+    <div class="role-page-header">
+        <div class="role-page-eyebrow">Jurnal Guru</div>
+        <h1>{{ $editing ? 'Edit Jurnal Mengajar' : 'Input Jurnal Mengajar' }}</h1>
+        <div class="role-page-description">Isi jurnal sesuai jadwal mengajar Anda hari ini.</div>
+    </div>
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
+    </div>
+
+    @if ($saved)
+    <div class="alert alert-success" role="status">Jurnal berhasil disimpan.</div>
+    @endif
+
+    @if ($errors->has('editing'))
+    <div class="alert alert-warning" role="alert">{{ $errors->first('editing') }}</div>
+    @endif
+
+    @if (!$jadwalAktif && !$editing)
+    <div class="card-custom p-4">
+        <h2 class="h5 fw-bold">Tidak ada jadwal mengajar untuk hari ini</h2>
+        <p class="text-muted mb-3">Belum ada jadwal guru yang dapat dipilih untuk tanggal ini.</p>
+        @if (session('is_guru_piket'))
+        <a href="{{ route('guru-piket') }}" class="btn btn-app-primary">Buka halaman guru piket</a>
+        @endif
+    </div>
+    @else
+    <div class="card-custom p-4">
+        <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
+            <div>
+                <div class="text-muted small">Guru</div>
+                <div class="fw-semibold">{{ session('nama') }}</div>
+            </div>
+            <div>
+                <div class="text-muted small">Mata Pelajaran</div>
+                <div class="fw-semibold">{{ $mapelAktif ?: '-' }}</div>
+            </div>
+            @if ($jadwalAktif)
+            <div>
+                <div class="text-muted small">Kelas</div>
+                <div class="fw-semibold">{{ $this->kelasAktif?->nama_kelas ?? '-' }}</div>
+            </div>
+            @endif
+            <div>
+                <div class="text-muted small">Tanggal</div>
+                <div class="fw-semibold">{{ \Carbon\Carbon::parse($tanggal)->locale('id')->translatedFormat('l, d F Y') }}</div>
+            </div>
+        </div>
+
+        @if ($jadwalAktif)
+        <div class="alert alert-info">
+            Jadwal berlangsung: jam ke-{{ $jamMulaiKe }}{{ $jamSelesaiKe > $jamMulaiKe ? ' sampai jam ke-'.$jamSelesaiKe : '' }}
+            @if ($jamMulaiPembelajaran && $jamSelesaiPembelajaran)
+            ({{ substr($jamMulaiPembelajaran, 0, 5) }}–{{ substr($jamSelesaiPembelajaran, 0, 5) }})
+            @endif
+        </div>
+        @endif
+
+        <form wire:submit="save">
+            <div class="row g-3">
+                @if (!$editing)
+                <div class="col-md-6">
+                    <label for="jurnal-kelas" class="form-label fw-semibold">Kelas</label>
+                    <select id="jurnal-kelas" wire:model.live="id_kelas" class="form-select">
+                        <option value="">Pilih kelas</option>
+                        @foreach ($this->kelasList as $kelas)
+                        <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="jurnal-jam" class="form-label fw-semibold">Jam pelajaran</label>
+                    <select id="jurnal-jam" wire:model.live="jam_ke" class="form-select">
+                        @foreach ($this->jamList as $jam)
+                        <option value="{{ $jam->jam_ke }}">Jam ke-{{ $jam->jam_ke }} ({{ substr($jam->jam_mulai, 0, 5) }}–{{ substr($jam->jam_selesai, 0, 5) }})</option>
+                        @endforeach
+                    </select>
+                    @error('jam_ke') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                </div>
+                @endif
+
+                <div class="col-12">
+                    <label for="jurnal-materi" class="form-label fw-semibold">Materi pembelajaran</label>
+                    <textarea id="jurnal-materi" wire:model="materi" rows="4" maxlength="1000" class="form-control" placeholder="Tuliskan materi yang diajarkan"></textarea>
+                    @error('materi') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                </div>
+
+                <div class="col-12">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <label class="form-label fw-semibold mb-0">Kehadiran siswa</label>
+                        <span class="badge bg-secondary">{{ count($siswa) }} siswa</span>
+                    </div>
+                    @error('absensi') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
+                    @if (count($siswa))
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <input type="search" wire:model.live.debounce.250ms="cariSiswa" class="form-control" placeholder="Cari nama siswa" aria-label="Cari siswa" style="max-width: 320px">
+                        <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-outline-primary">Pilih status siswa</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead><tr><th>Siswa</th><th>Status</th><th>Keterangan</th></tr></thead>
+                            <tbody>
+                                @foreach ($this->siswaTersaring as $siswaItem)
+                                <tr wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
+                                    <td>{{ $siswaItem->nama_siswa }}</td>
+                                    <td>
+                                        <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
+                                            @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
+                                            <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                    <td>
+                                        @if ($this->butuhKeterangan($siswaItem->id_siswa))
+                                        <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
+                                        @else
+                                        <span class="text-muted">—</span>
+                                        @endif
+                                        @error('keteranganTambahan.'.$siswaItem->id_siswa) <div class="text-danger small">{{ $message }}</div> @enderror
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @else
+                    <div class="alert alert-warning mb-0">Tidak ada data siswa untuk jadwal ini.</div>
+                    @endif
+                </div>
+
+                <div class="col-12">
+                    <label for="jurnal-catatan" class="form-label fw-semibold">Catatan (opsional)</label>
+                    <textarea id="jurnal-catatan" wire:model="catatan" rows="2" class="form-control" placeholder="Catatan tambahan"></textarea>
+                </div>
+
+                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-3">
+                    <button type="button" wire:click="bukaReview" class="btn btn-outline-primary" @disabled(!count($siswa))>Tinjau jurnal</button>
+                    <button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled" wire:target="save" @disabled(!count($siswa))>
+                        <span wire:loading.remove wire:target="save">{{ $editing ? 'Simpan Perubahan' : 'Simpan Jurnal' }}</span>
+                        <span wire:loading wire:target="save">Menyimpan…</span>
+                    </button>
+                </div>
+                @error('save') <div class="col-12 text-danger">{{ $message }}</div> @enderror
+            </div>
+        </form>
+    </div>
+    @endif
+
+    @if ($showReview)
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" style="background:rgba(15,23,42,.5)">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title fs-5">Tinjau Jurnal</h2><button type="button" class="btn-close" wire:click="$set('showReview', false)" aria-label="Tutup"></button></div>
+            <div class="modal-body"><p><strong>Materi:</strong> {{ $materi ?: 'Belum diisi' }}</p><p><strong>Jumlah siswa:</strong> {{ count($siswa) }}</p><p><strong>Tidak hadir:</strong> {{ collect($absensi)->filter(fn ($status) => $status !== 'Hadir')->count() }}</p></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" wire:click="$set('showReview', false)">Kembali</button><button type="button" class="btn btn-app-primary" wire:click="save">Simpan Jurnal</button></div>
+        </div></div>
+    </div>
+    @endif
+
+    @if ($showAbsensiSiswa)
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" style="background:rgba(15,23,42,.5)">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title fs-5">Absensi Siswa</h2><button type="button" class="btn-close" wire:click="$set('showAbsensiSiswa', false)" aria-label="Tutup"></button></div>
+            <div class="modal-body"><p>Atur status kehadiran siswa pada daftar di formulir jurnal.</p><button type="button" class="btn btn-app-primary" wire:click="bukaReview">Lanjut tinjau ({{ count($absensi) }} siswa)</button></div>
+        </div></div>
+    </div>
+    @endif
+</div>

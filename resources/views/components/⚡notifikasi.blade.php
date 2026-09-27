@@ -112,39 +112,26 @@ new class extends Component
 <div>
 
     {{-- HEADER --}}
-    <div class="mb-4">
+    <div class="role-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-<<<<<<< HEAD
-        <a href="{{ route('dashboard') }}" class="text-decoration-none text-muted d-inline-block mb-2"
-            style="font-size:13px;">
-            &larr; Kembali ke Dashboard
-        </a>
+        <div>
+            <div class="page-title">🔔 Notifikasi</div>
 
-=======
->>>>>>> 168db4d94a7c2e4b4e627b30967146b53332fe96
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-
-            <div>
-                <div class="page-title">
-                    🔔 Notifikasi
-                </div>
-
-                <div class="text-muted mt-1" style="font-size:13px;">
-                    Informasi dispensasi siswa yang berkaitan dengan jadwal mengajar Anda.
-                </div>
+            <div class="role-page-description">
+                Informasi dispensasi siswa yang berkaitan dengan jadwal mengajar Anda.
             </div>
-
-            @if ($this->jumlahBelumDibaca > 0)
-            <button wire:click="tandaiSemuaDibaca" class="btn btn-sm btn-outline-primary">
-                ✓ Tandai Semua Dibaca
-            </button>
-            @endif
-
         </div>
 
+        @if ($this->jumlahBelumDibaca > 0)
+        <button wire:click="tandaiSemuaDibaca" class="btn btn-sm btn-outline-primary">
+            ✓ Tandai Semua Dibaca
+        </button>
+        @endif
     </div>
 
-    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke Dashboard</a>
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
+    </div>
 
 
     {{-- JUMLAH NOTIFIKASI --}}
@@ -192,7 +179,7 @@ new class extends Component
                         @endif
 
                         <h5 class="mb-1">
-                            🔔 Siswa Mendapat Dispensasi
+                            🔔 {{ $notif->status === 'Ditolak' ? 'Pengajuan Dispensasi Ditolak' : 'Siswa Mendapat Dispensasi' }}
                         </h5>
 
                         <div class="text-muted small">
@@ -203,8 +190,13 @@ new class extends Component
 
                     </div>
 
-                    <span class="badge bg-success">
-                        Disetujui
+                    <span @class([
+                        'badge',
+                        'bg-success' => $notif->status === 'Disetujui',
+                        'bg-danger' => $notif->status === 'Ditolak',
+                        'bg-secondary' => ! in_array($notif->status, ['Disetujui', 'Ditolak'], true),
+                    ])>
+                        {{ $notif->status }}
                     </span>
 
                 </div>

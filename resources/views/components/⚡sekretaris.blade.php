@@ -3,6 +3,9 @@
 use Livewire\Component;
 use App\Models\Jurnal;
 use App\Models\Jadwal;
+use App\Models\Kelas;
+use App\Models\Siswa;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 
 new class extends Component
@@ -14,9 +17,12 @@ new class extends Component
     public function mount(): void
     {
         $menu = request()->query('menu', 'dashboard');
-        $this->activeSection = in_array($menu, ['dashboard', 'validasi-jurnal', 'riwayat-validasi'], true)
-            ? $menu
-            : 'dashboard';
+        $this->activeSection = match ($menu) {
+            'jurnal-kelas' => 'validasi-jurnal',
+            'riwayat-validasi' => 'rekap',
+            'dashboard', 'data-kelas', 'validasi-jurnal', 'kehadiran', 'rekap' => $menu,
+            default => 'dashboard',
+        };
 
         if (!session('id_pengguna')) {
             $this->redirectRoute('login');
@@ -30,12 +36,11 @@ new class extends Component
 
     public function bukaMenu(string $section): void
     {
-        if (!in_array($section, ['dashboard', 'validasi-jurnal', 'riwayat-validasi'], true)) {
+        if (!in_array($section, ['dashboard', 'data-kelas', 'validasi-jurnal', 'kehadiran', 'rekap'], true)) {
             return;
         }
 
-        $this->activeSection = $section;
-        $this->tutupDetail();
+        $this->redirectRoute('sekretaris', ['menu' => $section], true, true);
     }
 
     /*
@@ -158,8 +163,89 @@ new class extends Component
             ->whereIn('status_konfirmasi_sekretaris', ['Sesuai', 'Tidak Sesuai'])
             ->with(['guru', 'kelas'])
             ->orderByDesc('waktu_konfirmasi_sekretaris')
-            ->limit(20)
+            ->limit(100)
             ->get();
+    }
+
+    public function getKelasSekretarisProperty(): ?Kelas
+    {
+        $idKelas = session('id_kelas');
+
+        if (! $idKelas) {
+            return null;
+        }
+
+        return Kelas::query()->find($idKelas);
+    }
+
+    public function getSiswaKelasProperty(): Collection
+    {
+        $idKelas = session('id_kelas');
+
+        if (! $idKelas) {
+            return collect();
+        }
+
+        return Siswa::query()
+            ->where('id_kelas', $idKelas)
+            ->orderBy('nama_siswa')
+            ->get();
+    }
+
+    public function getJadwalKelasProperty(): Collection
+    {
+        $idKelas = session('id_kelas');
+
+        if (! $idKelas) {
+            return collect();
+        }
+
+        return Jadwal::query()
+            ->with('guru')
+            ->where('id_kelas', $idKelas)
+            ->orderByRaw("FIELD(hari, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu')")
+            ->orderBy('jam_ke')
+            ->get();
+    }
+
+    public function getJurnalKelasProperty(): Collection
+    {
+        $idKelas = session('id_kelas');
+
+        if (! $idKelas) {
+            return collect();
+        }
+
+        return Jurnal::query()
+            ->with(['guru', 'kelas'])
+            ->where('id_kelas', $idKelas)
+            ->orderByDesc('tanggal')
+            ->orderByDesc('jam_ke')
+            ->limit(100)
+            ->get();
+    }
+
+    public function getRingkasanKehadiranProperty(): array
+    {
+        $idKelas = session('id_kelas');
+
+        if (! $idKelas) {
+            return [];
+        }
+
+        return Jurnal::query()
+            ->where('id_kelas', $idKelas)
+            ->selectRaw('status_kehadiran_guru, COUNT(*) as jumlah')
+            ->groupBy('status_kehadiran_guru')
+            ->pluck('jumlah', 'status_kehadiran_guru')
+            ->all();
+    }
+
+    public function getJumlahJurnalProperty(): int
+    {
+        return Jurnal::query()
+            ->where('id_kelas', session('id_kelas'))
+            ->count();
     }
 
     /*
@@ -282,74 +368,6 @@ new class extends Component
             color: #16213e;
         }
 
-        .sekretaris-hero {
-            position: relative;
-            overflow: hidden;
-            padding: 30px;
-            border-radius: 18px;
-            color: #fff;
-            background: linear-gradient(120deg, #10233f, #2563eb 68%, #0f766e);
-            box-shadow: 0 14px 32px rgba(16, 35, 63, .16);
-        }
-
-        .sekretaris-hero::after {
-            content: '';
-            position: absolute;
-            width: 230px;
-            height: 230px;
-            right: 4%;
-            top: -125px;
-            border: 1px solid rgba(255, 255, 255, .18);
-            border-radius: 50%;
-            box-shadow: 0 0 0 28px rgba(255, 255, 255, .04), 0 0 0 56px rgba(255, 255, 255, .025);
-            pointer-events: none;
-        }
-
-        .sekretaris-hero>* {
-            position: relative;
-            z-index: 1;
-        }
-
-        .sekretaris-menu-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            padding: 22px;
-            border: 1px solid #e2e8f3;
-            border-radius: 16px;
-            background: #fff;
-            color: inherit;
-            text-decoration: none;
-            box-shadow: 0 5px 18px rgba(22, 33, 62, .045);
-            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        }
-
-        .sekretaris-menu-card:hover,
-        .sekretaris-menu-card:focus-visible {
-            transform: translateY(-4px);
-            border-color: #93b4ed;
-            box-shadow: 0 14px 28px rgba(37, 99, 235, .12);
-            outline: none;
-        }
-
-        .sekretaris-menu-icon {
-            display: grid;
-            place-items: center;
-            width: 48px;
-            height: 48px;
-            margin-bottom: 18px;
-            border-radius: 14px;
-            color: #1d4ed8;
-            background: #dbeafe;
-            font-size: 22px;
-        }
-
-        .sekretaris-menu-card p {
-            flex: 1;
-            color: #6b7a99;
-            font-size: 13px;
-        }
-
         .sekretaris-panel {
             overflow: hidden;
             border: 1px solid #e2e8f3;
@@ -414,37 +432,114 @@ new class extends Component
     {{-- DASHBOARD --}}
     @if ($activeSection === 'dashboard')
     <section class="sekretaris-dashboard" id="dashboard">
-        <div class="sekretaris-hero mb-4">
-            <div class="text-uppercase fw-bold"
-                style="font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.72);">SIJAGA · PANEL SEKRETARIS
+        <div class="sekretaris-hero role-page-header">
+            <div class="role-page-eyebrow">SIJAGA · PANEL SEKRETARIS
             </div>
-            <h1 class="fw-bold mt-2 mb-1" style="font-size:clamp(24px, 4vw, 32px);">Selamat datang,
+            <h1 class="fw-bold mt-2 mb-1">Selamat datang,
                 {{ explode(',', session('nama', 'Sekretaris'))[0] }}
             </h1>
-            <p class="mb-0" style="color:rgba(255,255,255,.82);">Pilih menu untuk memeriksa jurnal kelas atau melihat
-                riwayat validasi.</p>
+            <p class="mb-0">Pilih menu untuk memeriksa jurnal kelas, memantau kehadiran, atau melihat rekap validasi.</p>
         </div>
 
         <div class="row g-3">
             <div class="col-12 col-md-6">
-                <button type="button" wire:click="bukaMenu('validasi-jurnal')"
-                    class="sekretaris-menu-card w-100 text-start">
-                    <span class="sekretaris-menu-icon">&#9989;</span>
+                <button type="button" wire:click="bukaMenu('data-kelas')" class="role-menu-card w-100 text-start">
+                    <span class="role-menu-icon">&#127891;</span>
+                    <h2 class="h5 fw-bold">Data Kelas</h2>
+                    <p>Lihat informasi kelas, daftar siswa, dan jadwal belajar kelas yang menjadi tanggung jawab Anda.</p>
+                    <span class="fw-bold text-primary">Buka data kelas <span aria-hidden="true">→</span></span>
+                </button>
+            </div>
+            <div class="col-12 col-md-6">
+                <button type="button" wire:click="bukaMenu('validasi-jurnal')" class="role-menu-card w-100 text-start">
+                    <span class="role-menu-icon">&#9989;</span>
                     <h2 class="h5 fw-bold">Validasi Jurnal</h2>
-                    <p>Periksa jurnal yang masuk dan konfirmasi kehadiran guru di kelas.</p>
+                    <p>{{ $this->jumlahMenunggu }} jurnal menunggu konfirmasi setelah jam pelajaran selesai.</p>
                     <span class="fw-bold text-primary">Buka validasi <span aria-hidden="true">→</span></span>
                 </button>
             </div>
             <div class="col-12 col-md-6">
-                <button type="button" wire:click="bukaMenu('riwayat-validasi')"
-                    class="sekretaris-menu-card w-100 text-start">
-                    <span class="sekretaris-menu-icon" style="color:#047857;background:#d1fae5;">&#128203;</span>
-                    <h2 class="h5 fw-bold">Riwayat Validasi Jurnal</h2>
-                    <p>Lihat hasil konfirmasi jurnal yang sudah diproses sekretaris.</p>
-                    <span class="fw-bold text-primary">Buka riwayat <span aria-hidden="true">→</span></span>
+                <button type="button" wire:click="bukaMenu('kehadiran')" class="role-menu-card w-100 text-start">
+                    <span class="role-menu-icon">&#9989;</span>
+                    <h2 class="h5 fw-bold">Kehadiran</h2>
+                    <p>Pantau status hadir, izin, sakit, dan tanpa keterangan berdasarkan jurnal kelas.</p>
+                    <span class="fw-bold text-primary">Buka kehadiran <span aria-hidden="true">→</span></span>
+                </button>
+            </div>
+            <div class="col-12 col-md-6">
+                <button type="button" wire:click="bukaMenu('rekap')" class="role-menu-card w-100 text-start">
+                    <span class="role-menu-icon">&#128202;</span>
+                    <h2 class="h5 fw-bold">Rekap</h2>
+                    <p>Lihat hasil konfirmasi dan ringkasan jurnal kelas yang sudah diproses.</p>
+                    <span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span>
                 </button>
             </div>
         </div>
+    </section>
+    @endif
+
+    @if ($activeSection === 'data-kelas')
+    <section id="data-kelas">
+        <header class="role-page-header">
+            <div class="role-page-eyebrow">DATA KELAS</div>
+            <h1>Informasi Kelas</h1>
+            <p>Data kelas yang ditugaskan kepada akun Sekretaris ini.</p>
+        </header>
+        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
+
+        @if ($this->kelasSekretaris)
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+                <div class="card-custom p-4 h-100">
+                    <div class="text-muted small">Nama Kelas</div>
+                    <div class="fs-4 fw-bold text-primary">{{ $this->kelasSekretaris->nama_kelas }}</div>
+                    <div class="text-muted mt-3">Wali Kelas</div>
+                    <div class="fw-semibold">{{ $this->kelasSekretaris->wali_kelas ?: 'Belum ditentukan' }}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="card-custom p-4 h-100">
+                    <div class="text-muted small">Jumlah Siswa Terdaftar</div>
+                    <div class="stat-value text-primary">{{ $this->siswaKelas->count() }}</div>
+                    <div class="text-muted mt-2">Daftar siswa dan jadwal kelas ditampilkan di bawah.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-custom overflow-hidden mb-4">
+            <div class="card-header-custom">Daftar Siswa</div>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead><tr><th>No.</th><th>Nama Siswa</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->siswaKelas as $index => $siswa)
+                        <tr wire:key="sekretaris-siswa-{{ $siswa->id_siswa }}"><td>{{ $index + 1 }}</td><td>{{ $siswa->nama_siswa }}</td></tr>
+                        @empty
+                        <tr><td colspan="2" class="text-center text-muted py-4">Belum ada data siswa untuk kelas ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-custom overflow-hidden">
+            <div class="card-header-custom">Jadwal Mengajar Kelas</div>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead><tr><th>Hari</th><th>Jam</th><th>Waktu</th><th>Guru</th><th>Mata Pelajaran</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->jadwalKelas as $jadwal)
+                        <tr wire:key="sekretaris-jadwal-{{ $jadwal->id_jadwal }}"><td>{{ $jadwal->hari }}</td><td>{{ $jadwal->jam_ke }}</td><td>{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</td><td>{{ $jadwal->guru?->nama ?? '-' }}</td><td>{{ $jadwal->guru?->mapel_diampu ?? '-' }}</td></tr>
+                        @empty
+                        <tr><td colspan="5" class="text-center text-muted py-4">Belum ada jadwal mengajar untuk kelas ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @else
+        <div class="alert alert-warning">Akun ini belum ditautkan ke kelas. Hubungi administrator untuk mengatur data kelas akun Sekretaris.</div>
+        @endif
     </section>
     @endif
 
@@ -459,17 +554,15 @@ new class extends Component
     {{-- VALIDASI JURNAL --}}
     @if ($activeSection === 'validasi-jurnal')
     <section id="validasi-jurnal">
-        <div class="sekretaris-hero mb-4">
-            <div class="text-uppercase fw-bold"
-                style="font-size:11px;letter-spacing:.14em;color:rgba(255,255,255,.72);">PENGELOLAAN JURNAL</div>
+        <div class="sekretaris-hero role-page-header">
+            <div class="role-page-eyebrow">VALIDASI KEHADIRAN</div>
             <h1 class="h3 fw-bold mt-2 mb-1">Validasi Jurnal</h1>
-            <p class="mb-0" style="color:rgba(255,255,255,.82);">Konfirmasi kehadiran guru setelah jam pelajaran
-                selesai.</p>
+            <p class="mb-0">Periksa jurnal terbaru dan konfirmasi kehadiran guru setelah jam pelajaran selesai.</p>
         </div>
         <button type="button" wire:click="bukaMenu('dashboard')"
             class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
-        <div id="rekap" class="row g-3 mb-4">
+        <div id="ringkasan-jurnal" class="row g-3 mb-4">
             <div class="col-12 col-sm-4">
                 <div class="stat-card p-3 border rounded bg-white">
                     <div>
@@ -575,7 +668,7 @@ new class extends Component
         @endif
 
         {{-- DAFTAR JURNAL PERLU DIKONFIRMASI --}}
-        <div id="jurnal-kelas" class="sekretaris-panel mb-4">
+        <div id="jurnal-perlu-dikonfirmasi" class="sekretaris-panel mb-4">
             <div style="padding: 20px; border-bottom: 1px solid #ddd;">
                 <h3 style="margin: 0; font-size: 1.25rem;">🔔 Perlu Dikonfirmasi</h3>
                 <p style="margin: 5px 0 0; color: #777; font-size: 0.875rem;">
@@ -677,26 +770,89 @@ new class extends Component
             </div>
         </div>
         @endif
+
+        <div class="card-custom overflow-hidden mb-4">
+            <div class="card-header-custom">Jurnal Terbaru Kelas {{ $this->kelasSekretaris?->nama_kelas ?? '' }} <span class="text-muted small">Maksimal 100 entri terbaru</span></div>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead><tr><th>Tanggal</th><th>Jam</th><th>Guru</th><th>Materi</th><th>Kehadiran</th><th>Status Jurnal</th><th>Konfirmasi</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->jurnalKelas as $jurnal)
+                        <tr wire:key="sekretaris-jurnal-{{ $jurnal->id_jurnal }}"><td>{{ $jurnal->tanggal?->format('d/m/Y') }}</td><td>{{ $jurnal->jam_ke }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->materi }}</td><td>{{ $jurnal->status_kehadiran_guru }}</td><td>{{ $jurnal->status_validasi }}</td><td>{{ $jurnal->status_konfirmasi_sekretaris }}</td></tr>
+                        @empty
+                        <tr><td colspan="7" class="text-center text-muted py-4">Belum ada jurnal yang dikirim untuk kelas ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    @endif
+
+    @if ($activeSection === 'kehadiran')
+    <section id="kehadiran">
+        <header class="role-page-header">
+            <div class="role-page-eyebrow">KEHADIRAN GURU</div>
+            <h1>Rekap Kehadiran · {{ $this->kelasSekretaris?->nama_kelas ?? 'Kelas' }}</h1>
+            <p>Ringkasan status kehadiran berdasarkan jurnal guru untuk kelas yang Anda tangani.</p>
+        </header>
+        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
+
+        <div class="row g-3 mb-4">
+            @foreach ([
+                'Hadir' => ['label' => 'Hadir', 'class' => 'text-success'],
+                'Izin' => ['label' => 'Izin', 'class' => 'text-primary'],
+                'Sakit' => ['label' => 'Sakit', 'class' => 'text-warning'],
+                'Tanpa Keterangan' => ['label' => 'Tanpa Keterangan', 'class' => 'text-danger'],
+            ] as $status => $info)
+            <div class="col-6 col-xl-3">
+                <div class="stat-card d-block">
+                    <div class="text-muted small">{{ $info['label'] }}</div>
+                    <div class="stat-value {{ $info['class'] }}">{{ $this->ringkasanKehadiran[$status] ?? 0 }}</div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+
+        <div class="card-custom overflow-hidden">
+            <div class="card-header-custom">Riwayat Kehadiran Guru <span class="text-muted small">Maksimal 100 jurnal terbaru</span></div>
+            <div class="table-responsive">
+                <table class="table table-hover table-custom align-middle">
+                    <thead><tr><th>Tanggal</th><th>Jam</th><th>Guru</th><th>Mata Pelajaran</th><th>Status Kehadiran</th><th>Konfirmasi Sekretaris</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->jurnalKelas as $jurnal)
+                        <tr wire:key="sekretaris-kehadiran-{{ $jurnal->id_jurnal }}"><td>{{ $jurnal->tanggal?->format('d/m/Y') }}</td><td>{{ $jurnal->jam_ke }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->guru?->mapel_diampu ?? '-' }}</td><td><span @class(['badge-status', 'badge-status-success' => $jurnal->status_kehadiran_guru === 'Hadir', 'badge-status-warning' => in_array($jurnal->status_kehadiran_guru, ['Izin', 'Sakit'], true), 'badge-status-danger' => $jurnal->status_kehadiran_guru === 'Tanpa Keterangan'])>{{ $jurnal->status_kehadiran_guru }}</span></td><td>{{ $jurnal->status_konfirmasi_sekretaris }}</td></tr>
+                        @empty
+                        <tr><td colspan="6" class="text-center text-muted py-4">Belum ada data kehadiran dari jurnal kelas.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </section>
     @endif
 
     {{-- RIWAYAT VALIDASI --}}
-    @if ($activeSection === 'riwayat-validasi')
-    <section id="riwayat-validasi">
-        <div class="sekretaris-hero mb-4">
-            <div class="text-uppercase fw-bold"
-                style="font-size:11px;letter-spacing:.14em;color:rgba(255,255,255,.72);">ARSIP KONFIRMASI</div>
-            <h1 class="h3 fw-bold mt-2 mb-1">Riwayat Validasi Jurnal</h1>
-            <p class="mb-0" style="color:rgba(255,255,255,.82);">Daftar hasil validasi jurnal yang sudah dikonfirmasi.
+    @if ($activeSection === 'rekap')
+    <section id="rekap">
+        <div class="sekretaris-hero role-page-header">
+            <div class="role-page-eyebrow">REKAP KELAS</div>
+            <h1 class="h3 fw-bold mt-2 mb-1">Rekap Jurnal & Kehadiran</h1>
+            <p class="mb-0">Ringkasan jurnal serta catatan konfirmasi kehadiran guru di kelas ini.
             </p>
         </div>
         <button type="button" wire:click="bukaMenu('dashboard')"
             class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
-        <div class="sekretaris-panel">
-            <div style="padding: 20px; border-bottom: 1px solid #ddd;">
-                <h3 style="margin: 0; font-size: 1.25rem;">Riwayat Konfirmasi</h3>
-            </div>
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-xl-3"><div class="stat-card d-block"><div class="text-muted small">Total Jurnal</div><div class="stat-value text-primary">{{ $this->jumlahJurnal }}</div></div></div>
+            <div class="col-6 col-xl-3"><div class="stat-card d-block"><div class="text-muted small">Menunggu Konfirmasi</div><div class="stat-value text-warning">{{ $this->jumlahMenunggu }}</div></div></div>
+            <div class="col-6 col-xl-3"><div class="stat-card d-block"><div class="text-muted small">Sesuai</div><div class="stat-value text-success">{{ $this->jumlahSesuai }}</div></div></div>
+            <div class="col-6 col-xl-3"><div class="stat-card d-block"><div class="text-muted small">Tidak Sesuai</div><div class="stat-value text-danger">{{ $this->jumlahTidakSesuai }}</div></div></div>
+        </div>
+
+        <div class="card-custom overflow-hidden">
+            <div class="card-header-custom">Riwayat Konfirmasi <span class="text-muted small">100 konfirmasi terbaru</span></div>
 
             <div class="table-responsive">
                 <table class="table sekretaris-table mb-0">

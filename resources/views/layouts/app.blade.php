@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
 
     <title>SIJAGA</title>
 
@@ -91,11 +92,10 @@
             <div class="brand-mini">
                 SIJAGA
             </div>
-        </div>
-
-        <div class="layout-clock layout-clock-mobile" aria-label="Jam dan tanggal saat ini">
-            <time class="layout-clock-time" data-layout-clock-time></time>
-            <time class="layout-clock-date" data-layout-clock-date></time>
+            <div class="layout-clock layout-clock-mobile" aria-label="Jam dan tanggal saat ini">
+                <time class="layout-clock-time" data-layout-clock-time></time>
+                <time class="layout-clock-date" data-layout-clock-date></time>
+            </div>
         </div>
 
         {{-- SIDEBAR --}}
@@ -157,7 +157,7 @@
                 'anchor' => 'monitoring-jurnal'],
                 'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'wakasek', 'anchor' =>
                 'dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'rekap-dispensasi'],
+                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'wakasek', 'anchor' => 'rekap'],
                 ];
                 } elseif ($role === 'guru') {
                 $navItems = [
@@ -172,8 +172,7 @@
 
                 if (session('is_guru_piket')) {
                 $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'icon' => '&#128101;', 'route' => 'guru-piket'];
-                $navItems['dispensasi_piket'] = ['label' => 'Izin & Dispensasi', 'icon' => '&#128221;', 'route' =>
-                'dispensasi'];
+                $navItems['dispensasi']['label'] = 'Izin & Dispensasi';
                 $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'icon' => '&#128202;', 'route' =>
                 'rekap-dispensasi'];
                 }
@@ -183,8 +182,8 @@
                 'dashboard'],
                 'data_kelas' => ['label' => 'Data Kelas', 'icon' => '&#127891;', 'route' => 'sekretaris', 'anchor' =>
                 'data-kelas'],
-                'jurnal_kelas' => ['label' => 'Jurnal Kelas', 'icon' => '&#128203;', 'route' => 'sekretaris', 'anchor'
-                => 'jurnal-kelas'],
+                'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' =>
+                'validasi-jurnal'],
                 'kehadiran' => ['label' => 'Kehadiran', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' =>
                 'kehadiran'],
                 'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'sekretaris', 'anchor' => 'rekap'],

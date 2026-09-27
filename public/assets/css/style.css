@@ -21,6 +21,8 @@
 
 * { box-sizing: border-box; }
 
+[x-cloak] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -218,6 +220,9 @@ a { color: var(--primary); }
 .card-custom .card-header-custom {
   padding: 16px 20px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  background: linear-gradient(90deg, #f4f8ff 0%, #fff 100%);
+  color: #183153;
+  font-weight: 700;
 }
 .stat-card {
   background: #fff; border: 1px solid var(--border); border-radius: 14px;
@@ -232,12 +237,112 @@ a { color: var(--primary); }
 /* Welcome banner */
 .welcome-banner {
   border-radius: 16px;
-  background: linear-gradient(135deg, #10233f 0%, #2563eb 100%);
+  background: linear-gradient(120deg, #10233f 0%, #1d4ed8 68%, #2563eb 100%);
   padding: 26px 28px; margin-bottom: 24px; position: relative; overflow: hidden;
+  color: #fff;
+  box-shadow: 0 14px 32px rgba(16, 35, 63, .14);
 }
 .welcome-banner .deco-circle {
   position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,.07); pointer-events: none;
 }
+.welcome-banner > * { position: relative; z-index: 1; }
+.welcome-banner h1,
+.welcome-banner h2,
+.welcome-banner .page-title { color: #fff; }
+
+/* Shared header treatment for every role and menu page. */
+.role-page-header {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  padding: 26px 28px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(120deg, #10233f 0%, #1d4ed8 68%, #2563eb 100%);
+  box-shadow: 0 14px 32px rgba(16, 35, 63, .14);
+}
+.role-page-header::after {
+  position: absolute;
+  top: -125px;
+  right: 4%;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(255, 255, 255, .035), 0 0 0 56px rgba(255, 255, 255, .02);
+  content: '';
+  pointer-events: none;
+}
+.role-page-header > * { position: relative; z-index: 1; }
+.role-page-header .role-page-eyebrow {
+  margin-bottom: 5px;
+  color: rgba(255, 255, 255, .72);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.role-page-header h1,
+.role-page-header h2,
+.role-page-header .page-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 800;
+  line-height: 1.25;
+}
+.role-page-header p,
+.role-page-header .role-page-description {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, .82);
+  font-size: 13.5px;
+}
+.role-page-header .role-page-description { max-width: 760px; }
+.role-page-header .text-muted { color: rgba(255, 255, 255, .78) !important; }
+.role-page-header .btn-app-primary {
+  color: #1d4ed8;
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(10, 25, 50, .18);
+}
+.role-page-header .btn-app-primary:hover { color: #1e40af; background: #eff6ff; }
+
+.role-menu-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 220px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 5px 18px rgba(22, 33, 62, .045);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.role-menu-card:hover,
+.role-menu-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: #93b4ed;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, .12);
+  outline: none;
+}
+.role-menu-card .role-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-size: 22px;
+}
+.role-menu-card h2 { margin-bottom: 8px; color: var(--text); }
+.role-menu-card p { flex: 1; color: var(--muted); font-size: 13px; }
 .pill { padding: 4px 10px; border-radius: 6px; font-size: 12px; }
 
 /* Baris dalam welcome banner: nama guru (kiri) + jam/tanggal (kanan) */
@@ -370,6 +475,7 @@ a { color: var(--primary); }
   .main-content { padding: 18px; }
   .sidebar-brand { padding: 20px 18px; }
   .welcome-banner { padding: 20px; }
+  .role-page-header { padding: 20px; }
   .page-title { font-size: 20px; }
   .stat-value { font-size: 22px; }
   .card-custom .card-header-custom { padding: 14px 16px; }

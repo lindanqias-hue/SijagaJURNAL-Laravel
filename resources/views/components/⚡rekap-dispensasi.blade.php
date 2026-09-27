@@ -102,35 +102,14 @@ new class extends Component
 <div>
 
     {{-- HEADER --}}
-    <div style="
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 20px;
-        margin-bottom: 25px;
-        flex-wrap: wrap;
-    ">
-
-        <div>
-            <h2 style="
-                margin: 0 0 5px 0;
-                color: #111827;
-            ">
-                Rekap Dispensasi
-            </h2>
-
-            <p style="
-                margin: 0;
-                color: #6b7280;
-            ">
-                Rekap surat dispensasi siswa berdasarkan tanggal berlaku.
-            </p>
-        </div>
-
+    <div class="role-page-header">
+        <h2>Rekap Dispensasi</h2>
+        <p>Rekap surat dispensasi siswa berdasarkan tanggal berlaku.</p>
     </div>
 
-    <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold mb-3">&larr; Kembali ke
-        Dashboard</a>
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
+    </div>
 
     {{-- PILIH PERIODE --}}
     <div style="

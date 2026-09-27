@@ -95,10 +95,10 @@ new class extends Component
 
 <div wire:poll.30s>
     {{-- HEADER HALAMAN --}}
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div class="role-page-header d-flex flex-wrap justify-content-between align-items-start gap-3">
         <div>
             <div class="page-title">Piket & Pemantauan Tugas</div>
-            <div class="text-muted mt-1" style="font-size:13px;">
+            <div class="role-page-description">
                 Pantau kehadiran guru otomatis berdasarkan jurnal dan koordinasikan penyerahan tugas titipan.
             </div>
         </div>
@@ -117,6 +117,9 @@ new class extends Component
             @endif
         </div>
         @endif
+    </div>
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
     </div>
 
     {{-- ALERT AKSES PIKET --}}

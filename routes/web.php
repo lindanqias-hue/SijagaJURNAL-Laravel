@@ -47,7 +47,6 @@ Route::middleware('auth.session')->group(function () {
     // Bisa diakses semua role yang login (masing-masing komponen
     // sudah redirect sendiri kalau role-nya tidak cocok)
     Route::livewire('/dashboard', 'dashboard')->name('dashboard');
-    Route::livewire('/notifikasi', 'notifikasi')->name('notifikasi');
     Route::livewire('/riwayat', 'riwayat')->name('riwayat');
     Route::livewire('/input-jurnal', 'input-jurnal')->name('input-jurnal');
 
@@ -70,6 +69,7 @@ Route::middleware('auth.session')->group(function () {
 
     // Fungsi piket adalah penugasan tambahan untuk akun guru yang sama.
     Route::middleware('role:guru')->group(function () {
+        Route::livewire('/notifikasi', 'notifikasi')->name('notifikasi');
         Route::livewire('/guru-piket', 'guru-piket')->name('guru-piket');
         Route::livewire('/dispensasi', 'dispensasi')->name('dispensasi');
         Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')

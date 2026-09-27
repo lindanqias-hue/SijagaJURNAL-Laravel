@@ -549,8 +549,8 @@ new class extends Component
 
 <div>
     {{-- HEADER --}}
-    <div class="mb-4">
-        <h2 class="fw-bold mb-1">
+    <div class="role-page-header">
+        <h2>
             @if ($jenisSurat === 'Izin')
             Input Surat Izin dari Luar
             @elseif ($jenisSurat === 'Sakit')
@@ -559,9 +559,12 @@ new class extends Component
             Pengajuan Dispensasi
             @endif
         </h2>
-        <p class="text-muted mb-0">
+        <p>
             Pilih kelas dan siswa, lalu lengkapi surat serta bukti pendukung.
         </p>
+    </div>
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
     </div>
 
     {{-- NOTIFIKASI BERHASIL / PERINGATAN --}}

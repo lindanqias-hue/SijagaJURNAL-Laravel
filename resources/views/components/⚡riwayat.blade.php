@@ -1,4 +1,3 @@
-```php
 <?php
 
 use Livewire\Component;
@@ -499,14 +498,11 @@ new class extends Component
 
     {{-- KEMBALI KE DASHBOARD --}}
     @if($this->isGuru)
-
-        <a
-            href="{{ route('dashboard') }}"
-            class="btn btn-outline-primary btn-sm fw-semibold mb-3"
-        >
+    <div class="role-page-actions mb-3">
+        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">
             &larr; Kembali ke Dashboard
         </a>
-
+    </div>
     @endif
 
 
@@ -1177,4 +1173,3 @@ new class extends Component
     </div>
 
 </div>
-```
