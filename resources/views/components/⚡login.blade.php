@@ -78,11 +78,13 @@ new #[Layout('layouts.guest')] class extends Component
 
             <div class="login-card-header">
 
-                <div class="login-logo">🏫</div>
+                <div class="login-logo">
+                    <img src="{{ asset('assets/logo-sijaga.png') }}" alt="Logo SIJAGA">
+                </div>
 
                 <div class="fw-bold"
                     style="font-size:21px; color:#fff;">
-                    Sistem Informasi
+                    Si Jaga Jurnal
                 </div>
 
                 <div class="fw-bold"
@@ -90,10 +92,8 @@ new #[Layout('layouts.guest')] class extends Component
                     Jurnal &amp; Absensi Guru
                 </div>
 
-                <div style="color:rgba(255,255,255,.45);
-                        font-size:12px;
-                        margin-top:8px;">
-                    SMK Negeri 1 Contoh — Tahun Ajaran 2026/2027
+                <div class="login-school-identity">
+                    SMKN 1 NEGERI 1 BOYOLANGU — Tahun Ajaran 2026/2027
                 </div>
 
             </div>

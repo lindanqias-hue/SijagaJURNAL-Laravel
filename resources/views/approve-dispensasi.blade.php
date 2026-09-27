@@ -117,6 +117,7 @@
             flex: 1;
             border: none;
             padding: 13px;
+            min-height: 44px;
             border-radius: 9px;
             font-size: 15px;
             font-weight: bold;

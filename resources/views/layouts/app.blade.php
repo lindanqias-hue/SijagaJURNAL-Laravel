@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/logo-sijaga.png') }}">
 
     <title>SIJAGA</title>
 
@@ -88,7 +88,9 @@
             <button class="btn-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarNav">
                 &#9776;
             </button>
-            <div class="sidebar-logo">&#127979;</div>
+            <div class="sidebar-logo">
+                <img src="{{ asset('assets/logo-sijaga.png') }}" alt="Logo SIJAGA">
+            </div>
             <div class="brand-mini">
                 SIJAGA
             </div>
@@ -105,7 +107,7 @@
             <div class="sidebar-brand d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-2">
                     <div class="sidebar-logo">
-                        &#127979;
+                        <img src="{{ asset('assets/logo-sijaga.png') }}" alt="Logo SIJAGA">
                     </div>
                     <div>
                         <div class="text-white fw-bold" style="font-size:12px; line-height:1.2;">
@@ -134,65 +136,65 @@
 
                 if ($role === 'admin') {
                 $navItems = [
-                'admin' => ['label' => 'Dashboard Admin', 'icon' => '&#9881;', 'route' => 'admin'],
-                'pengguna' => ['label' => 'Pengguna', 'icon' => '&#128100;', 'route' => 'admin', 'anchor' =>
+                'admin' => ['label' => 'Dashboard Admin', 'route' => 'admin'],
+                'pengguna' => ['label' => 'Pengguna', 'route' => 'admin', 'anchor' =>
                 'pengguna'],
-                'guru' => ['label' => 'Guru', 'icon' => '&#127979;', 'route' => 'admin', 'anchor' => 'guru'],
-                'siswa' => ['label' => 'Siswa', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' => 'siswa'],
-                'kelas' => ['label' => 'Kelas', 'icon' => '&#127891;', 'route' => 'admin', 'anchor' => 'kelas'],
-                'jadwal' => ['label' => 'Jadwal Mengajar', 'icon' => '&#128197;', 'route' => 'admin', 'anchor' =>
+                'guru' => ['label' => 'Guru', 'route' => 'admin', 'anchor' => 'guru'],
+                'siswa' => ['label' => 'Siswa', 'route' => 'admin', 'anchor' => 'siswa'],
+                'kelas' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kelas'],
+                'jadwal' => ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' =>
                 'jadwal'],
-                'jadwal_piket' => ['label' => 'Jadwal Piket', 'icon' => '&#128101;', 'route' => 'admin', 'anchor' =>
+                'jadwal_piket' => ['label' => 'Jadwal Piket', 'route' => 'admin', 'anchor' =>
                 'jadwal-piket'],
-                'jurnal' => ['label' => 'Jurnal', 'icon' => '&#128203;', 'route' => 'admin', 'anchor' => 'jurnal'],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'admin', 'anchor' =>
+                'jurnal' => ['label' => 'Jurnal', 'route' => 'admin', 'anchor' => 'jurnal'],
+                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'admin', 'anchor' =>
                 'dispensasi'],
                 ];
                 } elseif ($role === 'wakasek') {
                 $navItems = [
-                'wakasek' => ['label' => 'Dashboard', 'icon' => '&#128202;', 'route' => 'wakasek'],
-                'monitoring_guru' => ['label' => 'Monitoring Guru', 'icon' => '&#128100;', 'route' => 'wakasek',
+                'wakasek' => ['label' => 'Dashboard', 'route' => 'wakasek'],
+                'monitoring_guru' => ['label' => 'Monitoring Guru', 'route' => 'wakasek',
                 'anchor' => 'monitoring-guru'],
-                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'icon' => '&#128203;', 'route' => 'wakasek',
+                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'route' => 'wakasek',
                 'anchor' => 'monitoring-jurnal'],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'wakasek', 'anchor' =>
+                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'wakasek', 'anchor' =>
                 'dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'wakasek', 'anchor' => 'rekap'],
+                'rekap' => ['label' => 'Rekap', 'route' => 'wakasek', 'anchor' => 'rekap'],
                 ];
                 } elseif ($role === 'guru') {
                 $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'dashboard'],
-                'jadwal_saya' => ['label' => 'Jadwal Saya', 'icon' => '&#128197;', 'route' => 'dashboard', 'anchor' =>
+                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard'],
+                'jadwal_saya' => ['label' => 'Jadwal Saya', 'route' => 'dashboard', 'anchor' =>
                 'jadwal-saya'],
-                'input_jurnal' => ['label' => 'Input Jurnal', 'icon' => '&#9998;', 'route' => 'input-jurnal'],
-                'riwayat' => ['label' => 'Riwayat Saya', 'icon' => '&#128203;', 'route' => 'riwayat'],
-                'notifikasi' => ['label' => 'Notifikasi', 'icon' => '&#128276;', 'route' => 'notifikasi'],
-                'dispensasi' => ['label' => 'Dispensasi', 'icon' => '&#128221;', 'route' => 'dispensasi'],
+                'input_jurnal' => ['label' => 'Input Jurnal', 'route' => 'input-jurnal'],
+                'riwayat' => ['label' => 'Riwayat Saya', 'route' => 'riwayat'],
+                'notifikasi' => ['label' => 'Notifikasi', 'route' => 'notifikasi'],
+                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'dispensasi'],
                 ];
 
                 if (session('is_guru_piket')) {
-                $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'icon' => '&#128101;', 'route' => 'guru-piket'];
+                $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'route' => 'guru-piket'];
                 $navItems['dispensasi']['label'] = 'Izin & Dispensasi';
-                $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'icon' => '&#128202;', 'route' =>
+                $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'route' =>
                 'rekap-dispensasi'];
                 }
                 } elseif ($role === 'sekretaris') {
                 $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'sekretaris', 'anchor' =>
+                'dashboard' => ['label' => 'Dashboard', 'route' => 'sekretaris', 'anchor' =>
                 'dashboard'],
-                'data_kelas' => ['label' => 'Data Kelas', 'icon' => '&#127891;', 'route' => 'sekretaris', 'anchor' =>
+                'data_kelas' => ['label' => 'Data Kelas', 'route' => 'sekretaris', 'anchor' =>
                 'data-kelas'],
-                'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' =>
+                'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'route' => 'sekretaris', 'anchor' =>
                 'validasi-jurnal'],
-                'kehadiran' => ['label' => 'Kehadiran', 'icon' => '&#9989;', 'route' => 'sekretaris', 'anchor' =>
+                'kehadiran' => ['label' => 'Kehadiran', 'route' => 'sekretaris', 'anchor' =>
                 'kehadiran'],
-                'rekap' => ['label' => 'Rekap', 'icon' => '&#128202;', 'route' => 'sekretaris', 'anchor' => 'rekap'],
+                'rekap' => ['label' => 'Rekap', 'route' => 'sekretaris', 'anchor' => 'rekap'],
                 ];
                 } else {
                 $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'icon' => '&#8862;', 'route' => 'dashboard'],
-                'riwayat' => ['label' => 'Laporan Tervalidasi', 'icon' => '&#128202;', 'route' => 'riwayat'],
-                'data_master' => ['label' => 'Data Master', 'icon' => '&#9881;', 'route' => 'data-master'],
+                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard'],
+                'riwayat' => ['label' => 'Laporan Tervalidasi', 'route' => 'riwayat'],
+                'data_master' => ['label' => 'Data Master', 'route' => 'data-master'],
                 ];
                 }
                 @endphp
@@ -210,11 +212,7 @@
                     class="nav-link {{ $isActive ? 'active' : '' }}" data-nav-anchor="{{ $item['anchor'] ?? '' }}"
                     data-route-active="{{ $isActive ? 'true' : 'false' }}">
 
-                    @if ($item['icon'] !== '')
-                    <span style="font-size:15px; width:20px; text-align:center;">
-                        {!! $item['icon'] !!}
-                    </span>
-                    @endif
+                    <span aria-hidden="true" style="font-size:15px; width:20px; text-align:center;"></span>
 
                     {{ $item['label'] }}
 

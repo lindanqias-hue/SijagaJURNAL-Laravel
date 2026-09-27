@@ -112,6 +112,7 @@
         .btn {
             flex: 1;
             padding: 10px;
+            min-height: 44px;
             border: none;
             border-radius: 8px;
             font-weight: bold;
