@@ -21,6 +21,8 @@ class Jurnal extends Model
         'jumlah_hadir',
         'jumlah_tidak_hadir',
         'status_kehadiran_guru',
+        'adalah_pengajuan_izin',
+        'jenis_izin',
         'catatan',
         'status_validasi',
         'id_validator',
@@ -34,6 +36,7 @@ class Jurnal extends Model
 
     protected $casts = [
         'tanggal' => 'date',
+        'adalah_pengajuan_izin' => 'boolean',
         'tanggal_validasi' => 'datetime',
         'waktu_konfirmasi_sekretaris' => 'datetime',
     ];
@@ -66,5 +69,10 @@ class Jurnal extends Model
             'id_kelas',
             'id_kelas'
         );
+    }
+
+    public function validator()
+    {
+        return $this->belongsTo(Pengguna::class, 'id_validator', 'id_pengguna');
     }
 }

@@ -19,6 +19,10 @@ new class extends Component
 
     public string $rekapTerbuka = '';
 
+    public ?int $pengajuanIzinTerpilih = null;
+
+    public string $catatanValidasiIzin = '';
+
     public function mount(): void
     {
         abort_unless(session('role') === 'wakasek', 403);
@@ -47,6 +51,56 @@ new class extends Component
     public function tutupRekap(): void
     {
         $this->rekapTerbuka = '';
+    }
+
+    public function getPengajuanIzinMenungguProperty()
+    {
+        return Jurnal::query()
+            ->with(['guru', 'kelas'])
+            ->where('adalah_pengajuan_izin', true)
+            ->where('status_validasi', 'Menunggu')
+            ->orderByDesc('tanggal')
+            ->orderByDesc('id_jurnal')
+            ->get();
+    }
+
+    public function validasiPengajuanIzin(int $idJurnal, string $status): void
+    {
+        abort_unless(session('role') === 'wakasek', 403);
+        abort_unless(in_array($status, ['Divalidasi', 'Ditolak'], true), 422);
+
+        $jurnal = Jurnal::query()
+            ->where('adalah_pengajuan_izin', true)
+            ->where('status_validasi', 'Menunggu')
+            ->findOrFail($idJurnal);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($jurnal, $status): void {
+            $jurnal->update([
+                'status_validasi' => $status,
+                'id_validator' => session('id_pengguna'),
+                'tanggal_validasi' => now('Asia/Jakarta'),
+                'catatan_validasi' => trim($this->catatanValidasiIzin) ?: null,
+            ]);
+
+            if ($status !== 'Divalidasi') {
+                return;
+            }
+
+            Jadwal::query()
+                ->where('id_guru', $jurnal->id_guru)
+                ->where('id_kelas', $jurnal->id_kelas)
+                ->where('hari', $jurnal->tanggal->locale('id')->translatedFormat('l'))
+                ->get()
+                ->each(function (Jadwal $jadwal) use ($jurnal): void {
+                    \App\Models\KehadiranGuru::query()->updateOrCreate(
+                        ['id_jadwal' => $jadwal->id_jadwal, 'tanggal' => $jurnal->tanggal->toDateString()],
+                        ['id_guru' => $jurnal->id_guru, 'status' => $jurnal->status_kehadiran_guru, 'sumber' => 'Sistem', 'catatan' => $jurnal->jenis_izin]
+                    );
+                });
+        });
+
+        $this->pengajuanIzinTerpilih = null;
+        $this->catatanValidasiIzin = '';
     }
 
     public function getStatsProperty(): array
@@ -361,7 +415,7 @@ new class extends Component
     searchDispensasi: '',
     syncSection() {
         const section = window.location.hash.slice(1);
-        this.activeSection = ['monitoring-guru', 'monitoring-jurnal', 'dispensasi', 'rekap'].includes(section) ? section : 'dashboard';
+        this.activeSection = ['monitoring-guru', 'monitoring-jurnal', 'dispensasi', 'pengajuan-izin', 'rekap'].includes(section) ? section : 'dashboard';
     },
     openSection(section) {
         this.activeSection = section;
@@ -394,6 +448,7 @@ new class extends Component
         <section class="card-custom p-4">
             <div class="d-flex align-items-center gap-2 mb-3"><span class="wakasek-summary-mark">&#128202;</span><div><h2 class="h5 fw-bold mb-0">Ringkasan Hari Ini</h2><div class="text-muted small">Status pemantauan aktivitas sekolah</div></div></div>
             <div class="wakasek-dashboard-grid">
+                <button type="button" class="stat-card wakasek-stat wakasek-stat-button" x-on:click="openSection('pengajuan-izin')"><span class="d-block text-muted small">Pengajuan Izin Guru</span><span class="stat-value text-danger d-block">{{ $this->pengajuanIzinMenunggu->count() }}</span><span class="small">Menunggu validasi</span></button>
                 <button type="button" class="stat-card wakasek-stat wakasek-stat-button" x-on:click="openSection('monitoring-guru')">
                     <span class="text-muted small">Monitoring Guru</span>
                     <span class="stat-value text-danger d-block">{{ $this->jadwalMengajarSekarang->count() }}</span>
@@ -429,6 +484,20 @@ new class extends Component
             <tr wire:key="monitoring-jurnal-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchJurnal || $el.dataset.search.includes(searchJurnal)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}"><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td><td>Ke-{{ $jadwal->jam_ke }}</td><td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Sudah Mengisi' : 'Belum Mengisi' }}</span></td><td><span class="badge {{ $jadwal->status_jurnal === 'Divalidasi' ? 'bg-success' : ($jadwal->status_jurnal === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_jurnal ?? '-' }}</span></td></tr>
             @empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>@endforelse
         </tbody></table></div>
+    </section>
+
+    <section x-cloak x-show="activeSection === 'pengajuan-izin'" :class="{ 'd-none': activeSection !== 'pengajuan-izin' }" class="card-custom wakasek-content-card">
+        <div class="wakasek-page-header role-page-header m-3"><h2>Pengajuan Izin Guru</h2><div class="role-page-description">Validasi izin dan titipan tugas sebelum diteruskan ke sekretaris kelas.</div></div>
+        <div class="role-page-actions mx-3 mb-3"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
+        <div class="wakasek-rekap-list">
+            @forelse ($this->pengajuanIzinMenunggu as $izin)
+            <article class="wakasek-rekap-row" wire:key="pengajuan-izin-{{ $izin->id_jurnal }}">
+                <div><span class="wakasek-rekap-label">Tanggal / Jam</span>{{ $izin->tanggal?->format('d/m/Y') }} · Jam ke-{{ $izin->jam_ke }}</div><div><span class="wakasek-rekap-label">Guru</span>{{ $izin->guru?->nama ?? '-' }}</div><div><span class="wakasek-rekap-label">Kelas</span>{{ $izin->kelas?->nama_kelas ?? '-' }}</div><div><span class="wakasek-rekap-label">Jenis izin</span>{{ $izin->jenis_izin }}</div><div class="col-12"><span class="wakasek-rekap-label">Titipan tugas</span>{{ $izin->materi }}</div>
+                <div class="col-12"><input type="text" wire:model="catatanValidasiIzin" class="form-control" placeholder="Catatan Wakasek (opsional)"></div>
+                <div class="col-12 d-flex gap-2"><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_jurnal }}, 'Divalidasi')" class="btn btn-success btn-sm">Setujui</button><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_jurnal }}, 'Ditolak')" class="btn btn-outline-danger btn-sm">Tolak</button></div>
+            </article>
+            @empty<div class="text-center text-muted py-4">Tidak ada pengajuan izin yang menunggu validasi.</div>@endforelse
+        </div>
     </section>
 
     <section x-cloak x-show="activeSection === 'monitoring-guru'" :class="{ 'd-none': activeSection !== 'monitoring-guru' }" id="monitoring-guru" class="card-custom wakasek-content-card">
