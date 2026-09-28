@@ -456,6 +456,12 @@ new class extends Component
     </div>
     <script>window.addEventListener('load', () => window.print()); window.addEventListener('afterprint', () => window.close());</script>
     @else
+    @if (session('success'))
+    <div class="alert alert-success m-3" role="status">{{ session('success') }}</div>
+    @endif
+    @if (session('error'))
+    <div class="alert alert-danger m-3" role="alert">{{ session('error') }}</div>
+    @endif
     <section x-cloak x-show="activeSection === 'dashboard'" :class="{ 'd-none': activeSection !== 'dashboard' }" wire:poll.60s id="wakasek-dashboard" class="wakasek-dashboard">
         <header class="welcome-banner mb-4">
             <div class="text-uppercase fw-bold small text-white-50">SIJAGA · PANEL PIMPINAN</div>

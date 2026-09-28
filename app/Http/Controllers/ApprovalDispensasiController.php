@@ -6,6 +6,7 @@ use App\Models\Dispensasi;
 use App\Models\Pengguna;
 use App\Services\DispensasiJurnalService;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -92,14 +93,9 @@ class ApprovalDispensasiController extends Controller
         return response()->download(Storage::disk('local')->path($dispensasi->lampiran_path));
     }
 
-    public function setujui(Request $request, $token, $wakasek)
+    public function setujui($token, $wakasek)
     {
-        $request->validate([
-            'catatan_wakasek' => 'nullable|string|max:500',
-        ]);
-
         $berhasil = DB::transaction(function () use (
-            $request,
             $token,
             $wakasek
         ) {
@@ -130,8 +126,7 @@ class ApprovalDispensasiController extends Controller
             $dispensasi->status = 'Disetujui';
             $dispensasi->id_wakasek = $wakasekData->id_pengguna;
             $dispensasi->waktu_approval = Carbon::now('Asia/Jakarta');
-            $dispensasi->catatan_wakasek =
-                $request->catatan_wakasek ?: null;
+            $dispensasi->catatan_wakasek = null;
 
             $dispensasi->save();
 
@@ -139,15 +134,12 @@ class ApprovalDispensasiController extends Controller
         });
 
         if (! $berhasil) {
-            return redirect()
-                ->route('approve-dispensasi', [
-                    'token' => $token,
-                    'wakasek' => $wakasek,
-                ])
-                ->with(
-                    'error',
-                    'Dispensasi ini sudah diproses oleh Wakasek lain.'
-                );
+            return $this->redirectAfterDecision(
+                $token,
+                $wakasek,
+                'error',
+                'Dispensasi ini sudah diproses oleh Wakasek lain.'
+            );
         }
 
         // Masukkan dispensasi ke jurnal + kirim notifikasi ke guru yang mengajar
@@ -169,15 +161,12 @@ class ApprovalDispensasiController extends Controller
             ]
         );
 
-        return redirect()
-            ->route('approve-dispensasi', [
-                'token' => $token,
-                'wakasek' => $wakasek,
-            ])
-            ->with(
-                'success',
-                'Dispensasi berhasil disetujui. Persetujuan telah dikirim ke Guru Piket.'
-            );
+        return $this->redirectAfterDecision(
+            $token,
+            $wakasek,
+            'success',
+            'Dispensasi berhasil disetujui. Persetujuan telah dikirim ke Guru Piket.'
+        );
     }
 
     public function tolak(Request $request, $token, $wakasek)
@@ -228,15 +217,12 @@ class ApprovalDispensasiController extends Controller
         });
 
         if (! $berhasil) {
-            return redirect()
-                ->route('approve-dispensasi', [
-                    'token' => $token,
-                    'wakasek' => $wakasek,
-                ])
-                ->with(
-                    'error',
-                    'Dispensasi ini sudah diproses oleh Wakasek lain.'
-                );
+            return $this->redirectAfterDecision(
+                $token,
+                $wakasek,
+                'error',
+                'Dispensasi ini sudah diproses oleh Wakasek lain.'
+            );
         }
 
         $dispensasi = Dispensasi::where('token', $token)->firstOrFail();
@@ -254,14 +240,30 @@ class ApprovalDispensasiController extends Controller
             ]
         );
 
-        return redirect()
-            ->route('approve-dispensasi', [
+        return $this->redirectAfterDecision(
+            $token,
+            $wakasek,
+            'success',
+            'Dispensasi ditolak. Penolakan telah dikirim ke Guru Piket.'
+        );
+    }
+
+    private function redirectAfterDecision(
+        string $token,
+        int|string $wakasek,
+        string $messageType,
+        string $message
+    ): RedirectResponse {
+        $isWakasekSession = (int) session('id_pengguna') === (int) $wakasek
+            && session('role') === 'wakasek';
+
+        $destination = $isWakasekSession
+            ? route('wakasek').'#dispensasi'
+            : route('approve-dispensasi', [
                 'token' => $token,
                 'wakasek' => $wakasek,
-            ])
-            ->with(
-                'success',
-                'Dispensasi ditolak. Penolakan telah dikirim ke Guru Piket.'
-            );
+            ]);
+
+        return redirect()->to($destination)->with($messageType, $message);
     }
 }

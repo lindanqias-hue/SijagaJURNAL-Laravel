@@ -337,16 +337,6 @@
                 onsubmit="return confirm('Apakah Anda yakin ingin menyetujui dispensasi ini?')">
                 @csrf
 
-                <div class="data">
-                    <div class="label">
-                        Catatan
-                    </div>
-
-                    <textarea
-                        name="catatan_wakasek"
-                        placeholder="Tulis catatan jika diperlukan..."></textarea>
-                </div>
-
                 <div class="buttons">
 
                     <button
@@ -359,6 +349,8 @@
             </form>
 
             <form
+                id="form-penolakan"
+                class="form-keputusan"
                 method="POST"
                 action="{{ route('approve-dispensasi.tolak', [
                     'token' => $dispensasi->token,
@@ -367,28 +359,31 @@
                 onsubmit="return confirm('Apakah Anda yakin ingin menolak dispensasi ini?')">
                 @csrf
 
-                <div class="data">
+                <div class="data" id="alasan-penolakan-wrapper" @if (!$errors->has('catatan_wakasek')) hidden @endif>
                     <label class="label" for="alasan-penolakan">Alasan Penolakan <span aria-hidden="true">*</span></label>
                     <textarea
                         id="alasan-penolakan"
                         name="catatan_wakasek"
                         maxlength="500"
-                        required
-                        placeholder="Wajib diisi saat menolak..."></textarea>
+                        @if ($errors->has('catatan_wakasek')) required @endif
+                        placeholder="Wajib diisi saat menolak...">{{ old('catatan_wakasek') }}</textarea>
                     @error('catatan_wakasek')
                     <div class="alert alert-error">{{ $message }}</div>
                     @enderror
                 </div>
                 <div class="buttons">
-
+                    <button
+                        type="button"
+                        id="tombol-buka-alasan"
+                        class="btn-tolak"
+                        @if ($errors->has('catatan_wakasek') && trim((string) old('catatan_wakasek')) !== '') hidden @endif>Tolak</button>
                     <button
                         type="submit"
+                        id="tombol-kirim-penolakan"
                         class="btn-tolak"
-                        ✕ TOLAK
-                        </button>
-
+                        @if (!$errors->has('catatan_wakasek') || trim((string) old('catatan_wakasek')) === '') hidden @endif
+                        @if (!$errors->has('catatan_wakasek') || trim((string) old('catatan_wakasek')) === '') disabled @endif>Kirim Penolakan</button>
                 </div>
-
             </form>
 
         </div>
@@ -396,6 +391,30 @@
         @endif
 
     </div>
+
+<script>
+    const tombolBukaAlasan = document.getElementById('tombol-buka-alasan');
+    const tombolKirimPenolakan = document.getElementById('tombol-kirim-penolakan');
+    const alasanPenolakan = document.getElementById('alasan-penolakan');
+
+    if (tombolBukaAlasan && tombolKirimPenolakan && alasanPenolakan) {
+        tombolBukaAlasan.addEventListener('click', () => {
+            document.getElementById('alasan-penolakan-wrapper').hidden = false;
+            alasanPenolakan.required = true;
+            alasanPenolakan.focus();
+        });
+
+        alasanPenolakan.addEventListener('input', () => {
+            const alasanSudahDiisi = alasanPenolakan.value.trim() !== '';
+
+            tombolBukaAlasan.hidden = alasanSudahDiisi;
+            tombolKirimPenolakan.hidden = !alasanSudahDiisi;
+            tombolKirimPenolakan.disabled = !alasanSudahDiisi;
+        });
+
+        alasanPenolakan.dispatchEvent(new Event('input'));
+    }
+</script>
 
 </body>
 

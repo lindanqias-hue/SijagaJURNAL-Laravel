@@ -17,6 +17,16 @@ Route::get(
     [ApprovalDispensasiController::class, 'detail']
 )->name('surat-dispensasi.detail');
 
+Route::get(
+    '/surat-dispensasi/{id}/lampiran/{token}',
+    [ApprovalDispensasiController::class, 'lampiran']
+)->name('surat-dispensasi.lampiran');
+
+Route::get(
+    '/surat-dispensasi/{id}/ticket/{ticketToken}',
+    [ApprovalDispensasiController::class, 'ticket']
+)->name('surat-dispensasi.ticket');
+
 Route::post(
     '/approve-dispensasi/{token}/{wakasek}/setujui',
     [ApprovalDispensasiController::class, 'setujui']

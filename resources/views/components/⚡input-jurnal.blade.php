@@ -8,6 +8,7 @@ use App\Models\AbsensiSiswa;
 use App\Models\KeteranganSiswa;
 use App\Models\Siswa;
 use App\Services\KehadiranGuruService;
+use App\Services\DispensasiJurnalService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -70,6 +71,7 @@ new class extends Component
     public $siswa = [];
     public $absensi = [];
     public $keteranganTambahan = [];
+    public array $absensiTerkunci = [];
 
     protected const STATUS_BUTUH_KETERANGAN = [
         'Sakit',
@@ -220,7 +222,10 @@ new class extends Component
     {
         if ($this->modeIzin) {
             $this->muatJadwalIzin();
+            return;
         }
+
+        $this->loadDispensasiDisetujui();
     }
 
     public function toggleModeIzin(): void
@@ -584,9 +589,12 @@ new class extends Component
 
     public function bukaAbsensiSiswa(): void
     {
-        $this->cariSiswa = '';
-        $this->showReview = false;
-        $this->showAbsensiSiswa = true;
+        $this->showAbsensiSiswa = ! $this->showAbsensiSiswa;
+
+        if ($this->showAbsensiSiswa) {
+            $this->cariSiswa = '';
+            $this->showReview = false;
+        }
     }
 
     public function bukaReview(): void
@@ -629,6 +637,14 @@ new class extends Component
             );
 
         if (!$ada) {
+            return;
+        }
+
+        $statusPiket = $this->statusPiketTerikatSaatIni();
+
+        if ($statusPiket->has((int) $idSiswa)) {
+            $this->terapkanStatusPiket($statusPiket);
+
             return;
         }
 
@@ -708,6 +724,12 @@ new class extends Component
 
     public function updatedJamKe(): void
     {
+        foreach (array_keys($this->absensiTerkunci) as $idSiswa) {
+            $this->absensi[$idSiswa] = 'Hadir';
+            unset($this->keteranganTambahan[$idSiswa]);
+        }
+
+        $this->absensiTerkunci = [];
         $this->loadDispensasiDisetujui();
 
         $this->sinkronkanJadwalTerpilih();
@@ -856,6 +878,8 @@ new class extends Component
 
             $this->siswa = [];
             $this->absensi = [];
+            $this->keteranganTambahan = [];
+            $this->absensiTerkunci = [];
 
             return;
         }
@@ -867,6 +891,21 @@ new class extends Component
             )
             ->orderBy('id_siswa')
             ->get();
+
+        $idSiswaDiKelas = $this->siswa
+            ->pluck('id_siswa')
+            ->map(fn ($id): string => (string) $id)
+            ->all();
+
+        $this->absensi = collect($this->absensi)
+            ->only($idSiswaDiKelas)
+            ->all();
+
+        $this->keteranganTambahan = collect($this->keteranganTambahan)
+            ->only($idSiswaDiKelas)
+            ->all();
+
+        $this->absensiTerkunci = [];
 
         foreach ($this->siswa as $siswa) {
 
@@ -893,6 +932,13 @@ new class extends Component
 
     public function loadDispensasiDisetujui(): void
     {
+        foreach (array_keys($this->absensiTerkunci) as $idSiswa) {
+            $this->absensi[$idSiswa] = 'Hadir';
+            unset($this->keteranganTambahan[$idSiswa]);
+        }
+
+        $this->absensiTerkunci = [];
+
         if (
             !$this->id_kelas ||
             !$this->tanggal ||
@@ -901,77 +947,40 @@ new class extends Component
             return;
         }
 
-        $dispensasi = DB::table('dispensasi')
-            ->where(
-                'id_kelas',
-                $this->id_kelas
-            )
-            ->where(
-                'tanggal',
-                $this->tanggal
-            )
-            ->where(
-                'status',
-                'Disetujui'
-            )
-            ->where(function ($query) {
+        $this->terapkanStatusPiket($this->statusPiketTerikatSaatIni());
+    }
 
-                $query
-                    ->where(
-                        'jenis_dispensasi',
-                        'Sehari Penuh'
-                    )
+    private function statusPiketTerikatSaatIni()
+    {
+        $jadwal = $this->findJadwalTerpilih();
 
-                    ->orWhere(function ($q) {
+        if (! $jadwal || (int) $jadwal->id_kelas !== (int) $this->id_kelas) {
+            return collect();
+        }
 
-                        $q
-                            ->where(
-                                'jenis_dispensasi',
-                                'Per Jam'
-                            )
-                            ->where(
-                                'jam_ke_mulai',
-                                '<=',
-                                $this->jam_ke
-                            )
-                            ->where(
-                                'jam_ke_selesai',
-                                '>=',
-                                $this->jam_ke
-                            );
+        return app(DispensasiJurnalService::class)->statusTerikatUntukJurnal(
+            (int) $jadwal->id_kelas,
+            $this->tanggal,
+            (int) $jadwal->jam_ke,
+            (int) session('id_pengguna')
+        );
+    }
 
-                    })
+    private function terapkanStatusPiket($statusPiket): void
+    {
+        $idSiswaDiKelas = collect($this->siswa)
+            ->pluck('id_siswa')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
 
-                    ->orWhere(function ($q) {
+        foreach ($statusPiket as $idSiswa => $data) {
+            if (! in_array((int) $idSiswa, $idSiswaDiKelas, true)) {
+                continue;
+            }
 
-                        $q
-                            ->where(
-                                'jenis_dispensasi',
-                                'Per Mapel'
-                            )
-                            ->where(
-                                'id_guru',
-                                session('id_pengguna')
-                            )
-                            ->where(
-                                'jam_ke_mulai',
-                                $this->jam_ke
-                            );
-
-                    });
-
-            })
-            ->get();
-
-        foreach ($dispensasi as $data) {
-
-            $this->absensi[
-                $data->id_siswa
-            ] = 'Dispensasi';
-
-            $this->keteranganTambahan[
-                $data->id_siswa
-            ] = $data->alasan;
+            $this->absensi[$idSiswa] = $data['status'];
+            $this->keteranganTambahan[$idSiswa] = $data['keterangan'] ?? '';
+            $this->absensiTerkunci[$idSiswa] = true;
         }
     }
 
@@ -1312,6 +1321,28 @@ new class extends Component
                 collect($this->absensi)
                     ->only($idSiswaValid)
                     ->all();
+
+            $statusPiket = app(DispensasiJurnalService::class)
+                ->statusTerikatUntukJurnal(
+                    (int) $idKelasServer,
+                    $this->tanggal,
+                    (int) $jadwalTerpilih->jam_ke,
+                    (int) $idGuru
+                );
+
+            foreach ($statusPiket as $idSiswa => $dataStatus) {
+                $this->absensi[$idSiswa] = $dataStatus['status'];
+                $this->keteranganTambahan[$idSiswa] = $dataStatus['keterangan'] ?? '';
+            }
+
+            $this->absensiTerkunci = $statusPiket
+                ->keys()
+                ->mapWithKeys(fn ($id): array => [(int) $id => true])
+                ->all();
+
+            $this->keteranganTambahan = collect($this->keteranganTambahan)
+                ->only($idSiswaValid)
+                ->all();
 
             /*
             |--------------------------------------------------------------------------
@@ -1888,43 +1919,65 @@ new class extends Component
 
                 @if (!$modeIzin)
                 <div class="col-12">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                        <label class="form-label fw-semibold mb-0">Kehadiran siswa</label>
-                        <span class="badge bg-secondary">{{ count($siswa) }} siswa</span>
-                    </div>
+                    <label class="form-label fw-semibold d-block mb-2">Kehadiran siswa</label>
                     @error('absensi') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
                     @if (count($siswa))
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                        <input type="search" wire:model.live.debounce.250ms="cariSiswa" class="form-control" placeholder="Cari nama siswa" aria-label="Cari siswa" style="max-width: 320px">
-                        <button type="button" wire:click="bukaAbsensiSiswa" class="btn btn-outline-primary">Pilih status siswa</button>
+                    @php
+                    $jumlahHadirRingkasan = collect($absensi)->filter(fn ($status) => $status === 'Hadir')->count();
+                    $jumlahTidakHadirRingkasan = collect($absensi)->filter(fn ($status) => $status !== 'Hadir')->count();
+                    @endphp
+                    <button type="button" wire:click="bukaAbsensiSiswa" aria-expanded="{{ $showAbsensiSiswa ? 'true' : 'false' }}" class="card-custom w-100 text-start p-3 mb-3 border">
+                        <span class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <span>
+                                <strong class="d-block">Kehadiran siswa</strong>
+                                <span class="text-muted small">{{ count($siswa) }} siswa · {{ $jumlahHadirRingkasan }} hadir · {{ $jumlahTidakHadirRingkasan }} perlu dicatat</span>
+                            </span>
+                            <span class="btn btn-sm btn-outline-primary">{{ $showAbsensiSiswa ? 'Tutup daftar' : 'Lihat data siswa' }}</span>
+                        </span>
+                    </button>
+                    @if ($showAbsensiSiswa)
+                    <div class="card-custom p-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <h3 class="h6 mb-0">Daftar siswa dan status</h3>
+                            <span class="badge bg-secondary">{{ count($siswa) }} siswa</span>
+                        </div>
+                        <input type="search" wire:model.live.debounce.250ms="cariSiswa" class="form-control mb-3" placeholder="Cari nama siswa" aria-label="Cari siswa">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th>Siswa</th><th>Status</th><th>Keterangan</th></tr></thead>
+                                <tbody>
+                                    @foreach ($this->siswaTersaring as $siswaItem)
+                                    @php $statusTerkunci = isset($absensiTerkunci[$siswaItem->id_siswa]); @endphp
+                                    <tr wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
+                                        <td>{{ $siswaItem->nama_siswa }}</td>
+                                        <td>
+                                            @if ($statusTerkunci)
+                                            <span class="badge bg-warning text-dark">{{ $absensi[$siswaItem->id_siswa] ?? 'Hadir' }} · dari guru piket</span>
+                                            @else
+                                            <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
+                                                @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
+                                                <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
+                                                @endforeach
+                                            </select>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($statusTerkunci)
+                                            <span>{{ $keteranganTambahan[$siswaItem->id_siswa] ?: '—' }}</span>
+                                            @elseif ($this->butuhKeterangan($siswaItem->id_siswa))
+                                            <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
+                                            @else
+                                            <span class="text-muted">—</span>
+                                            @endif
+                                            @error('keteranganTambahan.'.$siswaItem->id_siswa) <div class="text-danger small">{{ $message }}</div> @enderror
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead><tr><th>Siswa</th><th>Status</th><th>Keterangan</th></tr></thead>
-                            <tbody>
-                                @foreach ($this->siswaTersaring as $siswaItem)
-                                <tr wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
-                                    <td>{{ $siswaItem->nama_siswa }}</td>
-                                    <td>
-                                        <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
-                                            @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
-                                            <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
-                                            @endforeach
-                                        </select>
-                                    </td>
-                                    <td>
-                                        @if ($this->butuhKeterangan($siswaItem->id_siswa))
-                                        <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
-                                        @else
-                                        <span class="text-muted">—</span>
-                                        @endif
-                                        @error('keteranganTambahan.'.$siswaItem->id_siswa) <div class="text-danger small">{{ $message }}</div> @enderror
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                    @endif
                     @else
                     <div class="alert alert-warning mb-0">Tidak ada data siswa untuk jadwal ini.</div>
                     @endif
@@ -1961,12 +2014,4 @@ new class extends Component
     </div>
     @endif
 
-    @if ($showAbsensiSiswa)
-    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" style="background:rgba(15,23,42,.5)">
-        <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-            <div class="modal-header"><h2 class="modal-title fs-5">Absensi Siswa</h2><button type="button" class="btn-close" wire:click="$set('showAbsensiSiswa', false)" aria-label="Tutup"></button></div>
-            <div class="modal-body"><p>Atur status kehadiran siswa pada daftar di formulir jurnal.</p><button type="button" class="btn btn-app-primary" wire:click="bukaReview">Lanjut tinjau ({{ count($absensi) }} siswa)</button></div>
-        </div></div>
-    </div>
-    @endif
 </div>
