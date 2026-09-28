@@ -603,12 +603,15 @@ new class extends Component
 
     public function bukaAbsensiSiswa(): void
     {
-        $this->showAbsensiSiswa = ! $this->showAbsensiSiswa;
+        $this->cariSiswa = '';
+        $this->showReview = false;
+        $this->showAbsensiSiswa = true;
+    }
 
-        if ($this->showAbsensiSiswa) {
-            $this->cariSiswa = '';
-            $this->showReview = false;
-        }
+    public function tutupAbsensiSiswa(): void
+    {
+        $this->showAbsensiSiswa = false;
+        $this->cariSiswa = '';
     }
 
     public function bukaReview(): void
@@ -1952,56 +1955,63 @@ new class extends Component
                     $jumlahHadirRingkasan = collect($absensi)->filter(fn ($status) => $status === 'Hadir')->count();
                     $jumlahTidakHadirRingkasan = collect($absensi)->filter(fn ($status) => $status !== 'Hadir')->count();
                     @endphp
-                    <button type="button" wire:click="bukaAbsensiSiswa" aria-expanded="{{ $showAbsensiSiswa ? 'true' : 'false' }}" class="card-custom w-100 text-start p-3 mb-3 border">
+                    <button type="button" wire:click="bukaAbsensiSiswa" aria-haspopup="dialog" aria-expanded="{{ $showAbsensiSiswa ? 'true' : 'false' }}" aria-controls="daftar-siswa-modal" class="card-custom w-100 text-start p-3 mb-3 border">
                         <span class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <span>
                                 <strong class="d-block">Kehadiran siswa</strong>
                                 <span class="text-muted small">{{ count($siswa) }} siswa · {{ $jumlahHadirRingkasan }} hadir · {{ $jumlahTidakHadirRingkasan }} perlu dicatat</span>
                             </span>
-                            <span class="btn btn-sm btn-outline-primary">{{ $showAbsensiSiswa ? 'Tutup daftar' : 'Lihat data siswa' }}</span>
+                            <span class="btn btn-sm btn-outline-primary">Lihat data siswa</span>
                         </span>
                     </button>
                     @if ($showAbsensiSiswa)
-                    <div class="card-custom p-3">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                            <h3 class="h6 mb-0">Daftar siswa dan status</h3>
-                            <span class="badge bg-secondary">{{ count($siswa) }} siswa</span>
-                        </div>
-                        <input type="search" wire:model.live.debounce.250ms="cariSiswa" class="form-control mb-3" placeholder="Cari nama siswa" aria-label="Cari siswa">
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead><tr><th>Siswa</th><th>Status</th><th>Keterangan</th></tr></thead>
-                                <tbody>
-                                    @foreach ($this->siswaTersaring as $siswaItem)
-                                    @php $statusTerkunci = isset($absensiTerkunci[$siswaItem->id_siswa]); @endphp
-                                    <tr wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
-                                        <td>{{ $siswaItem->nama_siswa }}</td>
-                                        <td>
-                                            @if ($statusTerkunci)
-                                            <span class="badge bg-warning text-dark">{{ $absensi[$siswaItem->id_siswa] ?? 'Hadir' }} · dari guru piket</span>
-                                            @else
-                                            <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
-                                                @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
-                                                <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
-                                                @endforeach
-                                            </select>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($statusTerkunci)
-                                            <span>{{ $keteranganTambahan[$siswaItem->id_siswa] ?: '—' }}</span>
-                                            @elseif ($this->butuhKeterangan($siswaItem->id_siswa))
-                                            <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
-                                            @else
-                                            <span class="text-muted">—</span>
-                                            @endif
-                                            @error('keteranganTambahan.'.$siswaItem->id_siswa) <div class="text-danger small">{{ $message }}</div> @enderror
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3" style="z-index:1060;background:rgba(15,23,42,.64);backdrop-filter:blur(3px)" wire:click.self="tutupAbsensiSiswa" wire:keydown.escape.window="tutupAbsensiSiswa">
+                        <section id="daftar-siswa-modal" class="card-custom w-100 overflow-hidden shadow-lg" style="max-width:1080px;max-height:90vh;border:1px solid #dbeafe;box-shadow:0 24px 80px rgba(15,23,42,.28)!important" role="dialog" aria-modal="true" aria-labelledby="daftar-siswa-title">
+                            <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3 px-4 py-3">
+                                <div>
+                                    <h3 id="daftar-siswa-title" class="h6 mb-0">Daftar siswa dan status</h3>
+                                    <span class="small text-muted fw-normal">{{ count($siswa) }} siswa · cari nama, atur status, dan isi keterangan</span>
+                                </div>
+                                <button type="button" class="btn btn-sm fw-bold px-3 py-2" style="color:#1d4ed8;background:#fff;border:1px solid #bfdbfe;border-radius:9px" wire:click="tutupAbsensiSiswa">Tutup Daftar</button>
+                            </div>
+                            <div class="p-3 bg-light border-bottom">
+                                <input type="search" wire:model.live.debounce.250ms="cariSiswa" class="form-control form-control-lg" placeholder="Cari nama siswa..." aria-label="Cari siswa">
+                            </div>
+                            <div class="table-responsive" style="max-height:calc(90vh - 185px);overflow-y:auto">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light" style="position:sticky;top:0;z-index:1;box-shadow:0 1px 0 #dee2e6"><tr><th class="ps-4 py-3">Siswa</th><th class="py-3">Status Kehadiran</th><th class="pe-4 py-3">Keterangan</th></tr></thead>
+                                    <tbody>
+                                        @foreach ($this->siswaTersaring as $siswaItem)
+                                        @php $statusTerkunci = isset($absensiTerkunci[$siswaItem->id_siswa]); @endphp
+                                        <tr class="align-middle" wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
+                                            <td>{{ $siswaItem->nama_siswa }}</td>
+                                            <td>
+                                                @if ($statusTerkunci)
+                                                <span class="badge bg-warning text-dark">{{ $absensi[$siswaItem->id_siswa] ?? 'Hadir' }} · dari guru piket</span>
+                                                @else
+                                                <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
+                                                    @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
+                                                    <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if ($statusTerkunci)
+                                                <span>{{ $keteranganTambahan[$siswaItem->id_siswa] ?: '—' }}</span>
+                                                @elseif ($this->butuhKeterangan($siswaItem->id_siswa))
+                                                <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
+                                                @else
+                                                <span class="text-muted">—</span>
+                                                @endif
+                                                @error('keteranganTambahan.'.$siswaItem->id_siswa) <div class="text-danger small">{{ $message }}</div> @enderror
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
                     </div>
                     @endif
                     @else
