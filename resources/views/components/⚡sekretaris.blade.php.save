@@ -20,7 +20,7 @@ new class extends Component
         $this->activeSection = match ($menu) {
             'jurnal-kelas' => 'validasi-jurnal',
             'riwayat-validasi' => 'rekap',
-            'dashboard', 'data-kelas', 'validasi-jurnal', 'tugas-guru', 'kehadiran', 'surat-dispensasi', 'rekap' => $menu,
+            'dashboard', 'data-kelas', 'validasi-jurnal', 'tugas-guru', 'kehadiran', 'rekap' => $menu,
             default => 'dashboard',
         };
 
@@ -203,8 +203,7 @@ new class extends Component
         return Siswa::query()
             ->where('id_kelas', $idKelas)
             ->orderBy('nama_siswa')
-            ->get();
-    }
+            ->get();    }
 
     public function getJadwalKelasProperty(): Collection
     {
@@ -215,22 +214,21 @@ new class extends Component
         }
 
         return Jadwal::query()
-            ->with('guru')
-            ->where('id_kelas', $idKelas)
-            ->orderByRaw("
-    CASE hari
-        WHEN 'Senin' THEN 1
-        WHEN 'Selasa' THEN 2
-        WHEN 'Rabu' THEN 3
-        WHEN 'Kamis' THEN 4
-        WHEN 'Jumat' THEN 5
-        WHEN 'Sabtu' THEN 6
-        ELSE 7
-    END
-")
-            ->orderBy('jam_ke')
-            ->get();
-    }
+    ->with('guru')
+    ->where('id_kelas', $idKelas)
+    ->orderByRaw("
+        CASE hari
+            WHEN 'Senin' THEN 1
+            WHEN 'Selasa' THEN 2
+            WHEN 'Rabu' THEN 3
+            WHEN 'Kamis' THEN 4
+            WHEN 'Jumat' THEN 5
+            WHEN 'Sabtu' THEN 6
+            ELSE 7
+        END
+    ")
+    ->orderBy('jam_ke')
+    ->get();
 
     public function getJurnalKelasProperty(): Collection
     {
@@ -299,7 +297,16 @@ new class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | PERIKSA / TUTUP DETAIL
+    | PERIKS
+
+
+
+
+
+
+
+
+A / TUTUP DETAIL
     |--------------------------------------------------------------------------
     */
 
@@ -496,14 +503,6 @@ new class extends Component
                     <h2 class="h5 fw-bold">Tugas Guru Tidak Hadir</h2>
                     <p>{{ $this->pengajuanIzinDisetujui->count() }} tugas dari pengajuan izin guru yang sudah disetujui Wakasek.</p>
                     <span class="fw-bold text-primary">Buka tugas guru <span aria-hidden="true">→</span></span>
-                </button>
-            </div>
-            <div class="col-12 col-md-6">
-                <button type="button" wire:click="bukaMenu('surat-dispensasi')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#128196;</span>
-                    <h2 class="h5 fw-bold">Surat Dispensasi</h2>
-                    <p>Lihat surat dispensasi siswa yang sudah disetujui Wakasek.</p>
-                    <span class="fw-bold text-primary">Buka surat dispensasi <span aria-hidden="true">→</span></span>
                 </button>
             </div>
             <div class="col-12 col-md-6">
