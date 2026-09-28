@@ -225,6 +225,12 @@ new class extends Component
             return;
         }
 
+        if ($this->editing) {
+            return;
+        }
+
+        $this->tanggal = Carbon::now('Asia/Jakarta')->toDateString();
+        $this->loadJadwal();
         $this->loadDispensasiDisetujui();
     }
 
@@ -325,6 +331,12 @@ new class extends Component
         );
 
         if (!$this->jadwalAktif) {
+            $this->jadwalAktif = $jadwalHariIni->first(
+                fn ($jadwal) => $jadwal->jam_mulai > $jamSekarang
+            ) ?? $jadwalHariIni->last();
+        }
+
+        if (!$this->jadwalAktif) {
             $this->id_kelas = '';
             $this->jam_ke = 1;
             $this->jamMulaiKe = null;
@@ -333,6 +345,8 @@ new class extends Component
             $this->jamSelesaiPembelajaran = null;
             $this->siswa = [];
             $this->absensi = [];
+            $this->keteranganTambahan = [];
+            $this->absensiTerkunci = [];
 
             return;
         }
@@ -1142,6 +1156,18 @@ new class extends Component
 
                     return;
                 }
+            }
+
+            if (
+                !$this->editing &&
+                $this->tanggal !== Carbon::now('Asia/Jakarta')->toDateString()
+            ) {
+                $this->addError(
+                    'tanggal',
+                    'Tanggal jurnal harus sesuai dengan hari ini.'
+                );
+
+                return;
             }
 
             /*

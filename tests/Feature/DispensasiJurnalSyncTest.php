@@ -34,6 +34,14 @@ class DispensasiJurnalSyncTest extends TestCase
             'id_kelas' => $idKelas,
             'nama_siswa' => 'Siswa Uji',
         ], 'id_siswa');
+        DB::table('jadwal')->insert([
+            'id_guru' => $guru->id_pengguna,
+            'id_kelas' => $idKelas,
+            'hari' => 'Senin',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00:00',
+            'jam_selesai' => '07:40:00',
+        ]);
         $jurnal = Jurnal::create([
             'id_guru' => $guru->id_pengguna,
             'id_kelas' => $idKelas,
