@@ -93,7 +93,7 @@ new #[Layout('layouts.guest')] class extends Component
                 </div>
 
                 <div class="login-school-identity">
-                    SMKN 1 NEGERI 1 BOYOLANGU — Tahun Ajaran 2026/2027
+                    SMK NEGERI 1 BOYOLANGU — Tahun Ajaran 2026/2027
                 </div>
 
             </div>
@@ -225,7 +225,7 @@ new #[Layout('layouts.guest')] class extends Component
                     </div>
 
                     <div style="font-size:13px; color:var(--muted);">
-                        ✉️ admin@smkn1contoh.sch.id
+                        ✉️ admin@smkn1boyolangu.sch.id
                     </div>
 
                 </div>
