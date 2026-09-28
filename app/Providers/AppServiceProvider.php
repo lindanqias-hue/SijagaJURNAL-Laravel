@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        TrustProxies::at(config('trustedproxy.proxies'));
+        TrustProxies::withHeaders(config('trustedproxy.headers'));
+
         // Lempar exception saat mass-assignment menyentuh kolom
         // yang tidak ada di $fillable, alih-alih mendiamkannya.
         // Ini akan menangkap bug seperti "keterangan_dispensasi"

@@ -636,7 +636,6 @@ new class extends Component
             'Izin',
             'Sakit',
             'Alpa',
-            'Dispensasi',
         ];
 
         if (!in_array(
@@ -1990,7 +1989,7 @@ new class extends Component
                                                 <span class="badge bg-warning text-dark">{{ $absensi[$siswaItem->id_siswa] ?? 'Hadir' }} · dari guru piket</span>
                                                 @else
                                                 <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
-                                                    @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa', 'Dispensasi'] as $status)
+                                                    @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa'] as $status)
                                                     <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
                                                     @endforeach
                                                 </select>
