@@ -236,6 +236,7 @@ a { color: var(--primary); }
 .stat-card {
   background: #fff; border: 1px solid var(--border); border-radius: 14px;
   padding: 18px 20px; display: flex; align-items: center; gap: 14px; height: 100%;
+  cursor: pointer;
 }
 .stat-icon {
   width: 46px; height: 46px; border-radius: 12px; display: flex;
@@ -485,8 +486,63 @@ input[type="button"] {
 }
 .validasi-item:hover { box-shadow: 0 2px 10px rgba(0,0,0,.05); }
 
+/* ===================== MODAL ===================== */
+.app-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .62);
+  backdrop-filter: blur(3px);
+}
+.app-modal {
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+  border: 1px solid #dbeafe;
+}
+.app-modal:focus { outline: none; }
+.app-modal--sm { max-width: 480px; }
+.app-modal--md { max-width: 720px; }
+.app-modal--lg { max-width: 1080px; }
+.app-modal__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, #f4f8ff 0%, #fff 100%);
+}
+.app-modal__heading { min-width: 0; }
+.app-modal__head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #183153; }
+.app-modal__body { padding: 16px 20px; overflow-y: auto; }
+.app-modal__foot {
+  padding: 14px 20px; border-top: 1px solid var(--border); background: #f8fafc;
+  display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+}
+
+/* ===================== NAVIGASI SECTION ===================== */
+.section-tabs {
+  position: sticky; top: 0; z-index: 1020; margin-bottom: 16px;
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+}
+.section-tabs::-webkit-scrollbar { display: none; }
+.section-tabs .tab-pill-group { flex-wrap: nowrap; width: max-content; min-width: 100%; }
+.section-tabs .tab-pill { white-space: nowrap; }
+
+.btn-back {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 12px;
+  border-radius: 9px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8;
+  font-size: 12.5px; font-weight: 600; text-decoration: none;
+}
+.btn-back:hover { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 991.98px) {
+  .section-tabs { top: 66px; }
   .topbar-mobile { display: flex; }
   .layout-clock-mobile { display: flex; margin-left: auto; align-items: flex-end; text-align: right; }
   .layout-clock-mobile .layout-clock-time { font-size: 15px; }
@@ -510,4 +566,28 @@ input[type="button"] {
   .stat-card { padding: 14px 16px; }
   .table-custom { font-size: 12px; }
   .table-custom thead th, .table-custom tbody td { padding: 9px 10px; }
+}
+
+/* Tabel -> kartu bertumpuk di layar kecil. Tambahkan `data-label` pada setiap <td>. */
+@media (max-width: 767.98px) {
+  .table-stack { display: block; }
+  .table-stack thead { display: none; }
+  .table-stack tbody { display: block; }
+  .table-stack tr {
+    display: block; border: 1px solid var(--border); border-radius: 12px;
+    background: #fff; padding: 6px 2px; margin: 0 0 10px;
+  }
+  .table-stack tr:last-child { margin-bottom: 0; }
+  .table-stack td {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 14px; border: 0; padding: 8px 12px; text-align: right; vertical-align: top;
+  }
+  .table-stack td::before {
+    content: attr(data-label); flex: 0 0 auto; text-align: left;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .table-stack td[data-label=""] { display: block; text-align: center; }
+  .table-stack td[data-label=""]::before { display: none; }
+  .table-stack td > * { min-width: 0; }
 }

@@ -104,17 +104,11 @@ new class extends Component
         </div>
 
         {{-- AKSI PIKET --}}
-        @if (session('is_guru_piket'))
+        @if ($this->bolehInputPiket)
         <div>
-            @if ($this->bolehInputPiket)
             <a href="{{ route('dispensasi') }}" class="btn btn-app-primary">
                 + Izin & Dispensasi Siswa
             </a>
-            @else
-            <button type="button" class="btn btn-app-primary" disabled>
-                + Izin & Dispensasi Siswa
-            </button>
-            @endif
         </div>
         @endif
     </div>

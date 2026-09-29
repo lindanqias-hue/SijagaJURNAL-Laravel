@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
+use App\Models\Dispensasi;
 
 new class extends Component
 {
@@ -161,6 +162,19 @@ new class extends Component
 
         @forelse ($this->notifikasi as $notif)
 
+        @php
+            $jenisSurat = $notif->jenis_surat ?? Dispensasi::JENIS_SURAT_DISPENSASI;
+            // Izin dan Sakit tidak punya surat resmi, jadi tanpa tombol lihat surat.
+            $punyaSurat = $jenisSurat === Dispensasi::JENIS_SURAT_DISPENSASI;
+
+            $judulNotifikasi = match (true) {
+                $notif->status === 'Ditolak' => 'Pengajuan Dispensasi Ditolak',
+                $jenisSurat === 'Izin' => 'Siswa Izin',
+                $jenisSurat === 'Sakit' => 'Siswa Sakit',
+                default => 'Siswa Mendapat Dispensasi',
+            };
+        @endphp
+
         <div @class([ 'card border-0 shadow-sm border-start border-4' , 'border-primary'=> is_null($notif->dibaca_at),
             'border-light' => ! is_null($notif->dibaca_at),
             ])>
@@ -179,7 +193,7 @@ new class extends Component
                         @endif
 
                         <h5 class="mb-1">
-                            🔔 {{ $notif->status === 'Ditolak' ? 'Pengajuan Dispensasi Ditolak' : 'Siswa Mendapat Dispensasi' }}
+                            🔔 {{ $judulNotifikasi }}
                         </h5>
 
                         <div class="text-muted small">
@@ -337,12 +351,16 @@ new class extends Component
                 {{-- TOMBOL --}}
                 <div class="d-flex justify-content-end gap-2 mt-4 flex-wrap">
 
+                    @if ($punyaSurat)
+
                     <a href="{{ route(
                                 'surat-dispensasi.detail',
                                 $notif->id_dispensasi
                             ) }}" class="btn btn-sm btn-primary">
                         📄 Lihat Surat
                     </a>
+
+                    @endif
 
 
                     @if (is_null($notif->dibaca_at))

@@ -77,7 +77,25 @@ new class extends Component
             && app(GuruPiketAccessService::class)
             ->bertugasHariIni((int) session('id_pengguna'));
 
-        $this->kelasList = Kelas::orderBy('nama_kelas')->get();
+        $sekretarisPerKelas = Pengguna::query()
+            ->where('role', 'sekretaris')
+            ->whereNotNull('id_kelas')
+            ->orderBy('nama')
+            ->get()
+            ->groupBy('id_kelas');
+
+        // Nama sekretaris ikut ditampilkan karena surat hanya muncul di menu
+        // Surat Dispensasi milik sekretaris kelas tersebut.
+        $this->kelasList = Kelas::orderBy('nama_kelas')
+            ->get()
+            ->map(function (Kelas $kelas) use ($sekretarisPerKelas): Kelas {
+                $kelas->setAttribute(
+                    'nama_sekretaris',
+                    $sekretarisPerKelas->get($kelas->id_kelas)?->pluck('nama')->join(', ') ?? ''
+                );
+
+                return $kelas;
+            });
         $this->wakasekList = Pengguna::query()
             ->where('role', 'wakasek')
             ->whereNotNull('no_hp')
@@ -609,7 +627,7 @@ new class extends Component
                             <select wire:model.live="id_kelas" class="form-select">
                                 <option value="">-- Pilih Kelas --</option>
                                 @foreach ($kelasList as $kelas)
-                                <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>
+                                <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}@if ($kelas->nama_sekretaris) — {{ $kelas->nama_sekretaris }}@endif</option>
                                 @endforeach
                             </select>
                             @error('id_kelas')

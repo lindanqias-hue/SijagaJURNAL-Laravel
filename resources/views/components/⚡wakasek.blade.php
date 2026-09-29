@@ -17,7 +17,13 @@ new class extends Component
 
     public string $filterStatusKehadiran = 'semua';
 
+    public string $filterRekapKelas = 'minggu';
+
     public string $rekapTerbuka = '';
+
+    public ?int $detailKelasId = null;
+
+    public ?string $detailRekapKunci = null;
 
     public ?int $pengajuanIzinTerpilih = null;
 
@@ -43,7 +49,7 @@ new class extends Component
 
     public function bukaRekap(string $bagian): void
     {
-        abort_unless(in_array($bagian, ['jurnal', 'belum-mengisi', 'kehadiran'], true), 404);
+        abort_unless(in_array($bagian, ['jurnal', 'belum-mengisi', 'kehadiran', 'rekap-kelas'], true), 404);
 
         $this->rekapTerbuka = $bagian;
     }
@@ -51,6 +57,50 @@ new class extends Component
     public function tutupRekap(): void
     {
         $this->rekapTerbuka = '';
+    }
+
+    public function bukaDetailJurnal(int $idKelas): void
+    {
+        abort_unless(session('role') === 'wakasek', 403);
+        abort_unless($this->monitoringJurnalPerKelas->contains('id_kelas', $idKelas), 404);
+
+        $this->detailKelasId = $idKelas;
+    }
+
+    public function tutupDetailJurnal(): void
+    {
+        $this->detailKelasId = null;
+    }
+
+    public function getDetailJurnalProperty(): ?array
+    {
+        if ($this->detailKelasId === null) {
+            return null;
+        }
+
+        return $this->monitoringJurnalPerKelas->firstWhere('id_kelas', $this->detailKelasId);
+    }
+
+    public function bukaDetailRekap(string $kunci): void
+    {
+        abort_unless(session('role') === 'wakasek', 403);
+        abort_unless($this->rekapPerKelas->contains('kunci', $kunci), 404);
+
+        $this->detailRekapKunci = $kunci;
+    }
+
+    public function tutupDetailRekap(): void
+    {
+        $this->detailRekapKunci = null;
+    }
+
+    public function getDetailRekapProperty(): ?array
+    {
+        if ($this->detailRekapKunci === null) {
+            return null;
+        }
+
+        return $this->rekapPerKelas->firstWhere('kunci', $this->detailRekapKunci);
     }
 
     public function getPengajuanIzinMenungguProperty()
@@ -161,6 +211,72 @@ new class extends Component
 
                 return $jadwal;
             });
+    }
+
+    public function getMonitoringJurnalPerKelasProperty(): \Illuminate\Support\Collection
+    {
+        return $this->monitoringGuru
+            ->whereNotNull('id_kelas')
+            ->groupBy('id_kelas')
+            ->map(function ($barisKelas): array {
+                $totalJam = $barisKelas->count();
+                $terisi = $barisKelas->whereNotNull('id_jurnal')->count();
+
+                $guru = $barisKelas
+                    ->groupBy('id_guru')
+                    ->map(function ($barisGuru): array {
+                        $pertama = $barisGuru->first();
+                        $jam = $barisGuru->pluck('jam_ke')->map(fn ($jamKe): int => (int) $jamKe)->sort()->values();
+                        $barisTerisi = $barisGuru->whereNotNull('id_jurnal')->values();
+                        $jamTerisi = $barisTerisi->pluck('jam_ke')->map(fn ($jamKe): int => (int) $jamKe)->sort()->values();
+                        $jamKosong = $jam->diff($jamTerisi)->values();
+                        $statusValidasi = null;
+
+                        if ($jamKosong->isEmpty()) {
+                            $statusJurnalTerisi = $barisTerisi->pluck('status_jurnal');
+
+                            $statusValidasi = match (true) {
+                                $statusJurnalTerisi->isNotEmpty() && $statusJurnalTerisi->every(fn ($status): bool => $status === 'Divalidasi') => 'Divalidasi',
+                                $statusJurnalTerisi->contains('Ditolak') => 'Ditolak',
+                                default => 'Menunggu',
+                            };
+                        }
+
+                        return [
+                            'id_guru' => (string) $pertama->id_guru,
+                            'nama' => $pertama->nama_guru,
+                            'mapel' => $pertama->mapel_diampu ?: '-',
+                            'jam' => $jam->all(),
+                            'jam_terisi' => $jamTerisi->all(),
+                            'jam_kosong' => $jamKosong->all(),
+                            'status_jurnal' => match (true) {
+                                $jamKosong->isEmpty() => 'Terisi Semua',
+                                $jamTerisi->isEmpty() => 'Belum Mengisi',
+                                default => 'Sebagian',
+                            },
+                            'status_validasi' => $statusValidasi,
+                        ];
+                    })
+                    ->sortBy(fn (array $item): string => $item['nama'], SORT_NATURAL | SORT_FLAG_CASE)
+                    ->values()
+                    ->all();
+
+                return [
+                    'id_kelas' => (int) $barisKelas->first()->id_kelas,
+                    'nama_kelas' => $barisKelas->first()->kelas?->nama_kelas ?? '-',
+                    'total_jam' => $totalJam,
+                    'terisi' => $terisi,
+                    'kosong' => $totalJam - $terisi,
+                    'status_kelas' => match (true) {
+                        $terisi === $totalJam => 'Lengkap',
+                        $terisi > 0 => 'Sebagian',
+                        default => 'Kosong',
+                    },
+                    'guru' => $guru,
+                ];
+            })
+            ->sortBy(fn (array $item): string => $item['nama_kelas'], SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
     }
 
     public function getGuruTanpaKeteranganProperty()
@@ -290,11 +406,110 @@ new class extends Component
             : $hasil->where('status_kehadiran', $this->filterStatusKehadiran)->values();
     }
 
+    public function getRekapPerKelasProperty(): \Illuminate\Support\Collection
+    {
+        [$mulai, $selesai] = $this->rentangTanggal($this->filterRekapKelas);
+        $hariIndonesia = ['Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'];
+        $hasil = collect();
+
+        for ($tanggal = $mulai->copy(); $tanggal->lte($selesai); $tanggal->addDay()) {
+            $hari = $hariIndonesia[$tanggal->format('l')];
+            $tanggalStr = $tanggal->toDateString();
+
+            // Get all jurnal for this date
+            $jurnalByKey = Jurnal::query()
+                ->whereDate('tanggal', $tanggalStr)
+                ->get()
+                ->mapWithKeys(fn(Jurnal $jurnal): array => [
+                    $jurnal->id_guru . '-' . $jurnal->id_kelas . '-' . $jurnal->jam_ke => $jurnal,
+                ]);
+
+            // Get all jadwal for this day grouped by class
+            $jadwalByKelas = Jadwal::query()
+                ->with(['kelas', 'guru'])
+                ->where('hari', $hari)
+                ->orderBy('jam_ke')
+                ->get()
+                ->groupBy('id_kelas');
+
+            foreach ($jadwalByKelas as $idKelas => $jadwalKelas) {
+                $kelas = $jadwalKelas->first()->kelas;
+                if (! $kelas) {
+                    continue;
+                }
+
+                $detail = [];
+                $totalJam = 0;
+                $terisi = 0;
+                $menungguValidasi = 0;
+                $kosong = 0;
+                $divalidasi = 0;
+
+                foreach ($jadwalKelas as $jadwal) {
+                    $totalJam++;
+                    $key = $jadwal->id_guru . '-' . $jadwal->id_kelas . '-' . $jadwal->jam_ke;
+                    $jurnal = $jurnalByKey->get($key);
+
+                    if ($jurnal) {
+                        $terisi++;
+                        $statusValidasi = $jurnal->status_validasi ?? 'Menunggu';
+                        if ($statusValidasi === 'Menunggu') {
+                            $menungguValidasi++;
+                        } elseif ($statusValidasi === 'Divalidasi') {
+                            $divalidasi++;
+                        }
+
+                        $detail[] = [
+                            'jam_ke' => $jadwal->jam_ke,
+                            'jam_mulai' => substr($jadwal->jam_mulai, 0, 5),
+                            'jam_selesai' => substr($jadwal->jam_selesai, 0, 5),
+                            'mapel' => $jadwal->guru?->mapel_diampu ?? '-',
+                            'guru' => $jadwal->guru?->nama ?? '-',
+                            'has_jurnal' => true,
+                            'status_validasi' => $statusValidasi,
+                            'id_jurnal' => $jurnal->id_jurnal,
+                        ];
+                    } else {
+                        $kosong++;
+                        $detail[] = [
+                            'jam_ke' => $jadwal->jam_ke,
+                            'jam_mulai' => substr($jadwal->jam_mulai, 0, 5),
+                            'jam_selesai' => substr($jadwal->jam_selesai, 0, 5),
+                            'mapel' => $jadwal->guru?->mapel_diampu ?? '-',
+                            'guru' => $jadwal->guru?->nama ?? '-',
+                            'has_jurnal' => false,
+                            'status_validasi' => null,
+                            'id_jurnal' => null,
+                        ];
+                    }
+                }
+
+                if ($totalJam > 0) {
+                    $hasil->push([
+                        'kunci' => (int) $idKelas.'-'.$tanggalStr,
+                        'id_kelas' => $idKelas,
+                        'kelas' => $kelas->nama_kelas,
+                        'tanggal' => $tanggal->copy(),
+                        'hari' => $hari,
+                        'total_jam' => $totalJam,
+                        'terisi' => $terisi,
+                        'menunggu_validasi' => $menungguValidasi,
+                        'kosong' => $kosong,
+                        'divalidasi' => $divalidasi,
+                        'detail' => $detail,
+                    ]);
+                }
+            }
+        }
+
+        return $hasil->sortByDesc('tanggal')->values();
+    }
+
     public function exportCsv(string $jenis): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         abort_unless(session('role') === 'wakasek', 403);
 
-        abort_unless(in_array($jenis, ['jurnal', 'belum-mengisi', 'kehadiran'], true), 404);
+        abort_unless(in_array($jenis, ['jurnal', 'belum-mengisi', 'kehadiran', 'rekap-kelas'], true), 404);
         $laporan = $this->laporanUntuk($jenis);
         $data = $laporan['data'];
         $headers = $laporan['kolom'];
@@ -326,7 +541,7 @@ new class extends Component
             return null;
         }
 
-        abort_unless(session('role') === 'wakasek' && in_array($bagian, ['jurnal', 'belum-mengisi', 'kehadiran'], true), 404);
+        abort_unless(session('role') === 'wakasek' && in_array($bagian, ['jurnal', 'belum-mengisi', 'kehadiran', 'rekap-kelas'], true), 404);
 
         return $this->laporanUntuk($bagian);
     }
@@ -337,11 +552,14 @@ new class extends Component
             'jurnal' => $this->riwayatJurnal->map(fn(Jurnal $jurnal): array => [$jurnal->tanggal?->format('d/m/Y'), $jurnal->guru?->nama ?? '-', $jurnal->kelas?->nama_kelas ?? '-', $jurnal->jam_ke, $jurnal->materi, $jurnal->jumlah_hadir ?? '-', $jurnal->jumlah_tidak_hadir ?? '-', $jurnal->status_kehadiran_guru, $jurnal->status_validasi]),
             'belum-mengisi' => $this->rekapBelumMengisi->map(fn(Jadwal $jadwal): array => [$jadwal->tanggal_rekap->format('d/m/Y'), $jadwal->guru?->nama ?? '-', $jadwal->kelas?->nama_kelas ?? '-', $jadwal->jam_ke, substr($jadwal->jam_mulai, 0, 5) . '-' . substr($jadwal->jam_selesai, 0, 5)]),
             'kehadiran' => $this->rekapKehadiran->map(fn(Jadwal $jadwal): array => [$jadwal->tanggal_rekap->format('d/m/Y'), $jadwal->guru?->nama ?? '-', $jadwal->kelas?->nama_kelas ?? '-', $jadwal->jam_ke, $jadwal->status_kehadiran]),
+            'rekap-kelas' => $this->rekapPerKelas->map(fn(array $item): array => [$item['tanggal']->format('d/m/Y'), $item['kelas'], $item['hari'], $item['total_jam'], $item['terisi'], $item['menunggu_validasi'], $item['kosong'], $item['divalidasi']]),
             default => abort(404),
         };
         $kolom = match ($bagian) {
             'jurnal' => ['Tanggal', 'Guru', 'Kelas', 'Jam ke', 'Materi', 'Hadir', 'Tidak hadir', 'Kehadiran guru', 'Validasi'],
             'belum-mengisi' => ['Tanggal', 'Guru', 'Kelas', 'Jam ke', 'Waktu'],
+            'kehadiran' => ['Tanggal', 'Guru', 'Kelas', 'Jam ke', 'Status kehadiran'],
+            'rekap-kelas' => ['Tanggal', 'Kelas', 'Hari', 'Total Jam', 'Terisi', 'Menunggu Validasi', 'Kosong', 'Divalidasi'],
             default => ['Tanggal', 'Guru', 'Kelas', 'Jam ke', 'Status kehadiran'],
         };
         [$judul, $periode] = $this->judulDanPeriode($bagian);
@@ -355,6 +573,7 @@ new class extends Component
             'jurnal' => $this->filterJurnal,
             'belum-mengisi' => $this->filterBelumMengisi,
             'kehadiran' => $this->filterKehadiran,
+            'rekap-kelas' => $this->filterRekapKelas,
             default => $this->filterKehadiran,
         };
         $label = match ($filter) {
@@ -367,6 +586,7 @@ new class extends Component
             'jurnal' => 'Riwayat Jurnal Guru',
             'belum-mengisi' => 'Rekap Guru Belum Mengisi Jurnal',
             'kehadiran' => 'Rekap Monitoring Kehadiran Guru',
+            'rekap-kelas' => 'Rekap Jurnal Per Kelas',
             default => 'Rekap Guru Tidak Hadir',
         };
 
@@ -379,6 +599,7 @@ new class extends Component
             'jurnal' => 'filterJurnal',
             'belum-mengisi' => 'filterBelumMengisi',
             'kehadiran' => 'filterKehadiran',
+            'rekap-kelas' => 'filterRekapKelas',
             default => 'filterKehadiran',
         };
 
@@ -388,6 +609,7 @@ new class extends Component
                 'jurnal' => $this->filterJurnal,
                 'belum-mengisi' => $this->filterBelumMengisi,
                 'kehadiran' => $this->filterKehadiran,
+                'rekap-kelas' => $this->filterRekapKelas,
                 default => $this->filterKehadiran,
             },
             'filterStatusKehadiran' => $this->filterStatusKehadiran,
@@ -462,6 +684,22 @@ new class extends Component
     @if (session('error'))
     <div class="alert alert-danger m-3" role="alert">{{ session('error') }}</div>
     @endif
+
+    <nav class="section-tabs" aria-label="Navigasi section wakasek">
+        <div class="tab-pill-group">
+            @foreach ([
+                'dashboard' => 'Dashboard',
+                'monitoring-guru' => 'Monitoring Guru',
+                'monitoring-jurnal' => 'Monitoring Jurnal',
+                'dispensasi' => 'Dispensasi',
+                'pengajuan-izin' => 'Pengajuan Izin',
+                'rekap' => 'Rekap',
+            ] as $kunciSection => $labelSection)
+            <button type="button" class="tab-pill" :class="{ 'active': activeSection === '{{ $kunciSection }}' }" :aria-current="activeSection === '{{ $kunciSection }}' ? 'page' : false" x-on:click="openSection('{{ $kunciSection }}')">{{ $labelSection }}</button>
+            @endforeach
+        </div>
+    </nav>
+
     <section x-cloak x-show="activeSection === 'dashboard'" :class="{ 'd-none': activeSection !== 'dashboard' }" wire:poll.60s id="wakasek-dashboard" class="wakasek-dashboard">
         <header class="welcome-banner mb-4">
             <div class="text-uppercase fw-bold small text-white-50">SIJAGA · PANEL PIMPINAN</div>
@@ -517,20 +755,49 @@ new class extends Component
     </section>
 
     <section x-cloak x-show="activeSection === 'monitoring-jurnal'" :class="{ 'd-none': activeSection !== 'monitoring-jurnal' }" id="monitoring-jurnal" class="card-custom wakasek-content-card">
-        <div class="wakasek-page-header role-page-header m-3"><h2>Monitoring Jurnal</h2><div class="role-page-description">Status pengisian dan validasi jurnal guru hari ini.</div></div>
-        <div class="role-page-actions mx-3 mb-3"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
+        <div class="wakasek-page-header role-page-header m-3"><h2>Monitoring Jurnal</h2><div class="role-page-description">Status pengisian dan validasi jurnal guru per kelas.</div></div>
         <div class="card-header-custom">Jurnal Guru Hari Ini</div>
         <div class="p-3"><label class="visually-hidden" for="search-monitoring-jurnal">Cari jurnal guru</label><input id="search-monitoring-jurnal" type="search" class="form-control" placeholder="Cari guru, mapel, atau kelas..." x-model="searchJurnal"></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table"><thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Status Jurnal</th><th>Validasi</th></tr></thead><tbody>
-            @forelse ($this->monitoringGuru->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)
-            <tr wire:key="monitoring-jurnal-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchJurnal || $el.dataset.search.includes(searchJurnal)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}"><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td><td>Ke-{{ $jadwal->jam_ke }}</td><td><span class="badge {{ $jadwal->id_jurnal ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jadwal->id_jurnal ? 'Sudah Mengisi' : 'Belum Mengisi' }}</span></td><td><span class="badge {{ $jadwal->status_jurnal === 'Divalidasi' ? 'bg-success' : ($jadwal->status_jurnal === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $jadwal->status_jurnal ?? '-' }}</span></td></tr>
-            @empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal guru hari ini.</td></tr>@endforelse
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table table-stack"><thead><tr><th>Kelas</th><th>Jam Terisi</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+            @forelse ($this->monitoringJurnalPerKelas as $item)
+            @php($kunciPencarian = mb_strtolower(implode(' ', array_merge([$item['nama_kelas']], array_column($item['guru'], 'nama'), array_column($item['guru'], 'mapel'))), 'UTF-8'))
+            <tr wire:key="monitoring-kelas-{{ $item['id_kelas'] }}" x-show="!searchJurnal || $el.dataset.search.includes(searchJurnal)" data-search="{{ $kunciPencarian }}"><td class="fw-bold" data-label="Kelas">{{ $item['nama_kelas'] }}</td><td data-label="Jam Terisi">{{ $item['terisi'] }}/{{ $item['total_jam'] }}</td><td data-label="Status"><span class="badge {{ $item['status_kelas'] === 'Lengkap' ? 'bg-success' : ($item['status_kelas'] === 'Sebagian' ? 'bg-warning text-dark' : 'bg-danger') }}">{{ $item['status_kelas'] }}</span></td><td data-label="Aksi"><button type="button" class="btn btn-sm btn-outline-secondary" wire:click="bukaDetailJurnal({{ $item['id_kelas'] }})">&#9654; Detail</button></td></tr>
+            @empty<tr><td colspan="4" data-label="" class="text-center text-muted py-4">Tidak ada kelas yang memiliki jadwal mengajar hari ini.</td></tr>@endforelse
         </tbody></table></div>
     </section>
 
+    @if ($this->detailJurnal)
+    <x-app-modal id="modal-detail-jurnal"
+        title="Detail Jurnal — {{ $this->detailJurnal['nama_kelas'] }}"
+        :subtitle="count($this->detailJurnal['guru']).' guru · '.$this->detailJurnal['terisi'].'/'.$this->detailJurnal['total_jam'].' jam terisi'"
+        close="tutupDetailJurnal"
+        size="lg">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0 table-stack">
+                <thead><tr><th>Guru</th><th>Mapel</th><th>Jam</th><th>Status Jurnal</th><th>Validasi</th></tr></thead>
+                <tbody>
+                @forelse ($this->detailJurnal['guru'] as $guru)
+                <tr>
+                    <td data-label="Guru">{{ $guru['nama'] }}</td>
+                    <td data-label="Mapel">{{ $guru['mapel'] }}</td>
+                    <td data-label="Jam">{{ collect($guru['jam'])->map(fn (int $jam): string => 'Ke-'.$jam)->join(', ') }}</td>
+                    <td data-label="Status Jurnal"><span class="badge {{ $guru['status_jurnal'] === 'Terisi Semua' ? 'bg-success' : ($guru['status_jurnal'] === 'Sebagian' ? 'bg-info' : 'bg-warning text-dark') }}">{{ $guru['status_jurnal'] === 'Terisi Semua' ? 'Sudah Mengisi' : $guru['status_jurnal'] }}</span></td>
+                    <td data-label="Validasi"><span class="badge {{ $guru['status_validasi'] === 'Divalidasi' ? 'bg-success' : ($guru['status_validasi'] === 'Ditolak' ? 'bg-danger' : 'bg-warning text-dark') }}">{{ $guru['status_validasi'] ?? '-' }}</span></td>
+                </tr>
+                @empty
+                <tr><td colspan="5" data-label="" class="text-center text-muted py-4">Belum ada jadwal guru untuk kelas ini.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+        <x-slot:footer>
+            <button type="button" class="btn btn-outline-secondary" wire:click="tutupDetailJurnal">Tutup Detail</button>
+        </x-slot:footer>
+    </x-app-modal>
+    @endif
+
     <section x-cloak x-show="activeSection === 'pengajuan-izin'" :class="{ 'd-none': activeSection !== 'pengajuan-izin' }" class="card-custom wakasek-content-card">
         <div class="wakasek-page-header role-page-header m-3"><h2>Pengajuan Izin Guru</h2><div class="role-page-description">Validasi izin dan titipan tugas sebelum diteruskan ke sekretaris kelas.</div></div>
-        <div class="role-page-actions mx-3 mb-3"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="wakasek-rekap-list">
             @forelse ($this->pengajuanIzinMenunggu as $izin)
             <article class="wakasek-rekap-row" wire:key="pengajuan-izin-{{ $izin->id_jurnal }}">
@@ -544,40 +811,38 @@ new class extends Component
 
     <section x-cloak x-show="activeSection === 'monitoring-guru'" :class="{ 'd-none': activeSection !== 'monitoring-guru' }" id="monitoring-guru" class="card-custom wakasek-content-card">
         <div class="wakasek-page-header role-page-header m-3"><h2>Monitoring Kehadiran Guru</h2><div class="role-page-description">Pantau jadwal yang sedang berlangsung dan status kehadiran.</div></div>
-        <div class="role-page-actions mx-3 mb-3"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="card-header-custom">Jadwal Guru Mengajar Sekarang</div>
         <div class="p-3"><label class="visually-hidden" for="search-monitoring-guru">Cari guru</label><input id="search-monitoring-guru" type="search" class="form-control" placeholder="Cari guru, mapel, atau kelas..." x-model="searchGuru"></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table"><thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Kehadiran</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table table-stack"><thead><tr><th>Guru</th><th>Mapel</th><th>Kelas</th><th>Jam</th><th>Kehadiran</th></tr></thead><tbody>
             @forelse ($this->jadwalMengajarSekarang->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)
-            <tr wire:key="monitoring-guru-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchGuru || $el.dataset.search.includes(searchGuru)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}"><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td><td>Ke-{{ $jadwal->jam_ke }} <span class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</span></td><td><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === KehadiranGuruService::STATUS_TANPA_KETERANGAN ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td></tr>
-            @empty<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>@endforelse
+            <tr wire:key="monitoring-guru-{{ $jadwal->id_guru }}-{{ $jadwal->id_kelas }}-{{ $jadwal->jam_ke }}" x-show="!searchGuru || $el.dataset.search.includes(searchGuru)" data-search="{{ mb_strtolower($jadwal->nama_guru.' '.($jadwal->mapel_diampu ?? '').' '.($jadwal->kelas?->nama_kelas ?? ''), 'UTF-8') }}"><td data-label="Guru">{{ $jadwal->nama_guru }}</td><td data-label="Mapel">{{ $jadwal->mapel_diampu ?: '-' }}</td><td data-label="Kelas">{{ $jadwal->kelas?->nama_kelas ?: '-' }}</td><td data-label="Jam">Ke-{{ $jadwal->jam_ke }} <span class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</span></td><td data-label="Kehadiran"><span class="badge {{ in_array($jadwal->status_kehadiran, ['Hadir', 'Izin', 'Sakit'], true) ? 'bg-success' : ($jadwal->status_kehadiran === KehadiranGuruService::STATUS_TANPA_KETERANGAN ? 'bg-danger' : 'bg-secondary') }}">{{ $jadwal->status_kehadiran }}</span></td></tr>
+            @empty<tr><td colspan="5" data-label="" class="text-center text-muted py-4">Tidak ada guru yang sedang mengajar.</td></tr>@endforelse
         </tbody></table></div>
         @if ($this->guruTanpaKeterangan->isNotEmpty())<div class="border-top border-start border-4 border-danger"><div class="card-header-custom text-danger">Guru Tanpa Keterangan</div><div class="list-group list-group-flush">@foreach ($this->guruTanpaKeterangan->sortBy('nama_guru', SORT_NATURAL | SORT_FLAG_CASE) as $jadwal)<div class="list-group-item d-flex justify-content-between"><span>{{ $jadwal->nama_guru }} · {{ $jadwal->mapel_diampu ?: '-' }}</span><span class="badge bg-danger">Tanpa Keterangan</span></div>@endforeach</div></div>@endif
     </section>
 
     <section x-cloak x-show="activeSection === 'dispensasi'" :class="{ 'd-none': activeSection !== 'dispensasi' }" id="dispensasi" class="card-custom wakasek-content-card">
         <div class="wakasek-page-header role-page-header m-3"><h2>Persetujuan Dispensasi</h2><div class="role-page-description">Tinjau pengajuan siswa yang menunggu persetujuan.</div></div>
-        <div class="role-page-actions mx-3 mb-3"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
         <div class="p-3"><label class="visually-hidden" for="search-dispensasi-wakasek">Cari dispensasi</label><input id="search-dispensasi-wakasek" type="search" class="form-control" placeholder="Cari siswa, kelas, jenis, atau mapel..." x-model="searchDispensasi"></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table"><thead><tr><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Mapel</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table table-stack"><thead><tr><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Mapel</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>
             @forelse ($this->dispensasiMenunggu as $dispensasi)
-            <tr wire:key="wakasek-dispensasi-{{ $dispensasi->id_dispensasi }}" x-show="!searchDispensasi || $el.dataset.search.includes(searchDispensasi)" data-search="{{ mb_strtolower(($dispensasi->siswa?->nama_siswa ?? '').' '.($dispensasi->kelas?->nama_kelas ?? '').' '.$dispensasi->jenis_dispensasi.' '.($dispensasi->mapel ?? ''), 'UTF-8') }}"><td>{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</td><td>{{ $dispensasi->kelas?->nama_kelas ?? '-' }}</td><td>{{ $dispensasi->jenis_dispensasi }}</td><td>{{ $dispensasi->mapel ?: '-' }}</td><td>{{ $dispensasi->tanggal?->format('d/m/Y') }}</td><td>@if ($dispensasi->token)<a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat & Validasi</a>@else<a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>@endif</td></tr>
-            @empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada dispensasi yang menunggu.</td></tr>@endforelse
+            <tr wire:key="wakasek-dispensasi-{{ $dispensasi->id_dispensasi }}" x-show="!searchDispensasi || $el.dataset.search.includes(searchDispensasi)" data-search="{{ mb_strtolower(($dispensasi->siswa?->nama_siswa ?? '').' '.($dispensasi->kelas?->nama_kelas ?? '').' '.$dispensasi->jenis_dispensasi.' '.($dispensasi->mapel ?? ''), 'UTF-8') }}"><td data-label="Siswa">{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</td><td data-label="Kelas">{{ $dispensasi->kelas?->nama_kelas ?? '-' }}</td><td data-label="Jenis">{{ $dispensasi->jenis_dispensasi }}</td><td data-label="Mapel">{{ $dispensasi->mapel ?: '-' }}</td><td data-label="Tanggal">{{ $dispensasi->tanggal?->format('d/m/Y') }}</td><td data-label="Aksi">@if ($dispensasi->token)<a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat &amp; Validasi</a>@else<a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>@endif</td></tr>
+            @empty<tr><td colspan="6" data-label="" class="text-center text-muted py-4">Tidak ada dispensasi yang menunggu.</td></tr>@endforelse
         </tbody></table></div>
     </section>
 
     <section x-cloak x-show="activeSection === 'rekap'" :class="{ 'd-none': activeSection !== 'rekap' }" id="rekap" class="d-grid gap-4">
-        <header class="wakasek-page-header role-page-header"><div class="role-page-eyebrow">Laporan Sekolah</div><h2>Rekap & Riwayat</h2><div class="role-page-description">Filter periode, lalu ekspor CSV atau cetak laporan.</div></header>
-        <div class="role-page-actions"><a href="{{ route('wakasek') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
+        <header class="wakasek-page-header role-page-header"><div class="role-page-eyebrow">Laporan Sekolah</div><h2>Rekap &amp; Riwayat</h2><div class="role-page-description">Filter periode, lalu ekspor CSV atau cetak laporan.</div></header>
         @if ($rekapTerbuka === '')
         <div class="row g-3">
             <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('jurnal')"><span class="role-menu-icon">&#128203;</span><h2 class="h5 fw-bold">Riwayat Jurnal</h2><p>{{ $this->riwayatJurnal->count() }} entri pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
             <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('belum-mengisi')"><span class="role-menu-icon">&#9203;</span><h2 class="h5 fw-bold">Guru Belum Mengisi</h2><p>{{ $this->rekapBelumMengisi->count() }} jadwal tanpa jurnal.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
             <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('kehadiran')"><span class="role-menu-icon">&#9989;</span><h2 class="h5 fw-bold">Monitoring Kehadiran Guru</h2><p>{{ $this->rekapKehadiran->count() }} jadwal pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
+            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('rekap-kelas')"><span class="role-menu-icon">&#128196;</span><h2 class="h5 fw-bold">Rekap Per Kelas</h2><p>{{ $this->rekapPerKelas->count() }} kelas-hari pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
         </div>
         @else
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2"><button type="button" class="rekap-back" wire:click="tutupRekap">← Kembali ke semua rekap</button><span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1d4ed8">TAMPILAN REKAP</span></div>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2"><button type="button" class="btn-back" wire:click="tutupRekap">&larr; Kembali ke semua rekap</button><span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1d4ed8">TAMPILAN REKAP</span></div>
         @endif
 
         @if ($rekapTerbuka === 'jurnal')
@@ -592,6 +857,110 @@ new class extends Component
         <section class="card-custom rekap-card"><div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3"><div><div class="fw-bold">Monitoring Kehadiran Guru</div><div class="text-muted small">{{ $this->rekapKehadiran->count() }} jadwal</div></div><div class="rekap-toolbar d-flex flex-wrap gap-2"><select class="form-select form-select-sm" wire:model.live="filterKehadiran"><option value="minggu">Minggu ini</option><option value="bulan">Bulan ini</option><option value="tahun">Tahun ini</option></select><select class="form-select form-select-sm" wire:model.live="filterStatusKehadiran"><option value="semua">Semua status</option><option value="Izin">Izin</option><option value="Sakit">Sakit</option><option value="Kepentingan">Kepentingan</option><option value="Tanpa Keterangan">Tanpa Keterangan</option></select><button class="btn btn-sm btn-outline-primary" type="button" wire:click="exportCsv('kehadiran')">Ekspor CSV</button><a class="btn btn-sm btn-primary" target="_blank" href="{{ $this->urlCetak('kehadiran') }}">Cetak</a></div></div><div class="wakasek-rekap-list">@forelse ($this->rekapKehadiran as $jadwal)<article class="wakasek-rekap-row" wire:key="rekap-hadir-{{ $jadwal->id_jadwal }}-{{ $jadwal->tanggal_rekap->format('Ymd') }}"><div><span class="wakasek-rekap-label">Tanggal</span>{{ $jadwal->tanggal_rekap->format('d/m/Y') }}</div><div><span class="wakasek-rekap-label">Guru</span>{{ $jadwal->guru?->nama ?? '-' }}</div><div><span class="wakasek-rekap-label">Kelas / Jam</span>{{ $jadwal->kelas?->nama_kelas ?? '-' }} · {{ $jadwal->jam_ke }}</div><div><span class="wakasek-rekap-label">Status</span>{{ $jadwal->status_kehadiran }}</div></article>@empty<div class="text-center text-muted py-4">Tidak ada data kehadiran pada periode ini.</div>@endforelse</div></section>
         @endif
 
+        @if ($rekapTerbuka === 'rekap-kelas')
+        <section class="card-custom rekap-card">
+            <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="fw-bold">Rekap Jurnal Per Kelas</div>
+                    <div class="text-muted small">{{ $this->rekapPerKelas->count() }} kelas-hari pada periode terpilih</div>
+                </div>
+                <div class="rekap-toolbar d-flex flex-wrap gap-2">
+                    <select class="form-select form-select-sm" wire:model.live="filterRekapKelas">
+                        <option value="minggu">Minggu ini</option>
+                        <option value="bulan">Bulan ini</option>
+                        <option value="tahun">Tahun ini</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" type="button" wire:click="exportCsv('rekap-kelas')">Ekspor CSV</button>
+                    <a class="btn btn-sm btn-primary" target="_blank" href="{{ $this->urlCetak('rekap-kelas') }}">Cetak</a>
+                </div>
+            </div>
+            <div class="wakasek-rekap-list">
+                @forelse ($this->rekapPerKelas as $item)
+                <article class="wakasek-rekap-row" wire:key="rekap-kelas-{{ $item['kunci'] }}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold">{{ $item['kelas'] }}</div>
+                            <div class="text-muted small">{{ $item['tanggal']->format('d/m/Y') }} ({{ $item['hari'] }})</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="bukaDetailRekap('{{ $item['kunci'] }}')">&#9654; Detail</button>
+                    </div>
+                    <div class="row text-center mt-2">
+                        <div class="col-6 col-md-3"><div class="fw-bold">{{ $item['total_jam'] }}</div><div class="text-muted small">Total Jam</div></div>
+                        <div class="col-6 col-md-3"><div class="fw-bold text-success">{{ $item['terisi'] }}</div><div class="text-muted small">Terisi</div></div>
+                        <div class="col-6 col-md-3"><div class="fw-bold text-warning">{{ $item['menunggu_validasi'] }}</div><div class="text-muted small">Menunggu Validasi</div></div>
+                        <div class="col-6 col-md-3"><div class="fw-bold text-danger">{{ $item['kosong'] }}</div><div class="text-muted small">Kosong</div></div>
+                        <div class="col-6 col-md-3"><div class="fw-bold text-info">{{ $item['divalidasi'] }}</div><div class="text-muted small">Divalidasi</div></div>
+                    </div>
+                </article>
+                @empty
+                <div class="text-center text-muted py-4">Tidak ada data jurnal per kelas pada periode ini.</div>
+                @endforelse
+            </div>
+        </section>
+        @endif
+
     </section>
+
+    @if ($this->detailRekap)
+    <x-app-modal id="modal-detail-rekap"
+        title="Rekap {{ $this->detailRekap['kelas'] }} — {{ $this->detailRekap['tanggal']->format('d/m/Y') }}"
+        :subtitle="$this->detailRekap['hari'].' · '.$this->detailRekap['terisi'].'/'.$this->detailRekap['total_jam'].' jam terisi'"
+        close="tutupDetailRekap"
+        size="lg">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0 table-stack">
+                <thead>
+                    <tr>
+                        <th>Jam</th>
+                        <th>Waktu</th>
+                        <th>Mapel / Guru</th>
+                        <th>Status</th>
+                        <th>Validasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($this->detailRekap['detail'] as $period)
+                    <tr>
+                        <td data-label="Jam">Ke-{{ $period['jam_ke'] }}</td>
+                        <td data-label="Waktu">{{ $period['jam_mulai'] }}–{{ $period['jam_selesai'] }}</td>
+                        <td data-label="Mapel / Guru">{{ $period['mapel'] }} / {{ $period['guru'] }}</td>
+                        <td data-label="Status">
+                            @if ($period['has_jurnal'])
+                                <span class="badge bg-success">Terisi</span>
+                            @else
+                                <span class="badge bg-danger">Kosong</span>
+                            @endif
+                        </td>
+                        <td data-label="Validasi">
+                            @if ($period['has_jurnal'])
+                                @switch ($period['status_validasi'])
+                                    @case ('Divalidasi')
+                                        <span class="badge bg-success">Divalidasi</span>
+                                        @break
+                                    @case ('Menunggu')
+                                        <span class="badge bg-warning text-dark">Menunggu</span>
+                                        @break
+                                    @case ('Ditolak')
+                                        <span class="badge bg-danger">Ditolak</span>
+                                        @break
+                                    @default
+                                        <span class="badge bg-secondary">{{ $period['status_validasi'] }}</span>
+                                @endswitch
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="5" data-label="" class="text-center text-muted py-4">Tidak ada jadwal untuk kelas ini pada tanggal tersebut.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <x-slot:footer>
+            <button type="button" class="btn btn-outline-secondary" wire:click="tutupDetailRekap">Tutup Detail</button>
+        </x-slot:footer>
+    </x-app-modal>
+    @endif
     @endif
 </div>

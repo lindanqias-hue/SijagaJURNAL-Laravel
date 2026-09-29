@@ -205,7 +205,7 @@ class GuruPiketSuratSubmissionTest extends TestCase
 
         Livewire::test('dashboard')
             ->assertDontSee(route('guru-piket'))
-            ->assertSee(route('dispensasi'));
+            ->assertDontSee(route('dispensasi'));
         Livewire::test('guru-piket')->assertSee('Anda tidak memiliki hak akses piket hari ini');
         Livewire::test('dispensasi')
             ->assertSee('Anda tidak memiliki hak akses piket hari ini')

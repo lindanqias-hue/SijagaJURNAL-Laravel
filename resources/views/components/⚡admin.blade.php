@@ -96,6 +96,7 @@ new class extends Component
     public function updatingFilterRole(): void
     {
         $this->resetPage();
+        $this->resetPage('guruPage');
     }
 
     public function updatingPencarianSiswa(): void
@@ -409,22 +410,6 @@ new class extends Component
 
 <style>
     [x-cloak] { display: none !important; }
-
-    .admin-back-link {
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 8px;
-        color: #1d4ed8;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 5px 10px;
-    }
-
-    .admin-back-link:hover {
-        background: #dbeafe;
-        border-color: #93c5fd;
-        color: #1e40af;
-    }
 </style>
 
 <div x-data="{
@@ -448,134 +433,172 @@ new class extends Component
     @endif
     @error('delete')<div class="alert alert-danger" role="alert">{{ $message }}</div>@enderror
 
-    <section id="admin" x-cloak x-show="activeSection === 'admin'">
-        <div class="welcome-banner mb-4">
-            <div class="fw-bold" style="font-size:22px; color:#fff;">Dashboard Admin</div>
-            <div style="color:rgba(255,255,255,.7); font-size:13px; margin-top:6px;">Administrasi pengguna, jadwal, jurnal, dan dispensasi sekolah.</div>
+    <nav class="section-tabs" aria-label="Navigasi section admin">
+        <div class="tab-pill-group">
+            @foreach ([
+                'admin' => 'Dashboard',
+                'pengguna' => 'Pengguna',
+                'guru' => 'Guru',
+                'siswa' => 'Siswa',
+                'kelas' => 'Kelas',
+                'jadwal' => 'Jadwal',
+                'jadwal-piket' => 'Piket',
+                'jurnal' => 'Jurnal',
+                'dispensasi' => 'Dispensasi',
+            ] as $kunciSection => $labelSection)
+            <button type="button"
+                class="tab-pill"
+                :class="{ 'active': activeSection === '{{ $kunciSection }}' }"
+                :aria-current="activeSection === '{{ $kunciSection }}' ? 'page' : false"
+                @if ($kunciSection === 'pengguna') x-on:click="$wire.set('filterRole', ''); openSection('pengguna')" @else x-on:click="openSection('{{ $kunciSection }}')" @endif
+            >{{ $labelSection }}</button>
+            @endforeach
         </div>
+    </nav>
+
+    <section id="admin" x-cloak x-show="activeSection === 'admin'">
+        <header class="role-page-header mb-4">
+            <div class="role-page-eyebrow">SIJAGA · ADMINISTRASI</div>
+            <h2>Dashboard Admin</h2>
+            <div class="role-page-description">Administrasi pengguna, jadwal, jurnal, dan dispensasi sekolah.</div>
+        </header>
         <div class="row g-3 mb-4">
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('pengguna')"><div class="text-muted small">Total Pengguna</div><div class="stat-value">{{ $this->stats['pengguna'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('pengguna', 'guru')"><div class="text-muted small">Guru</div><div class="stat-value">{{ $this->stats['guru'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('siswa')"><div class="text-muted small">Siswa</div><div class="stat-value">{{ $this->stats['siswa'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('kelas')"><div class="text-muted small">Kelas</div><div class="stat-value">{{ $this->stats['kelas'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('dispensasi')"><div class="text-muted small">Dispensasi Menunggu</div><div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('jadwal')"><div class="text-muted small">Jadwal Hari Ini</div><div class="stat-value">{{ $this->stats['jadwalHariIni'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('jurnal')"><div class="text-muted small">Jurnal Hari Ini</div><div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div></button></div>
-            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" style="cursor:pointer;" x-on:click="openSection('jadwal-piket')"><div class="text-muted small">Guru Piket Hari Ini</div><div class="stat-value">{{ $this->stats['piketHariIni'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar pengguna" x-on:click="openSection('pengguna')"><div class="text-muted small">Total Pengguna</div><div class="stat-value">{{ $this->stats['pengguna'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar guru" x-on:click="openSection('pengguna', 'guru')"><div class="text-muted small">Guru</div><div class="stat-value">{{ $this->stats['guru'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar siswa" x-on:click="openSection('siswa')"><div class="text-muted small">Siswa</div><div class="stat-value">{{ $this->stats['siswa'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar kelas" x-on:click="openSection('kelas')"><div class="text-muted small">Kelas</div><div class="stat-value">{{ $this->stats['kelas'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar dispensasi" x-on:click="openSection('dispensasi')"><div class="text-muted small">Dispensasi Menunggu</div><div class="stat-value">{{ $this->stats['dispensasiMenunggu'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka jadwal mengajar" x-on:click="openSection('jadwal')"><div class="text-muted small">Jadwal Hari Ini</div><div class="stat-value">{{ $this->stats['jadwalHariIni'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka daftar jurnal" x-on:click="openSection('jurnal')"><div class="text-muted small">Jurnal Hari Ini</div><div class="stat-value">{{ $this->stats['jurnalHariIni'] }}</div></button></div>
+            <div class="col-6 col-lg-3"><button type="button" class="stat-card border-0 text-start w-100" aria-label="Buka jadwal piket" x-on:click="openSection('jadwal-piket')"><div class="text-muted small">Guru Piket Hari Ini</div><div class="stat-value">{{ $this->stats['piketHariIni'] }}</div></button></div>
         </div>
     </section>
 
     <section id="pengguna" x-cloak x-show="activeSection === 'pengguna'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Pengguna</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('pengguna')">Tambah Pengguna</button></div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div>
         <div class="p-3 border-bottom"><div class="row g-2">
             <div class="col-md-8"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP/ID pengguna..."></div>
             <div class="col-md-4"><select wire:model.live="filterRole" class="form-select"><option value="">Semua Role</option><option value="admin">Admin</option><option value="wakasek">Wakasek</option><option value="guru">Guru</option><option value="sekretaris">Sekretaris</option></select></div>
         </div></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>NIP/ID</th><th>Role</th><th>Status Kepegawaian</th><th>No. HP</th><th>Kelas</th><th>Mapel</th><th class="text-end">Aksi</th></tr></thead><tbody>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Nama</th><th>NIP/ID</th><th>Role</th><th>Status Kepegawaian</th><th>No. HP</th><th>Kelas</th><th>Mapel</th><th class="text-end">Aksi</th></tr></thead><tbody>
             @forelse ($this->pengguna as $user)
-                <tr wire:key="admin-user-{{ $user->id_pengguna }}"><td>{{ $user->nama }}</td><td>{{ $user->nip }}</td><td><span class="badge bg-light text-dark">{{ $user->role }}</span></td><td>{{ $user->status_kepegawaian ?? '-' }}</td><td>{{ $user->no_hp ?? '-' }}</td><td>{{ $user->nama_kelas ?? '-' }}</td><td>{{ $user->mapel_diampu ?: '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('pengguna', {{ $user->id_pengguna }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('pengguna', {{ $user->id_pengguna }})" wire:confirm="Hapus pengguna ini?">Hapus</button></td></tr>
-            @empty<tr><td colspan="8" class="text-center text-muted py-4">Tidak ada pengguna yang cocok.</td></tr>@endforelse
+                <tr wire:key="admin-user-{{ $user->id_pengguna }}"><td data-label="Nama">{{ $user->nama }}</td><td data-label="NIP/ID">{{ $user->nip }}</td><td data-label="Role"><span class="badge bg-light text-dark">{{ $user->role }}</span></td><td data-label="Status Kepegawaian">{{ $user->status_kepegawaian ?? '-' }}</td><td data-label="No. HP">{{ $user->no_hp ?? '-' }}</td><td data-label="Kelas">{{ $user->nama_kelas ?? '-' }}</td><td data-label="Mapel">{{ $user->mapel_diampu ?: '-' }}</td><td data-label="Aksi" class="text-nowrap"><button type="button" class="btn-edit" wire:click="openEdit('pengguna', {{ $user->id_pengguna }})">Edit</button> <button type="button" class="btn-hapus" wire:click="delete('pengguna', {{ $user->id_pengguna }})" wire:confirm="Hapus pengguna ini?">Hapus</button></td></tr>
+            @empty<tr><td colspan="8" data-label="" class="text-center text-muted py-4">Tidak ada pengguna yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->pengguna->links() }}</div>
     </section>
 
     <section id="guru" x-cloak x-show="activeSection === 'guru'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom">Daftar Guru</div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP guru..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>NIP</th><th>Status Kepegawaian</th><th>No. HP</th><th>Mapel</th></tr></thead><tbody>
-            @forelse ($this->guru as $guru)<tr wire:key="admin-guru-{{ $guru->id_pengguna }}"><td>{{ $guru->nama }}</td><td>{{ $guru->nip }}</td><td>{{ $guru->status_kepegawaian ?? '-' }}</td><td>{{ $guru->no_hp ?? '-' }}</td><td>{{ $guru->mapel_diampu ?: '-' }}</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada guru yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPengguna" class="form-control" placeholder="Cari nama atau NIP guru..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Nama</th><th>NIP</th><th>Status Kepegawaian</th><th>No. HP</th><th>Mapel</th></tr></thead><tbody>
+            @forelse ($this->guru as $guru)<tr wire:key="admin-guru-{{ $guru->id_pengguna }}"><td data-label="Nama">{{ $guru->nama }}</td><td data-label="NIP">{{ $guru->nip }}</td><td data-label="Status Kepegawaian">{{ $guru->status_kepegawaian ?? '-' }}</td><td data-label="No. HP">{{ $guru->no_hp ?? '-' }}</td><td data-label="Mapel">{{ $guru->mapel_diampu ?: '-' }}</td></tr>@empty<tr><td colspan="5" data-label="" class="text-center text-muted py-4">Tidak ada guru yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->guru->links() }}</div>
     </section>
 
     <section id="siswa" x-cloak x-show="activeSection === 'siswa'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Siswa</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('siswa')">Tambah Siswa</button></div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianSiswa" class="form-control" placeholder="Cari nama siswa atau kelas..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
-            @forelse ($this->siswa as $siswa)<tr wire:key="admin-siswa-{{ $siswa->id_siswa }}"><td>{{ $siswa->nama_siswa }}</td><td>{{ $siswa->nama_kelas ?? '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('siswa', {{ $siswa->id_siswa }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('siswa', {{ $siswa->id_siswa }})" wire:confirm="Hapus siswa ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" class="text-center text-muted py-4">Tidak ada siswa yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianSiswa" class="form-control" placeholder="Cari nama siswa atau kelas..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Nama</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
+            @forelse ($this->siswa as $siswa)<tr wire:key="admin-siswa-{{ $siswa->id_siswa }}"><td data-label="Nama">{{ $siswa->nama_siswa }}</td><td data-label="Kelas">{{ $siswa->nama_kelas ?? '-' }}</td><td data-label="Aksi" class="text-nowrap"><button type="button" class="btn-edit" wire:click="openEdit('siswa', {{ $siswa->id_siswa }})">Edit</button> <button type="button" class="btn-hapus" wire:click="delete('siswa', {{ $siswa->id_siswa }})" wire:confirm="Hapus siswa ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" data-label="" class="text-center text-muted py-4">Tidak ada siswa yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->siswa->links() }}</div>
     </section>
 
     <section id="kelas" x-cloak x-show="activeSection === 'kelas'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Daftar Kelas</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('kelas')">Tambah Kelas</button></div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianKelas" class="form-control" placeholder="Cari nama kelas..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Nama Kelas</th><th>Wali Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
-            @forelse ($this->kelas as $kelas)<tr wire:key="admin-kelas-{{ $kelas->id_kelas }}"><td>{{ $kelas->nama_kelas }}</td><td>{{ $kelas->wali_kelas ?? '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('kelas', {{ $kelas->id_kelas }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('kelas', {{ $kelas->id_kelas }})" wire:confirm="Hapus kelas ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" class="text-center text-muted py-4">Tidak ada kelas yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianKelas" class="form-control" placeholder="Cari nama kelas..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Nama Kelas</th><th>Wali Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
+            @forelse ($this->kelas as $kelas)<tr wire:key="admin-kelas-{{ $kelas->id_kelas }}"><td data-label="Nama Kelas">{{ $kelas->nama_kelas }}</td><td data-label="Wali Kelas">{{ $kelas->wali_kelas ?? '-' }}</td><td data-label="Aksi" class="text-nowrap"><button type="button" class="btn-edit" wire:click="openEdit('kelas', {{ $kelas->id_kelas }})">Edit</button> <button type="button" class="btn-hapus" wire:click="delete('kelas', {{ $kelas->id_kelas }})" wire:confirm="Hapus kelas ini?">Hapus</button></td></tr>@empty<tr><td colspan="3" data-label="" class="text-center text-muted py-4">Tidak ada kelas yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->kelas->links() }}</div>
     </section>
 
     <section id="jadwal" x-cloak x-show="activeSection === 'jadwal'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Mengajar</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('jadwal')">Tambah Jadwal</button></div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJadwal" class="form-control" placeholder="Cari guru, mata pelajaran, atau kelas..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Hari</th><th>Jam</th><th>Guru</th><th>Mapel</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
-            @forelse ($this->jadwalMengajarHariIni as $jadwal)<tr wire:key="admin-jadwal-{{ $jadwal->id_jadwal }}"><td>{{ $jadwal->hari }}</td><td>Ke-{{ $jadwal->jam_ke }} <span class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</span></td><td>{{ $jadwal->nama_guru }}</td><td>{{ $jadwal->mapel_diampu ?: '-' }}</td><td>{{ $jadwal->nama_kelas }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('jadwal', {{ $jadwal->id_jadwal }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('jadwal', {{ $jadwal->id_jadwal }})" wire:confirm="Hapus jadwal ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal mengajar yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJadwal" class="form-control" placeholder="Cari guru, mata pelajaran, atau kelas..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Hari</th><th>Jam</th><th>Guru</th><th>Mapel</th><th>Kelas</th><th class="text-end">Aksi</th></tr></thead><tbody>
+            @forelse ($this->jadwalMengajarHariIni as $jadwal)<tr wire:key="admin-jadwal-{{ $jadwal->id_jadwal }}"><td data-label="Hari">{{ $jadwal->hari }}</td><td data-label="Jam">Ke-{{ $jadwal->jam_ke }} <span class="text-muted small">{{ substr($jadwal->jam_mulai, 0, 5) }}–{{ substr($jadwal->jam_selesai, 0, 5) }}</span></td><td data-label="Guru">{{ $jadwal->nama_guru }}</td><td data-label="Mapel">{{ $jadwal->mapel_diampu ?: '-' }}</td><td data-label="Kelas">{{ $jadwal->nama_kelas }}</td><td data-label="Aksi" class="text-nowrap"><button type="button" class="btn-edit" wire:click="openEdit('jadwal', {{ $jadwal->id_jadwal }})">Edit</button> <button type="button" class="btn-hapus" wire:click="delete('jadwal', {{ $jadwal->id_jadwal }})" wire:confirm="Hapus jadwal ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" data-label="" class="text-center text-muted py-4">Tidak ada jadwal mengajar yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jadwalMengajarHariIni->links() }}</div>
     </section>
 
     <section id="jadwal-piket" x-cloak x-show="activeSection === 'jadwal-piket'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span>Jadwal Piket</span><button type="button" class="btn btn-sm btn-app-primary" wire:click="openCreate('piket')">Tambah Jadwal Piket</button></div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPiket" class="form-control" placeholder="Cari nama guru, status, atau keterangan piket..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Guru</th><th>Jam</th><th>Status</th><th>Keterangan</th><th class="text-end">Aksi</th></tr></thead><tbody>
-            @forelse ($this->jadwalPiketHariIni as $piket)<tr wire:key="admin-piket-{{ $piket->id_jadwal_piket }}"><td>{{ \Illuminate\Support\Carbon::parse($piket->tanggal)->format('d/m/Y') }}</td><td>{{ $piket->nama }}</td><td>{{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}</td><td>{{ $piket->status }}</td><td>{{ $piket->keterangan ?: '-' }}</td><td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-primary" wire:click="openEdit('piket', {{ $piket->id_jadwal_piket }})">Edit</button> <button type="button" class="btn btn-sm btn-outline-danger" wire:click="delete('piket', {{ $piket->id_jadwal_piket }})" wire:confirm="Hapus jadwal piket ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal piket yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianPiket" class="form-control" placeholder="Cari nama guru, status, atau keterangan piket..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Tanggal</th><th>Guru</th><th>Jam</th><th>Status</th><th>Keterangan</th><th class="text-end">Aksi</th></tr></thead><tbody>
+            @forelse ($this->jadwalPiketHariIni as $piket)<tr wire:key="admin-piket-{{ $piket->id_jadwal_piket }}"><td data-label="Tanggal">{{ \Illuminate\Support\Carbon::parse($piket->tanggal)->format('d/m/Y') }}</td><td data-label="Guru">{{ $piket->nama }}</td><td data-label="Jam">{{ substr($piket->jam_mulai, 0, 5) }}–{{ substr($piket->jam_selesai, 0, 5) }}</td><td data-label="Status">{{ $piket->status }}</td><td data-label="Keterangan">{{ $piket->keterangan ?: '-' }}</td><td data-label="Aksi" class="text-nowrap"><button type="button" class="btn-edit" wire:click="openEdit('piket', {{ $piket->id_jadwal_piket }})">Edit</button> <button type="button" class="btn-hapus" wire:click="delete('piket', {{ $piket->id_jadwal_piket }})" wire:confirm="Hapus jadwal piket ini?">Hapus</button></td></tr>@empty<tr><td colspan="6" data-label="" class="text-center text-muted py-4">Tidak ada jadwal piket yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jadwalPiketHariIni->links() }}</div>
     </section>
 
     <section id="jurnal" x-cloak x-show="activeSection === 'jurnal'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom">Jurnal</div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJurnal" class="form-control" placeholder="Cari guru atau kelas..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Guru</th><th>Kelas</th><th>Status</th></tr></thead><tbody>
-            @forelse ($this->jurnal as $jurnal)<tr wire:key="admin-jurnal-{{ $jurnal->id_jurnal }}"><td>{{ optional($jurnal->tanggal)->format('d/m/Y') }}</td><td>{{ $jurnal->guru?->nama ?? '-' }}</td><td>{{ $jurnal->kelas?->nama_kelas ?? '-' }}</td><td><span class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}</span></td></tr>@empty<tr><td colspan="4" class="text-center text-muted py-4">Belum ada jurnal yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianJurnal" class="form-control" placeholder="Cari guru atau kelas..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Tanggal</th><th>Guru</th><th>Kelas</th><th>Status</th></tr></thead><tbody>
+            @forelse ($this->jurnal as $jurnal)<tr wire:key="admin-jurnal-{{ $jurnal->id_jurnal }}"><td data-label="Tanggal">{{ optional($jurnal->tanggal)->format('d/m/Y') }}</td><td data-label="Guru">{{ $jurnal->guru?->nama ?? '-' }}</td><td data-label="Kelas">{{ $jurnal->kelas?->nama_kelas ?? '-' }}</td><td data-label="Status"><span class="badge {{ $jurnal->status_validasi === 'Divalidasi' ? 'bg-success' : 'bg-warning text-dark' }}">{{ $jurnal->status_validasi === 'Divalidasi' ? 'Valid' : $jurnal->status_validasi }}</span></td></tr>@empty<tr><td colspan="4" data-label="" class="text-center text-muted py-4">Belum ada jurnal yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->jurnal->links() }}</div>
     </section>
 
     <section id="dispensasi" x-cloak x-show="activeSection === 'dispensasi'" class="card-custom overflow-hidden mb-4">
         <div class="card-header-custom">Dispensasi</div>
-        <div class="px-3 pt-3 pb-2"><a href="{{ route('admin') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a></div><div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianDispensasi" class="form-control" placeholder="Cari siswa, kelas, atau status..."></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Tanggal</th><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>
-            @forelse ($this->dispensasi as $dispensasi)<tr wire:key="admin-dispensasi-{{ $dispensasi->id_dispensasi }}"><td>{{ \Illuminate\Support\Carbon::parse($dispensasi->tanggal)->format('d/m/Y') }}</td><td>{{ $dispensasi->nama_siswa ?? '-' }}</td><td>{{ $dispensasi->nama_kelas ?? '-' }}</td><td>{{ $dispensasi->jenis_dispensasi }}</td><td>{{ $dispensasi->alasan ?: '-' }}</td><td>{{ $dispensasi->status }}</td></tr>@empty<tr><td colspan="6" class="text-center text-muted py-4">Tidak ada dispensasi yang cocok.</td></tr>@endforelse
+        <div class="p-3 border-bottom"><input type="search" wire:model.live.debounce.300ms="pencarianDispensasi" class="form-control" placeholder="Cari siswa, kelas, atau status..."></div>
+        <div class="table-responsive"><table class="table table-hover mb-0 align-middle table-stack"><thead><tr><th>Tanggal</th><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Keterangan</th><th>Status</th></tr></thead><tbody>
+            @forelse ($this->dispensasi as $dispensasi)<tr wire:key="admin-dispensasi-{{ $dispensasi->id_dispensasi }}"><td data-label="Tanggal">{{ \Illuminate\Support\Carbon::parse($dispensasi->tanggal)->format('d/m/Y') }}</td><td data-label="Siswa">{{ $dispensasi->nama_siswa ?? '-' }}</td><td data-label="Kelas">{{ $dispensasi->nama_kelas ?? '-' }}</td><td data-label="Jenis">{{ $dispensasi->jenis_dispensasi }}</td><td data-label="Keterangan">{{ $dispensasi->alasan ?: '-' }}</td><td data-label="Status">{{ $dispensasi->status }}</td></tr>@empty<tr><td colspan="6" data-label="" class="text-center text-muted py-4">Tidak ada dispensasi yang cocok.</td></tr>@endforelse
         </tbody></table></div><div class="p-3">{{ $this->dispensasi->links() }}</div>
     </section>
 
     @if ($showModal)
-        <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3" style="z-index: 1060; background: rgba(15, 23, 42, .58);" wire:click.self="closeModal" wire:keydown.escape.window="closeModal">
-            <section class="card-custom w-100 overflow-hidden" style="max-width: 720px; max-height: 90vh;" role="dialog" aria-modal="true" aria-labelledby="admin-form-title">
-                <div class="card-header-custom d-flex align-items-center justify-content-between gap-2"><span id="admin-form-title">{{ $editingId ? 'Edit' : 'Tambah' }} {{ match($modalType) { 'pengguna' => 'Pengguna', 'siswa' => 'Siswa', 'kelas' => 'Kelas', 'jadwal' => 'Jadwal Mengajar', 'piket' => 'Jadwal Piket' } }}</span><button type="button" class="btn-close" aria-label="Tutup" wire:click="closeModal"></button></div>
-                <form wire:submit="save" class="p-3 overflow-auto" style="max-height: calc(90vh - 62px);">
-                    <div class="row g-3">
-                        @if ($modalType === 'pengguna')
-                            <div class="col-md-6"><label class="form-label">Nama</label><input wire:model="form.nama" class="form-control">@error('form.nama')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">NIP/ID</label><input wire:model="form.nip" class="form-control">@error('form.nip')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Role</label><select wire:model="form.role" class="form-select">@foreach (self::ROLE as $role)<option value="{{ $role }}">{{ ucfirst($role) }}</option>@endforeach</select>@error('form.role')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Mata Pelajaran</label><input wire:model="form.mapel_diampu" class="form-control">@error('form.mapel_diampu')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Status Kepegawaian</label><select wire:model="form.status_kepegawaian" class="form-select"><option value="">- Pilih -</option>@foreach (self::STATUS_KEPEGAWAIAN as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select>@error('form.status_kepegawaian')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">No. HP</label><input wire:model="form.no_hp" class="form-control">@error('form.no_hp')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Tidak ada -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">{{ $editingId ? 'Password Baru (opsional)' : 'Password' }}</label><input type="password" wire:model="form.password" class="form-control" autocomplete="new-password">@if ($editingId)<div class="form-text">Kosongkan untuk mempertahankan password saat ini.</div>@endif @error('form.password')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                        @elseif ($modalType === 'siswa')
-                            <div class="col-md-6"><label class="form-label">Nama Siswa</label><input wire:model="form.nama_siswa" class="form-control">@error('form.nama_siswa')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Pilih kelas -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                        @elseif ($modalType === 'kelas')
-                            <div class="col-md-6"><label class="form-label">Nama Kelas</label><input wire:model="form.nama_kelas" class="form-control">@error('form.nama_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Wali Kelas</label><input wire:model="form.wali_kelas" class="form-control">@error('form.wali_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                        @elseif ($modalType === 'jadwal' || $modalType === 'piket')
-                            <div class="col-md-6"><label class="form-label">Guru</label><select wire:model="form.id_guru" class="form-select"><option value="">- Pilih guru -</option>@foreach ($this->guruOptions as $guru)<option value="{{ $guru->id_pengguna }}">{{ $guru->nama }}</option>@endforeach</select>@error('form.id_guru')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            @if ($modalType === 'jadwal')
-                                <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Pilih kelas -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                                <div class="col-md-6"><label class="form-label">Hari</label><select wire:model="form.hari" class="form-select">@foreach (self::HARI as $hari)<option value="{{ $hari }}">{{ $hari }}</option>@endforeach</select>@error('form.hari')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                                <div class="col-md-6"><label class="form-label">Jam ke</label><input type="number" min="1" wire:model="form.jam_ke" class="form-control">@error('form.jam_ke')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            @else
-                                <div class="col-md-6"><label class="form-label">Tanggal</label><input type="date" wire:model="form.tanggal" class="form-control">@error('form.tanggal')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            @endif
-                            <div class="col-md-6"><label class="form-label">Jam Mulai</label><input type="time" wire:model="form.jam_mulai" class="form-control">@error('form.jam_mulai')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            <div class="col-md-6"><label class="form-label">Jam Selesai</label><input type="time" wire:model="form.jam_selesai" class="form-control">@error('form.jam_selesai')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            @if ($modalType === 'piket')
-                                <div class="col-md-6"><label class="form-label">Status</label><select wire:model="form.status" class="form-select">@foreach (self::STATUS_PIKET as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select>@error('form.status')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                                <div class="col-12"><label class="form-label">Keterangan</label><textarea wire:model="form.keterangan" class="form-control" rows="3"></textarea>@error('form.keterangan')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
-                            @endif
-                        @endif
+        <x-app-modal
+            id="modal-admin-form"
+            :title="($editingId ? 'Edit' : 'Tambah').' '.match($modalType) { 'pengguna' => 'Pengguna', 'siswa' => 'Siswa', 'kelas' => 'Kelas', 'jadwal' => 'Jadwal Mengajar', 'piket' => 'Jadwal Piket' }"
+            close="closeModal"
+            size="md">
+            <form id="form-admin-modal" wire:submit="save">
+                @php($fieldsModal = ['form.nama', 'form.nip', 'form.role', 'form.mapel_diampu', 'form.status_kepegawaian', 'form.no_hp', 'form.id_kelas', 'form.password', 'form.nama_siswa', 'form.wali_kelas', 'form.nama_kelas', 'form.id_guru', 'form.hari', 'form.jam_ke', 'form.jam_mulai', 'form.jam_selesai', 'form.tanggal', 'form.status', 'form.keterangan'])
+                @if ($errors->hasAny($fieldsModal))
+                    <div class="alert alert-danger" role="alert">
+                        <div class="fw-bold mb-1">Periksa kembali isian berikut:</div>
+                        <ul class="mb-0 ps-3">
+                            @foreach ($fieldsModal as $field)
+                                @error($field)<li>{{ $message }}</li>@enderror
+                            @endforeach
+                        </ul>
                     </div>
-                    <div class="d-flex justify-content-end gap-2 mt-4"><button type="button" class="btn btn-outline-secondary" wire:click="closeModal">Batal</button><button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled">Simpan</button></div>
-                </form>
-            </section>
-        </div>
+                @endif
+                <div class="row g-3">
+                    @if ($modalType === 'pengguna')
+                        <div class="col-md-6"><label class="form-label">Nama</label><input wire:model="form.nama" class="form-control">@error('form.nama')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">NIP/ID</label><input wire:model="form.nip" class="form-control">@error('form.nip')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Role</label><select wire:model="form.role" class="form-select">@foreach (self::ROLE as $role)<option value="{{ $role }}">{{ ucfirst($role) }}</option>@endforeach</select>@error('form.role')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Mata Pelajaran</label><input wire:model="form.mapel_diampu" class="form-control">@error('form.mapel_diampu')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Status Kepegawaian</label><select wire:model="form.status_kepegawaian" class="form-select"><option value="">- Pilih -</option>@foreach (self::STATUS_KEPEGAWAIAN as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select>@error('form.status_kepegawaian')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">No. HP</label><input wire:model="form.no_hp" class="form-control">@error('form.no_hp')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Tidak ada -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">{{ $editingId ? 'Password Baru (opsional)' : 'Password' }}</label><input type="password" wire:model="form.password" class="form-control" autocomplete="new-password">@if ($editingId)<div class="form-text">Kosongkan untuk mempertahankan password saat ini.</div>@endif @error('form.password')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                    @elseif ($modalType === 'siswa')
+                        <div class="col-md-6"><label class="form-label">Nama Siswa</label><input wire:model="form.nama_siswa" class="form-control">@error('form.nama_siswa')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Pilih kelas -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                    @elseif ($modalType === 'kelas')
+                        <div class="col-md-6"><label class="form-label">Nama Kelas</label><input wire:model="form.nama_kelas" class="form-control">@error('form.nama_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Wali Kelas</label><input wire:model="form.wali_kelas" class="form-control">@error('form.wali_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                    @elseif ($modalType === 'jadwal' || $modalType === 'piket')
+                        <div class="col-md-6"><label class="form-label">Guru</label><select wire:model="form.id_guru" class="form-select"><option value="">- Pilih guru -</option>@foreach ($this->guruOptions as $guru)<option value="{{ $guru->id_pengguna }}">{{ $guru->nama }}</option>@endforeach</select>@error('form.id_guru')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        @if ($modalType === 'jadwal')
+                            <div class="col-md-6"><label class="form-label">Kelas</label><select wire:model="form.id_kelas" class="form-select"><option value="">- Pilih kelas -</option>@foreach ($this->kelasOptions as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('form.id_kelas')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                            <div class="col-md-6"><label class="form-label">Hari</label><select wire:model="form.hari" class="form-select">@foreach (self::HARI as $hari)<option value="{{ $hari }}">{{ $hari }}</option>@endforeach</select>@error('form.hari')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                            <div class="col-md-6"><label class="form-label">Jam ke</label><input type="number" min="1" wire:model="form.jam_ke" class="form-control">@error('form.jam_ke')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        @else
+                            <div class="col-md-6"><label class="form-label">Tanggal</label><input type="date" wire:model="form.tanggal" class="form-control">@error('form.tanggal')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        @endif
+                        <div class="col-md-6"><label class="form-label">Jam Mulai</label><input type="time" wire:model="form.jam_mulai" class="form-control">@error('form.jam_mulai')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        <div class="col-md-6"><label class="form-label">Jam Selesai</label><input type="time" wire:model="form.jam_selesai" class="form-control">@error('form.jam_selesai')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        @if ($modalType === 'piket')
+                            <div class="col-md-6"><label class="form-label">Status</label><select wire:model="form.status" class="form-select">@foreach (self::STATUS_PIKET as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select>@error('form.status')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                            <div class="col-12"><label class="form-label">Keterangan</label><textarea wire:model="form.keterangan" class="form-control" rows="3"></textarea>@error('form.keterangan')<div class="text-danger small mt-1">{{ $message }}</div>@enderror</div>
+                        @endif
+                    @endif
+                </div>
+            </form>
+            <x-slot:footer>
+                <button type="button" class="btn btn-outline-secondary" wire:click="closeModal">Batal</button>
+                <button type="submit" form="form-admin-modal" class="btn btn-app-primary" wire:loading.attr="disabled">Simpan</button>
+            </x-slot:footer>
+        </x-app-modal>
     @endif
 </div>

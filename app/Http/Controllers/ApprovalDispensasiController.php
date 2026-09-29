@@ -48,6 +48,8 @@ class ApprovalDispensasiController extends Controller
             'wakasek',
         ])->findOrFail($id);
 
+        $this->abortBukanSuratDispensasi($dispensasi);
+
         if (session('role') === 'sekretaris') {
             abort_unless((int) $dispensasi->id_kelas === (int) session('id_kelas'), 403);
         }
@@ -73,6 +75,7 @@ class ApprovalDispensasiController extends Controller
             ->with(['siswa', 'kelas', 'guruPiket', 'wakasek'])
             ->whereKey($id)
             ->where('ticket_token', $ticketToken)
+            ->where('jenis_surat', Dispensasi::JENIS_SURAT_DISPENSASI)
             ->where('status', Dispensasi::STATUS_DISETUJUI)
             ->firstOrFail();
 
@@ -89,21 +92,21 @@ class ApprovalDispensasiController extends Controller
 
     public function unduhUntukSekretaris(int $id)
     {
-        $dispensasi = $this->suratSekretarisYangBerlaku($id);
+        $dispensasi = $this->suratSekretaris($id);
         $this->catatAksesSurat($dispensasi, 'unduh');
 
-        return $this->pdfSurat($dispensasi)->download($dispensasi->nomor_surat . '.pdf');
+        return $this->pdfSurat($dispensasi)->download($dispensasi->nomor_surat.'.pdf');
     }
 
     public function lihatUntukSekretaris(int $id)
     {
-        $dispensasi = $this->suratSekretarisYangBerlaku($id);
+        $dispensasi = $this->suratSekretaris($id);
         $this->catatAksesSurat($dispensasi, 'lihat');
 
-        return $this->pdfSurat($dispensasi)->stream($dispensasi->nomor_surat . '.pdf');
+        return $this->pdfSurat($dispensasi)->stream($dispensasi->nomor_surat.'.pdf');
     }
 
-    private function suratSekretarisYangBerlaku(int $id): Dispensasi
+    private function suratSekretaris(int $id): Dispensasi
     {
         abort_unless(session('role') === 'sekretaris', 403);
 
@@ -114,19 +117,37 @@ class ApprovalDispensasiController extends Controller
             ->with(['siswa', 'kelas', 'guruPiket', 'wakasek'])
             ->whereKey($id)
             ->where('id_kelas', $idKelas)
+            ->where('jenis_surat', Dispensasi::JENIS_SURAT_DISPENSASI)
             ->where('status', Dispensasi::STATUS_DISETUJUI)
             ->firstOrFail();
 
-        abort_unless($this->suratMasihBerlaku($dispensasi), 410, 'Surat ini sudah tidak berlaku.');
-
+        // Surat sekretaris tidak dibatasi jam: yang sudah disetujui tetap bisa
+        // dilihat dan diunduh kapan saja. Pembatasan jam hanya berlaku untuk
+        // tiket publik yang dipakai saat pelajaran berlangsung.
         if (! $dispensasi->nomor_surat) {
-            $tanggal = Carbon::parse($dispensasi->tanggal)->format('Ymd');
             $dispensasi->forceFill([
-                'nomor_surat' => 'DIS-' . $tanggal . '-' . str_pad((string) $dispensasi->id_dispensasi, 5, '0', STR_PAD_LEFT),
+                'nomor_surat' => $this->nomorSuratBaru($dispensasi),
             ])->save();
         }
 
         return $dispensasi;
+    }
+
+    private function nomorSuratBaru(Dispensasi $dispensasi): string
+    {
+        $tanggal = Carbon::parse($dispensasi->tanggal)->format('Ymd');
+
+        return 'DIS-'.$tanggal.'-'.str_pad((string) $dispensasi->id_dispensasi, 5, '0', STR_PAD_LEFT);
+    }
+
+    // Izin dan Sakit tidak punya surat resmi, sehingga seluruh jalur
+    // surat (detail, ticket publik, dan unduhan sekretaris) ditolak.
+    private function abortBukanSuratDispensasi(Dispensasi $dispensasi): void
+    {
+        abort_unless(
+            $dispensasi->jenis_surat === Dispensasi::JENIS_SURAT_DISPENSASI,
+            404
+        );
     }
 
     private function catatAksesSurat(Dispensasi $dispensasi, string $aksi): void
@@ -171,8 +192,8 @@ class ApprovalDispensasiController extends Controller
             return false;
         }
 
-        $mulai = Carbon::parse($tanggal->toDateString() . ' ' . $dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
-        $selesai = Carbon::parse($tanggal->toDateString() . ' ' . $dispensasi->jam_selesai, 'Asia/Jakarta');
+        $mulai = Carbon::parse($tanggal->toDateString().' '.$dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
+        $selesai = Carbon::parse($tanggal->toDateString().' '.$dispensasi->jam_selesai, 'Asia/Jakarta');
 
         return $now->betweenIncluded($mulai, $selesai);
     }
@@ -226,6 +247,7 @@ class ApprovalDispensasiController extends Controller
             $dispensasi->id_wakasek = $wakasekData->id_pengguna;
             $dispensasi->waktu_approval = Carbon::now('Asia/Jakarta');
             $dispensasi->catatan_wakasek = null;
+            $dispensasi->nomor_surat = $dispensasi->nomor_surat ?: $this->nomorSuratBaru($dispensasi);
 
             $dispensasi->save();
 
@@ -357,7 +379,7 @@ class ApprovalDispensasiController extends Controller
             && session('role') === 'wakasek';
 
         $destination = $isWakasekSession
-            ? route('wakasek') . '#dispensasi'
+            ? route('wakasek').'#dispensasi'
             : route('approve-dispensasi', [
                 'token' => $token,
                 'wakasek' => $wakasek,

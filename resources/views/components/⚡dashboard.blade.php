@@ -6,6 +6,7 @@ use App\Models\Kelas;
 use App\Models\Jadwal;
 use App\Models\JadwalPiket;
 use App\Models\GuruPiket;
+use App\Services\GuruPiketAccessService;
 use Illuminate\Support\Facades\Route;
 
 new class extends Component
@@ -179,9 +180,20 @@ new class extends Component
     // =========================================================
     // TUGAS PIKET HARI INI
     // =========================================================
+
+    public function getIsGuruPiketProperty(): bool
+    {
+        if (session('role') !== 'guru' || !session('id_pengguna')) {
+            return false;
+        }
+
+        return app(GuruPiketAccessService::class)
+            ->bertugasHariIni((int) session('id_pengguna'));
+    }
+
     public function getTugasPiketHariIniProperty()
     {
-        if (!session('is_guru_piket')) {
+        if (! $this->isGuruPiket) {
             return collect();
         }
 
@@ -234,12 +246,48 @@ new class extends Component
 <div
     x-data="{
         activeSection: window.location.hash === '#jadwal-saya' ? 'jadwal-saya' : 'dashboard',
+        currentPath: window.location.pathname,
         syncSection() {
             this.activeSection = window.location.hash === '#jadwal-saya' ? 'jadwal-saya' : 'dashboard';
+            this.currentPath = window.location.pathname;
         }
     }"
     x-init="window.addEventListener('hashchange', () => syncSection())"
 >
+    @php
+    $inputJurnalPath = parse_url(route('input-jurnal'), PHP_URL_PATH);
+    $riwayatPath = parse_url(route('riwayat'), PHP_URL_PATH);
+    $notifikasiPath = parse_url(route('notifikasi'), PHP_URL_PATH);
+    $dispensasiPath = parse_url(route('dispensasi'), PHP_URL_PATH);
+    $guruPiketPath = parse_url(route('guru-piket'), PHP_URL_PATH);
+    $rekapDispensasiPath = parse_url(route('rekap-dispensasi'), PHP_URL_PATH);
+    @endphp
+
+    <nav class="section-tabs" aria-label="Navigasi section guru">
+        <div class="tab-pill-group">
+            <button type="button"
+                class="tab-pill"
+                :class="{ 'active': activeSection === 'dashboard' }"
+                :aria-current="activeSection === 'dashboard' ? 'page' : false"
+                x-on:click="activeSection = 'dashboard'; window.location.hash = ''"
+            >Dashboard</button>
+            <button type="button"
+                class="tab-pill"
+                :class="{ 'active': activeSection === 'jadwal-saya' }"
+                :aria-current="activeSection === 'jadwal-saya' ? 'page' : false"
+                x-on:click="activeSection = 'jadwal-saya'; window.location.hash = 'jadwal-saya'"
+            >Jadwal Saya</button>
+            <a href="{{ route('input-jurnal') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $inputJurnalPath }}' }">Input Jurnal</a>
+            <a href="{{ route('riwayat') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $riwayatPath }}' }">Riwayat Saya</a>
+            <a href="{{ route('notifikasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $notifikasiPath }}' }">Notifikasi</a>
+            @if ($this->isGuruPiket)
+            <a href="{{ route('dispensasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $dispensasiPath }}' }">Izin & Dispensasi</a>
+            <a href="{{ route('guru-piket') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $guruPiketPath }}' }">Piket Hari Ini</a>
+            <a href="{{ route('rekap-dispensasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $rekapDispensasiPath }}' }">Rekapan</a>
+            @endif
+        </div>
+    </nav>
+
     <section id="dashboard" x-cloak x-show="activeSection === 'dashboard'">
 
     {{-- =====================================================
@@ -408,15 +456,15 @@ new class extends Component
                 <span class="fw-bold text-primary">Buka notifikasi <span aria-hidden="true">→</span></span>
             </a>
         </div>
+        @if ($this->isGuruPiket)
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('dispensasi') }}" class="role-menu-card">
                 <span class="role-menu-icon">&#128221;</span>
-                <h2 class="h5 fw-bold">Dispensasi</h2>
+                <h2 class="h5 fw-bold">Izin & Dispensasi</h2>
                 <p>Buat dan pantau pengajuan izin atau dispensasi siswa.</p>
                 <span class="fw-bold text-primary">Buka dispensasi <span aria-hidden="true">→</span></span>
             </a>
         </div>
-        @if (session('is_guru_piket'))
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('guru-piket') }}" class="role-menu-card">
                 <span class="role-menu-icon">&#128101;</span>

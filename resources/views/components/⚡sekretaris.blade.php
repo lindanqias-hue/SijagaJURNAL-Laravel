@@ -14,6 +14,7 @@ new class extends Component
     public $jurnalTerpilih = null;
     public string $catatanSekretaris = '';
     public string $activeSection = 'dashboard';
+    public string $tanggalSurat = '';
 
     public function mount(): void
     {
@@ -24,6 +25,7 @@ new class extends Component
             'dashboard', 'data-kelas', 'validasi-jurnal', 'tugas-guru', 'kehadiran', 'surat-dispensasi', 'rekap' => $menu,
             default => 'dashboard',
         };
+        $this->tanggalSurat = Carbon::now('Asia/Jakarta')->toDateString();
 
         if (!session('id_pengguna')) {
             $this->redirectRoute('login');
@@ -171,28 +173,55 @@ new class extends Component
         return Dispensasi::query()
             ->with(['siswa'])
             ->where('id_kelas', $idKelas)
+            ->where('jenis_surat', Dispensasi::JENIS_SURAT_DISPENSASI)
             ->where('status', Dispensasi::STATUS_DISETUJUI)
-            ->whereDate('tanggal', Carbon::now('Asia/Jakarta')->toDateString())
+            ->whereDate('tanggal', $this->tanggalSuratEfektif())
             ->orderBy('tanggal')
             ->orderBy('jam_mulai')
-            ->get()
-            ->filter(function (Dispensasi $dispensasi): bool {
-                $now = Carbon::now('Asia/Jakarta');
+            ->get();
+    }
 
-                if ($dispensasi->jenis_dispensasi !== 'Per Jam') {
-                    return true;
-                }
+    /**
+     * Surat hanya dianggap "berlaku" pada hari yang sama, dan untuk dispensasi
+     * per jam hanya selama jendela jam_mulai - 15 menit sampai jam_selesai.
+     * Ini hanya untuk penanda di daftar; sekretaris tetap bisa melihat dan
+     * mengunduh surat yang sudah lewat.
+     */
+    public function suratBerlaku(Dispensasi $dispensasi): bool
+    {
+        $now = Carbon::now('Asia/Jakarta');
 
-                if (! $dispensasi->jam_mulai || ! $dispensasi->jam_selesai) {
-                    return false;
-                }
+        if (! $dispensasi->tanggal || ! $dispensasi->tanggal->isSameDay($now)) {
+            return false;
+        }
 
-                $mulai = Carbon::parse($dispensasi->tanggal->toDateString().' '.$dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
-                $selesai = Carbon::parse($dispensasi->tanggal->toDateString().' '.$dispensasi->jam_selesai, 'Asia/Jakarta');
+        if ($dispensasi->jenis_dispensasi !== 'Per Jam') {
+            return true;
+        }
 
-                return $now->betweenIncluded($mulai, $selesai);
-            })
-            ->values();
+        if (! $dispensasi->jam_mulai || ! $dispensasi->jam_selesai) {
+            return false;
+        }
+
+        $tanggal = $dispensasi->tanggal->toDateString();
+        $mulai = Carbon::parse($tanggal.' '.$dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
+        $selesai = Carbon::parse($tanggal.' '.$dispensasi->jam_selesai, 'Asia/Jakarta');
+
+        return $now->betweenIncluded($mulai, $selesai);
+    }
+
+    public function getTanggalSuratEfektifProperty(): string
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->tanggalSurat) === 1) {
+            return $this->tanggalSurat;
+        }
+
+        return Carbon::now('Asia/Jakarta')->toDateString();
+    }
+
+    private function tanggalSuratEfektif(): string
+    {
+        return $this->tanggalSuratEfektif;
     }
 
     public function getPengajuanIzinDisetujuiProperty()
@@ -359,6 +388,8 @@ new class extends Component
         $this->jurnalTerpilih = $jurnal;
         $this->catatanSekretaris = '';
         $this->resetErrorBag();
+
+        $this->dispatch('sekretaris-menu-berubah', section: 'validasi-jurnal');
     }
 
     public function tutupDetail()
@@ -490,6 +521,26 @@ new class extends Component
     </style>
 
     {{-- DASHBOARD --}}
+    <nav class="section-tabs" aria-label="Navigasi section sekretaris">
+        <div class="tab-pill-group">
+            @foreach ([
+                'dashboard' => 'Dashboard',
+                'data-kelas' => 'Data Kelas',
+                'validasi-jurnal' => 'Validasi Jurnal',
+                'tugas-guru' => 'Tugas Guru',
+                'kehadiran' => 'Kehadiran',
+                'surat-dispensasi' => 'Surat Dispensasi',
+                'rekap' => 'Rekap',
+            ] as $kunciSection => $labelSection)
+            <button type="button"
+                class="tab-pill {{ $activeSection === $kunciSection ? 'active' : '' }}"
+                @if ($activeSection === $kunciSection) aria-current="page" @endif
+                wire:click="bukaMenu('{{ $kunciSection }}')"
+            >{{ $labelSection }}</button>
+            @endforeach
+        </div>
+    </nav>
+
     @if ($activeSection === 'dashboard')
     <section class="sekretaris-dashboard" id="dashboard">
         <div class="sekretaris-hero role-page-header">
@@ -538,7 +589,7 @@ new class extends Component
                 <button type="button" wire:click="bukaMenu('surat-dispensasi')" class="role-menu-card w-100 text-start">
                     <span class="role-menu-icon">&#128196;</span>
                     <h2 class="h5 fw-bold">Surat Dispensasi</h2>
-                    <p>{{ $this->suratDispensasiDisetujui->count() }} surat siswa kelas ini disetujui dan berlaku hari ini.</p>
+                    <p>{{ $this->suratDispensasiDisetujui->count() }} surat siswa kelas ini disetujui. Pilih tanggal lain untuk melihat arsip surat.</p>
                     <span class="fw-bold text-primary">Buka surat dispensasi <span aria-hidden="true">→</span></span>
                 </button>
             </div>
@@ -941,9 +992,15 @@ new class extends Component
         <div class="sekretaris-hero role-page-header">
             <div class="role-page-eyebrow">SURAT KELAS</div>
             <h1 class="h3 fw-bold mt-2 mb-1">Surat Dispensasi Disetujui</h1>
-            <p class="mb-0">Lihat atau unduh surat siswa di kelas Anda selama tanggal dan jam berlakunya.</p>
+            <p class="mb-0">Lihat atau unduh surat siswa di kelas Anda. Surat yang sudah lewat jamnya tetap bisa diunduh sebagai arsip.</p>
         </div>
-        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold">← Kembali ke Dashboard</button>
+            <div class="d-flex align-items-center gap-2">
+                <label class="form-label mb-0 small fw-semibold" for="tanggal-surat-dispen">Tanggal</label>
+                <input id="tanggal-surat-dispen" type="date" wire:model.live="tanggalSurat" class="form-control form-control-sm">
+            </div>
+        </div>
 
         <div class="row g-3">
             @forelse ($this->suratDispensasiDisetujui as $surat)
@@ -951,8 +1008,11 @@ new class extends Component
                 <article class="sekretaris-panel p-3 h-100">
                     <div class="d-flex justify-content-between gap-3 align-items-start">
                         <div>
-                            <div class="text-uppercase small fw-bold text-success">Disetujui</div>
-                            <h2 class="h5 fw-bold mt-1 mb-1">{{ $surat->siswa->nama_siswa ?? 'Siswa' }}</h2>
+                            <div class="d-flex flex-wrap gap-1">
+                                <span class="badge text-bg-success">Disetujui</span>
+                                <span @class(['badge', 'text-bg-primary' => $this->suratBerlaku($surat), 'text-bg-secondary' => ! $this->suratBerlaku($surat)])>{{ $this->suratBerlaku($surat) ? 'Berlaku' : 'Kedaluwarsa' }}</span>
+                            </div>
+                            <h2 class="h5 fw-bold mt-2 mb-1">{{ $surat->siswa->nama_siswa ?? 'Siswa' }}</h2>
                             <div class="text-muted small">{{ $surat->jenis_surat }} · {{ $surat->jenis_dispensasi }}</div>
                         </div>
                         <span class="badge text-bg-light">{{ $surat->jam_mulai ? substr($surat->jam_mulai, 0, 5) . '–' . substr($surat->jam_selesai, 0, 5) : 'Sehari penuh' }}</span>
@@ -965,7 +1025,7 @@ new class extends Component
                 </article>
             </div>
             @empty
-            <div class="col-12"><div class="sekretaris-panel text-center p-5 text-muted">Belum ada surat dispensasi kelas ini yang disetujui dan berlaku hari ini.</div></div>
+            <div class="col-12"><div class="sekretaris-panel text-center p-5 text-muted">Belum ada surat dispensasi kelas ini yang disetujui pada {{ $this->tanggalSuratEfektif ? \Carbon\Carbon::parse($this->tanggalSuratEfektif)->translatedFormat('d F Y') : '-' }}.</div></div>
             @endforelse
         </div>
     </section>

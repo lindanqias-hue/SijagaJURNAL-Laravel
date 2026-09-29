@@ -128,11 +128,17 @@
                 <time class="layout-clock-date" data-layout-clock-date></time>
             </div>
 
-            {{-- NAVIGASI --}}
+{{-- NAVIGASI --}}
             <nav class="sidebar-nav">
                 @php
                 $role = session('role', 'guru');
                 $navItems = [];
+
+                // Satu sumber kebenaran untuk status piket: hitung langsung via service
+                // agar selalu mengikuti jadwal hari ini, tidak basi karena session login.
+                $isGuruPiket = ($role === 'guru' && session('id_pengguna'))
+                    ? app(\App\Services\GuruPiketAccessService::class)->bertugasHariIni((int) session('id_pengguna'))
+                    : false;
 
                 if ($role === 'admin') {
                 $navItems = [
@@ -141,7 +147,7 @@
                 'pengguna'],
                 'guru' => ['label' => 'Guru', 'route' => 'admin', 'anchor' => 'guru'],
                 'siswa' => ['label' => 'Siswa', 'route' => 'admin', 'anchor' => 'siswa'],
-                'kelas' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kelas'],
+                'kode' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kode'],
                 'jadwal' => ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' =>
                 'jadwal'],
                 'jadwal_piket' => ['label' => 'Jadwal Piket', 'route' => 'admin', 'anchor' =>
@@ -171,12 +177,12 @@
                 'input_jurnal' => ['label' => 'Input Jurnal', 'route' => 'input-jurnal'],
                 'riwayat' => ['label' => 'Riwayat Saya', 'route' => 'riwayat'],
                 'notifikasi' => ['label' => 'Notifikasi', 'route' => 'notifikasi'],
-                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'dispensasi'],
                 ];
 
-                if (session('is_guru_piket')) {
+                if ($isGuruPiket) {
+                $navItems['dispensasi'] = ['label' => 'Izin & Dispensasi', 'route' =>
+                'dispensasi'];
                 $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'route' => 'guru-piket'];
-                $navItems['dispensasi']['label'] = 'Izin & Dispensasi';
                 $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'route' =>
                 'rekap-dispensasi'];
                 }
@@ -192,6 +198,8 @@
                 'tugas-guru'],
                 'kehadiran' => ['label' => 'Kehadiran', 'route' => 'sekretaris', 'anchor' =>
                 'kehadiran'],
+                'surat_dispensasi' => ['label' => 'Surat Dispensasi', 'route' => 'sekretaris', 'anchor' =>
+                'surat-dispensasi'],
                 'rekap' => ['label' => 'Rekap', 'route' => 'sekretaris', 'anchor' => 'rekap'],
                 ];
                 } else {
