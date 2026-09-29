@@ -286,14 +286,7 @@
             </div>
             @endif
 
-            {{-- TIKET DIGITAL QR CODE SATPAM --}}
-            @if (isset($ticketUrl) && $dispensasi->status === 'Disetujui')
-            <div class="reason" style="text-align: center;">
-                <div class="reason-title">Tiket Digital · QR Satpam</div>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;data={{ urlencode($ticketUrl) }}"
-                    width="220" height="220" alt="QR unik tiket dispensasi" loading="lazy">
-            </div>
-            @endif
+
 
             <a href="{{ route('dashboard') }}" class="back">← Kembali ke Dashboard</a>
 

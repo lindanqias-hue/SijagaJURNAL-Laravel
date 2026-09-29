@@ -115,11 +115,6 @@ class ApprovalDispensasiAuthorizationTest extends TestCase
             'ticket_token' => 'ticket-only-token',
         ]);
 
-        $this->get(route('surat-dispensasi.ticket', [
-            'id' => $dispensasi->id_dispensasi,
-            'ticketToken' => $dispensasi->ticket_token,
-        ]))->assertOk()->assertSee('QR unik tiket dispensasi');
-
         $this->travelTo(now('Asia/Jakarta')->addDay());
         $this->get(route('surat-dispensasi.ticket', [
             'id' => $dispensasi->id_dispensasi,

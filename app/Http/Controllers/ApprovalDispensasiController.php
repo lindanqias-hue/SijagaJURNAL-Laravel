@@ -92,7 +92,7 @@ class ApprovalDispensasiController extends Controller
         $dispensasi = $this->suratSekretarisYangBerlaku($id);
         $this->catatAksesSurat($dispensasi, 'unduh');
 
-        return $this->pdfSurat($dispensasi)->download($dispensasi->nomor_surat.'.pdf');
+        return $this->pdfSurat($dispensasi)->download($dispensasi->nomor_surat . '.pdf');
     }
 
     public function lihatUntukSekretaris(int $id)
@@ -100,7 +100,7 @@ class ApprovalDispensasiController extends Controller
         $dispensasi = $this->suratSekretarisYangBerlaku($id);
         $this->catatAksesSurat($dispensasi, 'lihat');
 
-        return $this->pdfSurat($dispensasi)->stream($dispensasi->nomor_surat.'.pdf');
+        return $this->pdfSurat($dispensasi)->stream($dispensasi->nomor_surat . '.pdf');
     }
 
     private function suratSekretarisYangBerlaku(int $id): Dispensasi
@@ -122,7 +122,7 @@ class ApprovalDispensasiController extends Controller
         if (! $dispensasi->nomor_surat) {
             $tanggal = Carbon::parse($dispensasi->tanggal)->format('Ymd');
             $dispensasi->forceFill([
-                'nomor_surat' => 'DIS-'.$tanggal.'-'.str_pad((string) $dispensasi->id_dispensasi, 5, '0', STR_PAD_LEFT),
+                'nomor_surat' => 'DIS-' . $tanggal . '-' . str_pad((string) $dispensasi->id_dispensasi, 5, '0', STR_PAD_LEFT),
             ])->save();
         }
 
@@ -171,8 +171,8 @@ class ApprovalDispensasiController extends Controller
             return false;
         }
 
-        $mulai = Carbon::parse($tanggal->toDateString().' '.$dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
-        $selesai = Carbon::parse($tanggal->toDateString().' '.$dispensasi->jam_selesai, 'Asia/Jakarta');
+        $mulai = Carbon::parse($tanggal->toDateString() . ' ' . $dispensasi->jam_mulai, 'Asia/Jakarta')->subMinutes(15);
+        $selesai = Carbon::parse($tanggal->toDateString() . ' ' . $dispensasi->jam_selesai, 'Asia/Jakarta');
 
         return $now->betweenIncluded($mulai, $selesai);
     }
@@ -357,7 +357,7 @@ class ApprovalDispensasiController extends Controller
             && session('role') === 'wakasek';
 
         $destination = $isWakasekSession
-            ? route('wakasek').'#dispensasi'
+            ? route('wakasek') . '#dispensasi'
             : route('approve-dispensasi', [
                 'token' => $token,
                 'wakasek' => $wakasek,
