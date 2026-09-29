@@ -73,10 +73,13 @@ class GuruIzinWorkflowTest extends TestCase
         $this->assertDatabaseHas('kehadiran_gurus', [
             'id_jadwal' => $jadwal->id_jadwal,
             'id_guru' => $guru->id_pengguna,
-            'tanggal' => '2026-09-28',
             'status' => 'Sakit',
             'catatan' => 'Sakit',
         ]);
+        $this->assertSame(
+            '2026-09-28',
+            Carbon::parse(DB::table('kehadiran_gurus')->where('status', 'Sakit')->value('tanggal'))->toDateString()
+        );
 
         $this->withSession([
             'id_pengguna' => $sekretaris->id_pengguna,

@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use App\Models\Dispensasi;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 new class extends Component
@@ -70,6 +71,26 @@ new class extends Component
             ->get();
     }
 
+    public function getLogUnduhanProperty()
+    {
+        return DB::table('dispensasi_unduhan')
+            ->join('dispensasi', 'dispensasi_unduhan.id_dispensasi', '=', 'dispensasi.id_dispensasi')
+            ->join('pengguna', 'dispensasi_unduhan.id_pengguna', '=', 'pengguna.id_pengguna')
+            ->join('siswa', 'dispensasi.id_siswa', '=', 'siswa.id_siswa')
+            ->join('kelas', 'dispensasi.id_kelas', '=', 'kelas.id_kelas')
+            ->select([
+                'dispensasi_unduhan.diunduh_pada',
+                'dispensasi_unduhan.aksi',
+                'dispensasi.nomor_surat',
+                'siswa.nama_siswa',
+                'kelas.nama_kelas',
+                'pengguna.nama as nama_pengunduh',
+            ])
+            ->orderByDesc('dispensasi_unduhan.diunduh_pada')
+            ->limit(100)
+            ->get();
+    }
+
     public function getTotalProperty()
     {
         return $this->rekap->count();
@@ -106,6 +127,29 @@ new class extends Component
         <h2>Rekap Dispensasi</h2>
         <p>Rekap surat dispensasi siswa berdasarkan tanggal berlaku.</p>
     </div>
+
+    <section class="card-custom overflow-hidden mb-4">
+        <div class="card-header-custom">Log Unduhan Surat · 100 terbaru</div>
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead><tr><th>Waktu</th><th>Aksi</th><th>Siswa</th><th>Kelas</th><th>Nomor Surat</th><th>Pengguna</th></tr></thead>
+                <tbody>
+                    @forelse ($this->logUnduhan as $unduhan)
+                    <tr wire:key="unduhan-dispensasi-{{ $loop->index }}">
+                        <td>{{ Carbon::parse($unduhan->diunduh_pada)->timezone('Asia/Jakarta')->format('d/m/Y H:i') }}</td>
+                        <td>{{ ucfirst($unduhan->aksi) }}</td>
+                        <td>{{ $unduhan->nama_siswa }}</td>
+                        <td>{{ $unduhan->nama_kelas }}</td>
+                        <td>{{ $unduhan->nomor_surat }}</td>
+                        <td>{{ $unduhan->nama_pengunduh }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="6" class="text-center text-muted py-4">Belum ada surat yang dilihat atau diunduh.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
 
     <div class="role-page-actions mb-3">
         <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>

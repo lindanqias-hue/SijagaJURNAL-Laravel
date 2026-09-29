@@ -15,7 +15,17 @@ Route::get(
 Route::get(
     '/surat-dispensasi/{id}',
     [ApprovalDispensasiController::class, 'detail']
-)->name('surat-dispensasi.detail');
+)->middleware(['auth.session', 'role:wakasek,guru,sekretaris'])->name('surat-dispensasi.detail');
+
+Route::get(
+    '/sekretaris/surat-dispensasi/{id}/unduh',
+    [ApprovalDispensasiController::class, 'unduhUntukSekretaris']
+)->middleware(['auth.session', 'role:sekretaris'])->name('surat-dispensasi.unduh');
+
+Route::get(
+    '/sekretaris/surat-dispensasi/{id}/lihat',
+    [ApprovalDispensasiController::class, 'lihatUntukSekretaris']
+)->middleware(['auth.session', 'role:sekretaris'])->name('surat-dispensasi.lihat');
 
 Route::get(
     '/surat-dispensasi/{id}/lampiran/{token}',
@@ -82,6 +92,9 @@ Route::middleware('auth.session')->group(function () {
         Route::livewire('/notifikasi', 'notifikasi')->name('notifikasi');
         Route::livewire('/guru-piket', 'guru-piket')->name('guru-piket');
         Route::livewire('/dispensasi', 'dispensasi')->name('dispensasi');
+    });
+
+    Route::middleware('role:guru,wakasek')->group(function () {
         Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')
             ->name('rekap-dispensasi');
     });

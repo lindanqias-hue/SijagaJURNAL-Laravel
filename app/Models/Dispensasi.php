@@ -54,6 +54,7 @@ class Dispensasi extends Model
         'id_wakasek',
         'token',
         'ticket_token',
+        'nomor_surat',
         'waktu_approval',
         'catatan_wakasek',
     ];

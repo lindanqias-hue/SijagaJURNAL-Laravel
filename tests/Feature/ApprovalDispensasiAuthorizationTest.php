@@ -91,6 +91,7 @@ class ApprovalDispensasiAuthorizationTest extends TestCase
 
     public function test_approved_ticket_requires_its_separate_ticket_token(): void
     {
+        $this->travelTo(now('Asia/Jakarta')->setDate(2026, 9, 26)->setTime(10, 0));
         $guruPiket = $this->createPengguna('GURU004', 'guru');
         $wakasek = $this->createPengguna('WAKASEK004', 'wakasek');
         $idKelas = DB::table('kelas')->insertGetId([
@@ -118,6 +119,12 @@ class ApprovalDispensasiAuthorizationTest extends TestCase
             'id' => $dispensasi->id_dispensasi,
             'ticketToken' => $dispensasi->ticket_token,
         ]))->assertOk()->assertSee('QR unik tiket dispensasi');
+
+        $this->travelTo(now('Asia/Jakarta')->addDay());
+        $this->get(route('surat-dispensasi.ticket', [
+            'id' => $dispensasi->id_dispensasi,
+            'ticketToken' => $dispensasi->ticket_token,
+        ]))->assertStatus(410);
 
         $this->get(route('surat-dispensasi.ticket', [
             'id' => $dispensasi->id_dispensasi,

@@ -161,14 +161,23 @@
             </div>
 
             <div class="status">
-                @if($dispensasi->status === 'Disetujui')
-                <span class="badge approved">🟢 Disetujui</span>
+                @if($dispensasi->status === 'Disetujui' && $ticketUrl)
+                <span class="badge approved">🟢 Disetujui · Masih berlaku</span>
+                @elseif($dispensasi->status === 'Disetujui')
+                <span class="badge rejected">Surat sudah tidak berlaku</span>
                 @elseif($dispensasi->status === 'Ditolak')
                 <span class="badge rejected">🔴 Ditolak</span>
                 @else
                 <span class="badge pending">🟡 Menunggu Persetujuan</span>
                 @endif
             </div>
+
+            @if($dispensasi->nomor_surat)
+            <div class="row">
+                <div class="label">Nomor Surat</div>
+                <div class="value">{{ $dispensasi->nomor_surat }}</div>
+            </div>
+            @endif
 
             <div class="row">
                 <div class="label">Nama Siswa</div>
@@ -230,10 +239,12 @@
             </div>
             @endif
 
+            @if($dispensasi->jenis_surat !== 'Sakit')
             <div class="reason">
-                <div class="reason-title">Alasan / Keterangan</div>
+                <div class="reason-title">Keterangan</div>
                 <div>{{ $dispensasi->alasan ?: '-' }}</div>
             </div>
+            @endif
 
             @if ($dispensasi->lampiran_path && isset($ticketUrl))
             <div class="row">
