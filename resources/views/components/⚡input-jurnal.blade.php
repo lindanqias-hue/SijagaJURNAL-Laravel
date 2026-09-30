@@ -11,6 +11,7 @@ use App\Services\KehadiranGuruService;
 use App\Services\DispensasiJurnalService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Locked;
 use Carbon\Carbon;
 
 new class extends Component
@@ -26,7 +27,10 @@ new class extends Component
     public $id_kelas = '';
 
     public $tanggal;
+
+    #[Locked]
     public $jam_ke = 1;
+
     public $materi = '';
     public $jumlah_tidak_hadir = 0;
     public $catatan = '';
@@ -55,15 +59,22 @@ new class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | MULTI-PERIOD INPUT
+    | JAM OTOMATIS
     |--------------------------------------------------------------------------
     |
-    | Daftar jam ke yang dipilih guru dalam satu kali input.
-    | Jam yang dipilih harus berurutan.
+    | Jam pelajaran tidak pernah dipilih guru.
+    | Nilainya selalu dihitung server dari jadwal hari itu.
     |
     */
 
+    #[Locked]
     public array $jamTerpilih = [];
+
+    /*
+     * True saat guru sudah memiliki jadwal hari ini
+     * tetapi seluruh jamnya sudah terisi jurnal.
+     */
+    public bool $semuaJamTerisi = false;
 
     /*
     |--------------------------------------------------------------------------
@@ -299,25 +310,39 @@ new class extends Component
 
     public function loadJadwal()
     {
-        $idGuru = session('id_pengguna');
-
-        if (!$idGuru) {
+        if (!session('id_pengguna')) {
             return;
         }
 
+        if (!$this->namaHariUntukTanggal()) {
+            return;
+        }
+
+        $this->terapkanJamOtomatis(
+            $this->hitungJamOtomatis()
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | JADWAL HARI INI
+    |--------------------------------------------------------------------------
+    |
+    | Seluruh jadwal guru pada hari ini yang kelasnya
+    | masih memiliki data siswa.
+    |
+    */
+
+    private function jadwalHariIni(?int $idKelas = null): Collection
+    {
+        $idGuru = session('id_pengguna');
         $hari = $this->namaHariUntukTanggal();
 
-        if (!$hari) {
-            return;
+        if (!$idGuru || !$hari) {
+            return collect();
         }
 
-        $jamSekarang = Carbon::now('Asia/Jakarta')
-            ->format('H:i:s');
-
-        /*
-         * Ambil seluruh jadwal guru pada hari tersebut.
-         */
-        $jadwalHariIni = Jadwal::query()
+        return Jadwal::query()
             ->where(
                 'id_guru',
                 $idGuru
@@ -325,6 +350,14 @@ new class extends Component
             ->where(
                 'hari',
                 $hari
+            )
+            ->when(
+                $idKelas,
+                fn ($query) =>
+                    $query->where(
+                        'id_kelas',
+                        $idKelas
+                    )
             )
             ->whereExists(function ($query) {
 
@@ -338,73 +371,200 @@ new class extends Component
             })
             ->orderBy('jam_ke')
             ->get();
+    }
 
-        /* Pilih jadwal yang sedang berlangsung jika ada. */
-        $this->jadwalAktif = $jadwalHariIni->first(
-            function ($jadwal) use ($jamSekarang) {
-                return $jadwal->jam_mulai <= $jamSekarang
-                    && $jadwal->jam_selesai >= $jamSekarang;
+    /*
+    |--------------------------------------------------------------------------
+    | HITUNG JAM OTOMATIS
+    |--------------------------------------------------------------------------
+    |
+    | Mengembalikan rentang jam berurutan pertama
+    | yang belum memiliki jurnal.
+    |
+    | Urutan kandidat:
+    | - jam yang sedang berlangsung
+    | - jam pertama yang belum mulai
+    | - jam terakhir pada hari itu
+    |
+    | Bila rentang tersebut sudah terisi,
+    | lompat ke rentang berikutnya sampai
+    | tidak ada jam tersisa.
+    |
+    */
+
+    private function hitungJamOtomatis(?int $idKelas = null): ?Collection
+    {
+        $jadwals = $this->jadwalHariIni($idKelas);
+
+        if ($jadwals->isEmpty()) {
+            return null;
+        }
+
+        $jamSekarang = Carbon::now('Asia/Jakarta')
+            ->format('H:i:s');
+
+        $kandidat =
+            $jadwals->first(
+                fn (Jadwal $jadwal): bool =>
+                    $jadwal->jam_mulai <= $jamSekarang
+                    && $jadwal->jam_selesai >= $jamSekarang
+            )
+            ?? $jadwals->first(
+                fn (Jadwal $jadwal): bool =>
+                    $jadwal->jam_mulai > $jamSekarang
+            )
+            ?? $jadwals->last();
+
+        for ($percobaan = 0; $percobaan < $jadwals->count(); $percobaan++) {
+
+            $rentang = $this->rentangJadwalBerurutan(
+                $jadwals,
+                $kandidat
+            );
+
+            $kosong = $this->rentangKosongPertama($rentang);
+
+            if ($kosong !== null) {
+                return $kosong;
             }
-        );
 
-        if (!$this->jadwalAktif) {
-            $this->jadwalAktif = $jadwalHariIni->first(
-                fn ($jadwal) => $jadwal->jam_mulai > $jamSekarang
-            ) ?? $jadwalHariIni->last();
+            /*
+             * Lanjut ke jadwal setelah rentang tadi.
+             */
+            $index = $jadwals->search(
+                fn (Jadwal $jadwal): bool => (int) $jadwal->id_jadwal === (int) $rentang->last()->id_jadwal
+            );
+
+            if ($index === false) {
+                return null;
+            }
+
+            $kandidat = $jadwals->get(
+                $index + 1
+            );
+
+            if ($kandidat === null) {
+                return null;
+            }
         }
 
-        if (!$this->jadwalAktif) {
-            $this->id_kelas = '';
-            $this->jam_ke = 1;
-            $this->jamTerpilih = [];
-            $this->jamMulaiKe = null;
-            $this->jamSelesaiKe = null;
-            $this->jamMulaiPembelajaran = null;
-            $this->jamSelesaiPembelajaran = null;
-            $this->siswa = [];
-            $this->absensi = [];
-            $this->keteranganTambahan = [];
-            $this->absensiTerkunci = [];
+        return null;
+    }
 
-            return;
+    /**
+     * Jam ke pada rentang yang sudah memiliki jurnal.
+     *
+     * @param  array<int, int>  $jamKe
+     * @return array<int, int>
+     */
+    private function jamSudahTerisi(array $jamKe, int $idKelas): array
+    {
+        $idGuru = session('id_pengguna');
+
+        if ($jamKe === [] || !$idGuru || !$idKelas) {
+            return [];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | DATA DARI SERVER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->id_kelas =
-            $this->jadwalAktif->id_kelas;
-
-        $this->jam_ke =
-            $this->jadwalAktif->jam_ke;
-
-        $rentangJadwal = $this->rentangJadwalBerurutan(
-            $jadwalHariIni,
-            $this->jadwalAktif,
-        );
-        $this->jadwalAktif = $rentangJadwal->first();
-        $jadwalTerakhir = $rentangJadwal->last();
-        $this->id_kelas = $this->jadwalAktif->id_kelas;
-        $this->jam_ke = (int) $this->jadwalAktif->jam_ke;
-        $this->jamTerpilih = $rentangJadwal
+        return Jurnal::query()
+            ->where(
+                'id_guru',
+                $idGuru
+            )
+            ->where(
+                'id_kelas',
+                $idKelas
+            )
+            ->whereDate(
+                'tanggal',
+                $this->tanggal
+            )
+            ->whereIn(
+                'jam_ke',
+                $jamKe
+            )
+            ->when(
+                $this->editing,
+                fn ($query) =>
+                    $query->where(
+                        'id_jurnal',
+                        '!=',
+                        $this->editing->id_jurnal
+                    )
+            )
             ->pluck('jam_ke')
             ->map(fn ($jam): int => (int) $jam)
             ->all();
+    }
 
-        $this->jamMulaiKe =
-            $this->jadwalAktif->jam_ke;
+    /**
+     * Rentang jam kosong pertama di dalam satu rentang berurutan.
+     */
+    private function rentangKosongPertama(Collection $rentang): ?Collection
+    {
+        $sudahTerisi = $this->jamSudahTerisi(
+            $rentang
+                ->pluck('jam_ke')
+                ->map(fn ($jam): int => (int) $jam)
+                ->all(),
+            (int) $rentang->first()->id_kelas
+        );
 
-        $this->jamMulaiPembelajaran =
-            $this->jadwalAktif->jam_mulai;
+        $kosong = collect();
 
-        $this->jamSelesaiKe =
-            $jadwalTerakhir->jam_ke;
+        foreach ($rentang as $jadwal) {
 
-        $this->jamSelesaiPembelajaran =
-            $jadwalTerakhir->jam_selesai;
+            if (in_array(
+                (int) $jadwal->jam_ke,
+                $sudahTerisi,
+                true
+            )) {
+
+                if ($kosong->isNotEmpty()) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $kosong->push($jadwal);
+        }
+
+        return $kosong->isEmpty() ? null : $kosong;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TERAPKAN JAM OTOMATIS
+    |--------------------------------------------------------------------------
+    |
+    | Seluruh state jam berasal dari server.
+    | Guru tidak dapat mengubahnya.
+    |
+    */
+
+    private function terapkanJamOtomatis(?Collection $rentang): void
+    {
+        $this->jadwalAktif = $rentang?->first();
+
+        $this->semuaJamTerisi =
+            $rentang === null
+            && $this->jadwalHariIni()->isNotEmpty();
+
+        $this->id_kelas = $this->jadwalAktif?->id_kelas ?? '';
+        $this->jam_ke = (int) ($this->jadwalAktif?->jam_ke ?? 1);
+        $this->jamTerpilih = $rentang
+            ? $rentang
+                ->pluck('jam_ke')
+                ->map(fn ($jam): int => (int) $jam)
+                ->all()
+            : [];
+
+        $jadwalTerakhir = $rentang?->last();
+
+        $this->jamMulaiKe = $this->jadwalAktif?->jam_ke;
+        $this->jamMulaiPembelajaran = $this->jadwalAktif?->jam_mulai;
+        $this->jamSelesaiKe = $jadwalTerakhir?->jam_ke;
+        $this->jamSelesaiPembelajaran = $jadwalTerakhir?->jam_selesai;
 
         $this->loadSiswa();
     }
@@ -477,47 +637,9 @@ new class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | DAFTAR JAM
+    | DAFTAR KELAS UNTUK PENGAJUAN IZIN
     |--------------------------------------------------------------------------
     */
-
-    public function getJamListProperty()
-    {
-        $hari = $this->namaHariUntukTanggal();
-
-        if (
-            !$hari ||
-            !session('id_pengguna')
-        ) {
-            return collect();
-        }
-
-        return Jadwal::query()
-            ->where(
-                'id_guru',
-                session('id_pengguna')
-            )
-            ->where(
-                'hari',
-                $hari
-            )
-            ->when(
-                $this->id_kelas,
-                fn ($query) =>
-                    $query->where(
-                        'id_kelas',
-                        $this->id_kelas
-                    )
-            )
-            ->orderBy('jam_ke')
-            ->get([
-                'id_jadwal',
-                'id_kelas',
-                'jam_ke',
-                'jam_mulai',
-                'jam_selesai',
-            ]);
-    }
 
     public function getKelasIzinListProperty()
     {
@@ -700,145 +822,19 @@ new class extends Component
         }
 
         /*
-         * Property dari browser hanya memengaruhi tampilan.
-         * Saat save tetap diverifikasi ulang dari server.
+         * Property dari browser hanya memilih kelas.
+         * Jam selalu dihitung ulang dari server.
          */
 
         $this->jumlah_tidak_hadir = 0;
 
-        $jadwalKelas = $this->jamList;
-        $jamPertama = $jadwalKelas->first();
-
-        if ($jamPertama) {
-            $rentangJadwal = $this->rentangJadwalBerurutan($jadwalKelas, $jamPertama);
-            $this->jamTerpilih = $rentangJadwal
-                ->pluck('jam_ke')
-                ->map(fn ($jam): int => (int) $jam)
-                ->all();
-            $this->jam_ke = (int) $this->jamTerpilih[0];
-        } else {
-            $this->jamTerpilih = [];
-        }
-
-        $this->loadSiswa();
-
-        $this->sinkronkanJadwalTerpilih();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATE JAM TERPILIH
-    |--------------------------------------------------------------------------
-    |
-    | Dipakai saat checkbox jam diubah langsung dari browser.
-    |
-    */
-
-    public function updatedJamTerpilih(): void
-    {
-        $this->normalisasiJamTerpilih();
-
-        $this->resetAbsensiTerkunci();
-
-        $this->sinkronkanJadwalTerpilih();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | TOGGLE JAM TERPILIH
-    |--------------------------------------------------------------------------
-    */
-
-    public function toggleJamTerpilih(int|string $jam): void
-    {
-        $jam = (int) $jam;
-
-        if ($jam < 1) {
-            return;
-        }
-
-        $terpilih = $this->jamTerpilihAsArray();
-
-        if (in_array($jam, $terpilih, true)) {
-            $terpilih = array_values(
-                array_filter(
-                    $terpilih,
-                    fn (int $item): bool => $item !== $jam
-                )
-            );
-        } else {
-            $terpilih[] = $jam;
-        }
-
-        $this->jamTerpilih = $terpilih;
-
-        $this->updatedJamTerpilih();
-    }
-
-    /**
-     * Jam yang dipilih harus berurutan.
-     *
-     * Jika tidak berurutan, hanya rentang berurutan terpanjang
-     * yang dipertahankan.
-     */
-    private function normalisasiJamTerpilih(): void
-    {
-        $jamTersedia = $this->jamList
-            ->pluck('jam_ke')
-            ->map(fn ($jam): int => (int) $jam)
-            ->all();
-
-        $terpilih = collect($this->jamTerpilihAsArray())
-            ->filter(
-                fn (int $jam): bool => in_array(
-                    $jam,
-                    $jamTersedia,
-                    true
-                )
+        $this->terapkanJamOtomatis(
+            $this->hitungJamOtomatis(
+                $this->id_kelas
+                    ? (int) $this->id_kelas
+                    : null
             )
-            ->unique()
-            ->sort()
-            ->values();
-
-        if ($terpilih->isEmpty()) {
-            $this->jamTerpilih = [];
-
-            return;
-        }
-        /*
-         * Pecah menjadi rentang berurutan.
-         */
-        $rentang = [];
-        $rentangAktif = [];
-
-        foreach ($terpilih as $jam) {
-
-            if (
-                $rentangAktif !== [] &&
-                $jam !== end($rentangAktif) + 1
-            ) {
-                $rentang[] = $rentangAktif;
-                $rentangAktif = [];
-            }
-
-            $rentangAktif[] = $jam;
-        }
-
-        $rentang[] = $rentangAktif;
-
-        /*
-         * Ambil rentang terpanjang.
-         */
-        $terpanjang = collect($rentang)
-            ->sortByDesc(fn (array $item): int => count($item))
-            ->first();
-
-        $this->jamTerpilih = array_values($terpanjang);
-
-        /*
-         * jam_ke selalu menunjuk jam pertama yang dipilih.
-         */
-        $this->jam_ke = $this->jamTerpilih[0];
+        );
     }
 
     private function jamTerpilihAsArray(): array
@@ -849,67 +845,6 @@ new class extends Component
             ->unique()
             ->values()
             ->all();
-    }
-
-    /**
-     * Bersihkan nilai jamTerpilih yang berasal dari browser
-     * sebelum dipakai pada penyimpanan.
-     *
-     * @return array<int, int>
-     */
-    private function normalisasiJamTerpilihServer(): array
-    {
-        if (! is_array($this->jamTerpilih)) {
-            return [];
-        }
-
-        return collect($this->jamTerpilih)
-            ->filter(
-                fn ($jam): bool =>
-                    is_numeric($jam)
-            )
-            ->map(
-                fn ($jam): int => (int) $jam
-            )
-            ->filter(
-                fn (int $jam): bool =>
-                    $jam >= 1 && $jam <= 12
-            )
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPDATE JAM
-    |--------------------------------------------------------------------------
-    */
-
-    public function updatedJamKe(): void
-    {
-        if (! $this->editing) {
-            $this->jamTerpilih = [
-                (int) $this->jam_ke,
-            ];
-        }
-
-        $this->resetAbsensiTerkunci();
-
-        $this->loadDispensasiDisetujui();
-
-        $this->sinkronkanJadwalTerpilih();
-    }
-
-    private function resetAbsensiTerkunci(): void
-    {
-        foreach (array_keys($this->absensiTerkunci) as $idSiswa) {
-            $this->absensi[$idSiswa] = 'Hadir';
-            unset($this->keteranganTambahan[$idSiswa]);
-        }
-
-        $this->absensiTerkunci = [];
     }
 
     /*
@@ -948,7 +883,7 @@ new class extends Component
     |
     | PENTING:
     |
-    | id_kelas TIDAK dipakai untuk menentukan kelas.
+    | id_kelas TIDAK menentukan jam.
     |
     | Server mencari:
     | - guru dari session
@@ -956,7 +891,8 @@ new class extends Component
     | - hari
     | - jam_ke
     |
-    | Kemudian id_kelas diambil dari tabel jadwal.
+    | id_kelas hanya dipakai sebagai penyaring tambahan
+    | agar jam ke-N tidak tertukar antar kelas.
     |
     */
 
@@ -988,6 +924,14 @@ new class extends Component
             ->where(
                 'jam_ke',
                 $this->jam_ke
+            )
+            ->when(
+                $this->id_kelas,
+                fn ($query) =>
+                    $query->where(
+                        'id_kelas',
+                        $this->id_kelas
+                    )
             )
             ->whereExists(function ($query) {
 
@@ -1111,12 +1055,12 @@ new class extends Component
         return $jadwals->slice($awal, $akhir - $awal + 1)->values();
     }
 
-    private function jadwalUntukJamTerpilih(array $jamTerpilih)
+    private function jadwalUntukJamTerpilih(array $jamTerpilih, ?int $idKelas = null)
     {
         $hari = $this->namaHariUntukTanggal();
         $idGuru = session('id_pengguna');
 
-        if (! $hari || ! $idGuru || $jamTerpilih === []) {
+        if ($hari === null || ! $idGuru || $jamTerpilih === []) {
             return collect();
         }
 
@@ -1124,6 +1068,14 @@ new class extends Component
             ->where('id_guru', $idGuru)
             ->where('hari', $hari)
             ->whereIn('jam_ke', $jamTerpilih)
+            ->when(
+                $idKelas,
+                fn ($query) =>
+                    $query->where(
+                        'id_kelas',
+                        $idKelas
+                    )
+            )
             ->whereExists(function ($query) {
 
                 $query->selectRaw('1')
@@ -1342,12 +1294,6 @@ new class extends Component
                 'tanggal' =>
                     'required|date',
 
-                'jamTerpilih' =>
-                    'required|array|min:1',
-
-                'jamTerpilih.*' =>
-                    'required|integer|min:1|max:12',
-
                 'materi' =>
                     'required|string|max:1000',
 
@@ -1358,12 +1304,6 @@ new class extends Component
 
                 'materi.required' =>
                     'Materi wajib diisi.',
-
-                'jamTerpilih.required' =>
-                    'Pilih minimal satu jam pelajaran.',
-
-                'jamTerpilih.*.integer' =>
-                    'Jam pelajaran tidak valid.',
 
             ]);
 
@@ -1439,46 +1379,59 @@ new class extends Component
 
             /*
             |--------------------------------------------------------------------------
-            | AMBIL JADWAL DARI SERVER
+            | TENTUKAN JAM DARI SERVER
             |--------------------------------------------------------------------------
             |
-             | INI BAGIAN PALING PENTING.
-             |
-             | Tidak menggunakan:
-             |
-             | $this->id_kelas
-             |
-             | untuk menentukan kelas.
-             |
-             | Server mencari jadwal setiap jam terpilih
-             | berdasarkan:
-             |
-             | guru + hari + jam_ke
-             |
-             */
+            | Nilai dari browser TIDAK dipakai.
+            |
+            | Edit: jam terkunci pada jurnal yang diedit.
+            | Input baru: jam dihitung otomatis dari jadwal.
+            |
+            */
 
-            $jamTerpilih =
-                $this->normalisasiJamTerpilihServer();
+            if ($this->editing) {
 
-            if ($jamTerpilih === []) {
+                $jamTerpilih = [
+                    (int) $this->editing->jam_ke,
+                ];
+            } else {
 
-                $this->addError(
-                    'jamTerpilih',
-                    'Pilih minimal satu jam pelajaran.'
+                $rentang = $this->hitungJamOtomatis(
+                    $this->jadwalAktif
+                        ? (int) $this->jadwalAktif->id_kelas
+                        : null
                 );
 
-                return;
+                if ($rentang === null) {
+
+                    $this->addError(
+                        'jadwal',
+                        'Semua jam pelajaran pada tanggal ini sudah tercatat.'
+                    );
+
+                    return;
+                }
+
+                $jamTerpilih = $rentang
+                    ->pluck('jam_ke')
+                    ->map(fn ($jam): int => (int) $jam)
+                    ->all();
             }
 
             $jadwalTerpilih =
                 $this->jadwalUntukJamTerpilih(
-                    $jamTerpilih
+                    $jamTerpilih,
+                    $this->editing
+                        ? null
+                        : ($this->jadwalAktif
+                            ? (int) $this->jadwalAktif->id_kelas
+                            : null)
                 );
 
             if ($jadwalTerpilih->count() !== count($jamTerpilih)) {
 
                 $this->addError(
-                    'jamTerpilih',
+                    'jadwal',
                     'Jam tersebut tidak terdapat pada jadwal mengajar Anda untuk tanggal tersebut.'
                 );
 
@@ -1506,7 +1459,7 @@ new class extends Component
             if ($jamUrutan !== $jamHarapan) {
 
                 $this->addError(
-                    'jamTerpilih',
+                    'jadwal',
                     'Jam yang dipilih harus berurutan.'
                 );
 
@@ -1535,7 +1488,7 @@ new class extends Component
                 ->count() > 1) {
 
                 $this->addError(
-                    'jamTerpilih',
+                    'jadwal',
                     'Jam yang dipilih harus berasal dari kelas yang sama.'
                 );
 
@@ -1605,42 +1558,15 @@ new class extends Component
             */
 
             $jamSudahTerpakai =
-                Jurnal::query()
-                    ->where(
-                        'id_guru',
-                        $idGuru
-                    )
-                    ->where(
-                        'id_kelas',
-                        $idKelasServer
-                    )
-                    ->whereDate(
-                        'tanggal',
-                        $this->tanggal
-                    )
-                    ->whereIn(
-                        'jam_ke',
-                        $jamUrutan
-                    )
-                    ->when(
-                        $this->editing,
-                        fn ($query) =>
-                            $query->where(
-                                'id_jurnal',
-                                '!=',
-                                $this->editing->id_jurnal
-                            )
-                    )
-                    ->pluck('jam_ke')
-                    ->map(
-                        fn ($jam): int => (int) $jam
-                    )
-                    ->all();
+                $this->jamSudahTerisi(
+                    $jamUrutan,
+                    (int) $idKelasServer
+                );
 
             if ($jamSudahTerpakai !== []) {
 
                 $this->addError(
-                    'jamTerpilih',
+                    'jadwal',
                     'Jurnal untuk jam ke-' .
                         implode(
                             ', jam ke-',
@@ -2087,7 +2013,7 @@ new class extends Component
                 )) {
 
                     $this->addError(
-                        'jamTerpilih',
+                        'jadwal',
                         'Jurnal untuk jam yang dipilih sudah tercatat.'
                     );
 
@@ -2142,30 +2068,12 @@ new class extends Component
             } else {
 
                 /*
-                 * Jam yang sudah tersimpan tidak boleh
-                 * dipilih ulang.
+                 * Jam otomatis berpindah ke rentang
+                 * berikutnya yang belum terisi.
                  */
-                $sisaJam = array_values(
-                    array_filter(
-                        $this->jamTerpilihAsArray(),
-                        fn (int $jam): bool => ! in_array(
-                            $jam,
-                            $jamUrutan,
-                            true
-                        )
-                    )
-                );
-
-                $this->jamTerpilih = $sisaJam;
-
-                if ($sisaJam !== []) {
-                    $this->jam_ke = $sisaJam[0];
-                    $this->sinkronkanJadwalTerpilih();
-                } else {
-                    $this->materi = '';
-                    $this->catatan = '';
-                    $this->loadJadwal();
-                }
+                $this->materi = '';
+                $this->catatan = '';
+                $this->loadJadwal();
             }
 
         } finally {
@@ -2285,14 +2193,25 @@ new class extends Component
     <div class="alert alert-warning" role="alert">{{ $errors->first('editing') }}</div>
     @endif
 
+    @if ($errors->has('jadwal'))
+    <div class="alert alert-warning" role="alert">{{ $errors->first('jadwal') }}</div>
+    @endif
+
         @if (!$jadwalAktif && !$editing && !$modeIzin)
     <div class="card-custom p-4">
+        @if ($semuaJamTerisi)
+        <h2 class="h5 fw-bold">Semua jam pelajaran hari ini sudah tercatat</h2>
+        <p class="text-muted mb-3">Seluruh jam jadwal mengajar Anda pada tanggal ini sudah memiliki jurnal. Tidak ada jam yang perlu diisi lagi.</p>
+        @else
         <h2 class="h5 fw-bold">Tidak ada jadwal mengajar untuk hari ini</h2>
         <p class="text-muted mb-3">Belum ada jadwal guru yang dapat dipilih untuk tanggal ini.</p>
+        @endif
         @if (session('is_guru_piket'))
         <a href="{{ route('guru-piket') }}" class="btn btn-app-primary">Buka halaman guru piket</a>
         @endif
+        @unless ($semuaJamTerisi)
         <button type="button" wire:click="toggleModeIzin" class="btn btn-outline-danger">Izin Tidak Masuk</button>
+        @endunless
     </div>
     @else
     <div class="mb-3">
@@ -2322,10 +2241,11 @@ new class extends Component
 
         @if ($jadwalAktif && !$modeIzin)
         <div class="alert alert-info">
-            Jadwal berlangsung: jam ke-{{ $jamMulaiKe }}{{ $jamSelesaiKe > $jamMulaiKe ? ' sampai jam ke-'.$jamSelesaiKe : '' }}
+            Jam pelajaran mengikuti jadwal: ke-{{ $jamMulaiKe }}{{ $jamSelesaiKe > $jamMulaiKe ? ' sampai ke-'.$jamSelesaiKe : '' }}
             @if ($jamMulaiPembelajaran && $jamSelesaiPembelajaran)
             ({{ substr($jamMulaiPembelajaran, 0, 5) }}–{{ substr($jamSelesaiPembelajaran, 0, 5) }})
-            @endif
+            @endif.
+            Jam tidak dapat diubah.
         </div>
         @endif
 
@@ -2345,25 +2265,6 @@ new class extends Component
                         <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>
                         @endforeach
                     </select>
-                </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold d-block mb-2">Jam pelajaran</label>
-                    @error('jamTerpilih') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
-                    @if ($this->jamList->isNotEmpty())
-                    <div class="row g-2">
-                        @foreach ($this->jamList as $jam)
-                        <div class="col-sm-6 col-lg-4">
-                            <div class="form-check border rounded p-2 ps-5 h-100">
-                                <input type="checkbox" class="form-check-input" id="jam-terpilih-{{ $jam->jam_ke }}" value="{{ $jam->jam_ke }}" wire:click="toggleJamTerpilih({{ $jam->jam_ke }})" @checked(in_array((int) $jam->jam_ke, $jamTerpilih, true))>
-                                <label class="form-check-label" for="jam-terpilih-{{ $jam->jam_ke }}">Jam ke-{{ $jam->jam_ke }} ({{ substr($jam->jam_mulai, 0, 5) }}–{{ substr($jam->jam_selesai, 0, 5) }})</label>
-                            </div>
-                        </div>
-                        @endforeach
-                    </div>
-                    <div class="form-text">Jam berurutan dalam satu sesi terpilih otomatis. Ubah pilihan bila perlu; materi dan absensi akan disimpan untuk seluruh jam terpilih.</div>
-                    @else
-                    <div class="alert alert-warning mb-0">Pilih kelas terlebih dahulu untuk melihat daftar jam.</div>
-                    @endif
                 </div>
                 @endif
 
@@ -2456,7 +2357,7 @@ new class extends Component
 
                 <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-3">
                     @if (!$modeIzin)<button type="button" wire:click="bukaReview" class="btn btn-outline-primary" @disabled(!count($siswa))>Tinjau jurnal</button>@endif
-                    <button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled" wire:target="save" @disabled(!$modeIzin && !count($siswa))>
+                    <button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled" wire:target="save" @disabled(!$modeIzin && (!count($siswa) || !$jadwalAktif))>
                         <span wire:loading.remove wire:target="save">{{ $modeIzin ? 'Kirim Pengajuan Izin' : ($editing ? 'Simpan Perubahan' : 'Simpan Jurnal') }}</span>
                         <span wire:loading wire:target="save">Menyimpan…</span>
                     </button>
@@ -2471,7 +2372,7 @@ new class extends Component
     <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" style="background:rgba(15,23,42,.5)">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
             <div class="modal-header"><h2 class="modal-title fs-5">Tinjau Jurnal</h2><button type="button" class="btn-close" wire:click="$set('showReview', false)" aria-label="Tutup"></button></div>
-            <div class="modal-body"><p><strong>Materi:</strong> {{ $materi ?: 'Belum diisi' }}</p><p><strong>Jumlah siswa:</strong> {{ count($siswa) }}</p><p><strong>Tidak hadir:</strong> {{ collect($absensi)->filter(fn ($status) => $status !== 'Hadir')->count() }}</p></div>
+            <div class="modal-body"><p><strong>Kelas:</strong> {{ $this->kelasAktif?->nama_kelas ?? '-' }}</p><p><strong>Jam:</strong> ke-{{ $jamMulaiKe }}{{ $jamSelesaiKe > $jamMulaiKe ? ' s/d ke-'.$jamSelesaiKe : '' }}@if ($jamMulaiPembelajaran && $jamSelesaiPembelajaran) ({{ substr($jamMulaiPembelajaran, 0, 5) }}–{{ substr($jamSelesaiPembelajaran, 0, 5) }})@endif</p><p><strong>Materi:</strong> {{ $materi ?: 'Belum diisi' }}</p><p><strong>Jumlah siswa:</strong> {{ count($siswa) }}</p><p><strong>Tidak hadir:</strong> {{ collect($absensi)->filter(fn ($status) => $status !== 'Hadir')->count() }}</p></div>
             <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" wire:click="$set('showReview', false)">Kembali</button><button type="button" class="btn btn-app-primary" wire:click="save">Simpan Jurnal</button></div>
         </div></div>
     </div>

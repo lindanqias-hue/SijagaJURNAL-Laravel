@@ -17,7 +17,7 @@ class InputJurnalMultiJamTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_satu_input_menyimpan_jurnal_untuk_semua_jam_berurutan_yang_dipilih(): void
+    public function test_satu_input_menyimpan_jurnal_untuk_seluruh_jam_otomatis(): void
     {
         $this->travelTo(Carbon::parse('2026-09-28 07:10:00', 'Asia/Jakarta'));
 
@@ -35,8 +35,6 @@ class InputJurnalMultiJamTest extends TestCase
 
         Livewire::test('input-jurnal')
             ->set('id_kelas', $idKelas)
-            ->call('toggleJamTerpilih', 2)
-            ->call('toggleJamTerpilih', 3)
             ->assertSet('jamTerpilih', [1, 2, 3])
             ->set('materi', 'Persamaan linear')
             ->call('save')
@@ -67,7 +65,41 @@ class InputJurnalMultiJamTest extends TestCase
         );
     }
 
-    public function test_penyimpanan_dibatalkan_jika_salah_satu_jam_sudah_tercatat(): void
+    public function test_jam_otomatis_melompat_ke_rentang_berikutnya_yang_kosong(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-28 07:10:00', 'Asia/Jakarta'));
+
+        $guru = $this->createPengguna('GURU001');
+        $idKelas = $this->createKelasSiswa();
+
+        $this->createJadwalRambung($guru, $idKelas, 1, '07:00:00', '07:45:00');
+        $this->createJadwalRambung($guru, $idKelas, 2, '07:45:00', '08:30:00');
+        $this->createJadwalRambung($guru, $idKelas, 3, '09:00:00', '09:40:00');
+
+        $this->withSession([
+            'id_pengguna' => $guru->id_pengguna,
+            'role' => 'guru',
+        ]);
+
+        Livewire::test('input-jurnal')
+            ->set('id_kelas', $idKelas)
+            ->assertSet('jamTerpilih', [1, 2])
+            ->set('materi', 'Persamaan linear')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('jamTerpilih', [3])
+            ->set('materi', 'Persamaan kuadrat')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('jamTerpilih', []);
+
+        $this->assertSame(
+            [1, 2, 3],
+            Jurnal::query()->orderBy('jam_ke')->pluck('jam_ke')->all()
+        );
+    }
+
+    public function test_jam_otomatis_mengosongkan_form_saat_semua_jam_terisi(): void
     {
         $this->travelTo(Carbon::parse('2026-09-28 07:10:00', 'Asia/Jakarta'));
 
@@ -87,25 +119,48 @@ class InputJurnalMultiJamTest extends TestCase
             ->set('id_kelas', $idKelas)
             ->set('materi', 'Persamaan linear')
             ->call('save')
-            ->assertHasNoErrors();
-
-        $this->assertSame(
-            [1],
-            Jurnal::query()->pluck('jam_ke')->all()
-        );
-
-        Livewire::test('input-jurnal')
-            ->set('id_kelas', $idKelas)
-            ->call('toggleJamTerpilih', 2)
-            ->assertSet('jamTerpilih', [1, 2])
+            ->assertHasNoErrors()
+            ->assertSet('jamTerpilih', [])
+            ->assertSet('jadwalAktif', null)
+            ->assertSet('semuaJamTerisi', true)
             ->set('materi', 'Persamaan linear')
             ->call('save')
-            ->assertHasErrors('jamTerpilih');
+            ->assertHasErrors('jadwal');
 
         $this->assertSame(
-            [1],
+            [1, 2, 3],
             Jurnal::query()->orderBy('jam_ke')->pluck('jam_ke')->all()
         );
+    }
+
+    public function test_jam_otomatis_dihitung_ulang_saat_guru_memilih_kelas_lain(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-28 07:10:00', 'Asia/Jakarta'));
+
+        $guru = $this->createPengguna('GURU001');
+        $idKelasPertama = $this->createKelasSiswa('XI RPL 1');
+        $idKelasKedua = $this->createKelasSiswa('XI RPL 2');
+
+        $this->createJadwalRambung($guru, $idKelasPertama, 1, '07:00:00', '07:45:00');
+        $this->createJadwalRambung($guru, $idKelasPertama, 2, '07:45:00', '08:30:00');
+        $this->createJadwalRambung($guru, $idKelasKedua, 1, '09:00:00', '09:40:00');
+        $this->createJadwalRambung($guru, $idKelasKedua, 2, '09:40:00', '10:20:00');
+
+        $this->withSession([
+            'id_pengguna' => $guru->id_pengguna,
+            'role' => 'guru',
+        ]);
+
+        Livewire::test('input-jurnal')
+            ->set('id_kelas', $idKelasPertama)
+            ->assertSet('jam_ke', 1)
+            ->assertSet('jamMulaiPembelajaran', '07:00:00')
+            ->assertSet('jamTerpilih', [1, 2])
+            ->set('id_kelas', $idKelasKedua)
+            ->assertSet('id_kelas', $idKelasKedua)
+            ->assertSet('jam_ke', 1)
+            ->assertSet('jamMulaiPembelajaran', '09:00:00')
+            ->assertSet('jamTerpilih', [1, 2]);
     }
 
     private function createPengguna(string $nip): Pengguna
@@ -118,10 +173,10 @@ class InputJurnalMultiJamTest extends TestCase
         ]);
     }
 
-    private function createKelasSiswa(): int
+    private function createKelasSiswa(string $namaKelas = 'XI RPL 1'): int
     {
         $idKelas = DB::table('kelas')->insertGetId([
-            'nama_kelas' => 'XI RPL 1',
+            'nama_kelas' => $namaKelas,
             'jumlah_siswa' => 2,
         ], 'id_kelas');
 

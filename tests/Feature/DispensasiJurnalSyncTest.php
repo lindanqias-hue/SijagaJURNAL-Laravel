@@ -42,6 +42,14 @@ class DispensasiJurnalSyncTest extends TestCase
             'jam_mulai' => '07:00:00',
             'jam_selesai' => '07:40:00',
         ]);
+        DB::table('jadwal')->insert([
+            'id_guru' => $guru->id_pengguna,
+            'id_kelas' => $idKelas,
+            'hari' => 'Senin',
+            'jam_ke' => 2,
+            'jam_mulai' => '07:40:00',
+            'jam_selesai' => '08:20:00',
+        ]);
         $jurnal = Jurnal::create([
             'id_guru' => $guru->id_pengguna,
             'id_kelas' => $idKelas,
@@ -75,7 +83,7 @@ class DispensasiJurnalSyncTest extends TestCase
         Livewire::test('input-jurnal')
             ->set('id_kelas', $idKelas)
             ->set('tanggal', '2026-09-28')
-            ->set('jam_ke', 1)
+            ->assertSet('jam_ke', 2)
             ->call('loadSiswa')
             ->call('setAbsensiSiswa', $idSiswa, 'Alpa')
             ->assertSet('absensi.'.$idSiswa, 'Izin');
