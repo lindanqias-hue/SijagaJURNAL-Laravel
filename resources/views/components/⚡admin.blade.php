@@ -424,7 +424,7 @@ new class extends Component
         }
 
         this.activeSection = section;
-        window.location.hash = section;
+        window.location.hash = section === 'admin' ? 'dashboard' : section;
     }
 }" x-init="syncSection(); window.addEventListener('hashchange', () => syncSection())">
 
@@ -433,30 +433,7 @@ new class extends Component
     @endif
     @error('delete')<div class="alert alert-danger" role="alert">{{ $message }}</div>@enderror
 
-    <nav class="section-tabs" aria-label="Navigasi section admin">
-        <div class="tab-pill-group">
-            @foreach ([
-                'admin' => 'Dashboard',
-                'pengguna' => 'Pengguna',
-                'guru' => 'Guru',
-                'siswa' => 'Siswa',
-                'kelas' => 'Kelas',
-                'jadwal' => 'Jadwal',
-                'jadwal-piket' => 'Piket',
-                'jurnal' => 'Jurnal',
-                'dispensasi' => 'Dispensasi',
-            ] as $kunciSection => $labelSection)
-            <button type="button"
-                class="tab-pill"
-                :class="{ 'active': activeSection === '{{ $kunciSection }}' }"
-                :aria-current="activeSection === '{{ $kunciSection }}' ? 'page' : false"
-                @if ($kunciSection === 'pengguna') x-on:click="$wire.set('filterRole', ''); openSection('pengguna')" @else x-on:click="openSection('{{ $kunciSection }}')" @endif
-            >{{ $labelSection }}</button>
-            @endforeach
-        </div>
-    </nav>
-
-    <section id="admin" x-cloak x-show="activeSection === 'admin'">
+<section id="dashboard" x-cloak x-show="activeSection === 'admin'">
         <header class="role-page-header mb-4">
             <div class="role-page-eyebrow">SIJAGA · ADMINISTRASI</div>
             <h2>Dashboard Admin</h2>

@@ -142,12 +142,12 @@
 
                 if ($role === 'admin') {
                 $navItems = [
-                'admin' => ['label' => 'Dashboard Admin', 'route' => 'admin'],
+                'admin' => ['label' => 'Dashboard Admin', 'route' => 'admin', 'anchor' => 'dashboard'],
                 'pengguna' => ['label' => 'Pengguna', 'route' => 'admin', 'anchor' =>
                 'pengguna'],
                 'guru' => ['label' => 'Guru', 'route' => 'admin', 'anchor' => 'guru'],
                 'siswa' => ['label' => 'Siswa', 'route' => 'admin', 'anchor' => 'siswa'],
-                'kode' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kode'],
+                'kode' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kelas'],
                 'jadwal' => ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' =>
                 'jadwal'],
                 'jadwal_piket' => ['label' => 'Jadwal Piket', 'route' => 'admin', 'anchor' =>
@@ -158,7 +158,7 @@
                 ];
                 } elseif ($role === 'wakasek') {
                 $navItems = [
-                'wakasek' => ['label' => 'Dashboard', 'route' => 'wakasek'],
+                'wakasek' => ['label' => 'Dashboard', 'route' => 'wakasek', 'anchor' => 'dashboard'],
                 'monitoring_guru' => ['label' => 'Monitoring Guru', 'route' => 'wakasek',
                 'anchor' => 'monitoring-guru'],
                 'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'route' => 'wakasek',
@@ -171,7 +171,7 @@
                 ];
                 } elseif ($role === 'guru') {
                 $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard'],
+                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard', 'anchor' => 'dashboard'],
                 'jadwal_saya' => ['label' => 'Jadwal Saya', 'route' => 'dashboard', 'anchor' =>
                 'jadwal-saya'],
                 'input_jurnal' => ['label' => 'Input Jurnal', 'route' => 'input-jurnal'],
@@ -204,7 +204,7 @@
                 ];
                 } else {
                 $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard'],
+                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard', 'anchor' => 'dashboard'],
                 'riwayat' => ['label' => 'Laporan Tervalidasi', 'route' => 'riwayat'],
                 'data_master' => ['label' => 'Data Master', 'route' => 'data-master'],
                 ];
@@ -213,14 +213,14 @@
 
                 @foreach ($navItems as $key => $item)
                 @php
-                $isActive = request()->routeIs($item['route']) && empty($item['anchor']);
+                $isActive = request()->routeIs($item['route']) && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
                 if (session('role') === 'sekretaris' && request()->routeIs('sekretaris')) {
                 $activeSection = request()->query('menu', 'dashboard');
                 $isActive = ($item['anchor'] ?? '') === $activeSection;
                 }
                 @endphp
 
-                <a href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
+                <a href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'].'#'.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
                     class="nav-link {{ $isActive ? 'active' : '' }}" data-nav-anchor="{{ $item['anchor'] ?? '' }}"
                     data-route-active="{{ $isActive ? 'true' : 'false' }}">
 
@@ -283,6 +283,29 @@
         {{-- CONTENT --}}
         <div class="content-col" style="flex:1; min-width:0;">
             <main class="main-content">
+                <nav class="section-tabs d-lg-none" aria-label="Navigasi halaman" data-section-nav>
+                    <div class="tab-pill-group">
+                        @foreach ($navItems as $key => $item)
+                            @php
+                                $isSectionNavActive = request()->routeIs($item['route'])
+                                    && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
+                                if (session('role') === 'sekretaris' && request()->routeIs('sekretaris')) {
+                                    $isSectionNavActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
+                                }
+                                $navPath = Route::has($item['route']) ? parse_url(route($item['route']), PHP_URL_PATH) : '';
+                            @endphp
+                            <a href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'].'#'.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
+                                class="tab-pill {{ $isSectionNavActive ? 'active' : '' }}"
+                                data-nav-path="{{ $navPath }}"
+                                data-nav-anchor="{{ $item['anchor'] ?? '' }}"
+                                data-nav-menu="{{ session('role') === 'sekretaris' ? 'true' : 'false' }}"
+                                data-route-active="{{ $isSectionNavActive ? 'true' : 'false' }}"
+                                @if ($isSectionNavActive) aria-current="page" @endif>
+                                {{ $item['label'] }}
+                            </a>
+                        @endforeach
+                    </div>
+                </nav>
                 {{ $slot }}
             </main>
         </div>
@@ -328,6 +351,48 @@
 
             updateClock();
             window.setInterval(updateClock, 1000);
+        })();
+
+        (() => {
+            const nav = document.querySelector('[data-section-nav]');
+
+            if (!nav) {
+                return;
+            }
+
+            const links = [...nav.querySelectorAll('.tab-pill')];
+            const normalizePath = (path) => path.replace(/\/+$/, '') || '/';
+
+            const syncActiveLink = () => {
+                const currentPath = normalizePath(window.location.pathname);
+                const currentHash = decodeURIComponent(window.location.hash.slice(1));
+                const currentMenu = new URLSearchParams(window.location.search).get('menu');
+                const linksForPath = links.filter((link) => normalizePath(link.dataset.navPath) === currentPath);
+                const hashLink = currentHash
+                    ? linksForPath.find((link) => link.dataset.navAnchor === currentHash)
+                    : null;
+                const menuLink = currentMenu
+                    ? linksForPath.find((link) => link.dataset.navMenu === 'true' && link.dataset.navAnchor === currentMenu)
+                    : null;
+                const activeLink = menuLink ?? hashLink ?? linksForPath.find((link) => link.dataset.routeActive === 'true');
+
+                links.forEach((link) => {
+                    const isActive = link === activeLink;
+
+                    link.classList.toggle('active', isActive);
+
+                    if (isActive) {
+                        link.setAttribute('aria-current', 'page');
+                    } else {
+                        link.removeAttribute('aria-current');
+                    }
+                });
+            };
+
+            syncActiveLink();
+            window.addEventListener('hashchange', syncActiveLink);
+            window.addEventListener('pageshow', syncActiveLink);
+            document.addEventListener('livewire:navigated', syncActiveLink);
         })();
 
         (() => {

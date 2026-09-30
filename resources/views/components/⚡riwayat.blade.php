@@ -499,9 +499,6 @@ new class extends Component
     {{-- KEMBALI KE DASHBOARD --}}
     @if($this->isGuru)
     <div class="role-page-actions mb-3">
-        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">
-            &larr; Kembali ke Dashboard
-        </a>
     </div>
     @endif
 

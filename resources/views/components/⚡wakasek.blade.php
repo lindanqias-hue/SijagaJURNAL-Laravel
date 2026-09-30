@@ -685,22 +685,7 @@ new class extends Component
     <div class="alert alert-danger m-3" role="alert">{{ session('error') }}</div>
     @endif
 
-    <nav class="section-tabs" aria-label="Navigasi section wakasek">
-        <div class="tab-pill-group">
-            @foreach ([
-                'dashboard' => 'Dashboard',
-                'monitoring-guru' => 'Monitoring Guru',
-                'monitoring-jurnal' => 'Monitoring Jurnal',
-                'dispensasi' => 'Dispensasi',
-                'pengajuan-izin' => 'Pengajuan Izin',
-                'rekap' => 'Rekap',
-            ] as $kunciSection => $labelSection)
-            <button type="button" class="tab-pill" :class="{ 'active': activeSection === '{{ $kunciSection }}' }" :aria-current="activeSection === '{{ $kunciSection }}' ? 'page' : false" x-on:click="openSection('{{ $kunciSection }}')">{{ $labelSection }}</button>
-            @endforeach
-        </div>
-    </nav>
-
-    <section x-cloak x-show="activeSection === 'dashboard'" :class="{ 'd-none': activeSection !== 'dashboard' }" wire:poll.60s id="wakasek-dashboard" class="wakasek-dashboard">
+<section x-cloak x-show="activeSection === 'dashboard'" :class="{ 'd-none': activeSection !== 'dashboard' }" wire:poll.60s id="dashboard" class="wakasek-dashboard">
         <header class="welcome-banner mb-4">
             <div class="text-uppercase fw-bold small text-white-50">SIJAGA · PANEL PIMPINAN</div>
             <h1 class="h3 fw-bold text-white mt-2 mb-1">Monitoring Wakasek</h1>

@@ -468,7 +468,8 @@ input[type="button"] {
 
 /* Tabs (Data Master) */
 .tab-pill-group { display: inline-flex; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 4px; flex-wrap: wrap; }
-.tab-pill { padding: 8px 18px; border-radius: 7px; border: none; background: transparent; color: var(--muted); font-weight: 500; font-size: 13px; }
+.tab-pill { text-decoration: none; padding: 8px 18px; border-radius: 7px; border: none; background: transparent; color: var(--muted); font-weight: 500; font-size: 13px; }
+.tab-pill:hover, .tab-pill:focus { text-decoration: none; }
 .tab-pill.active { background: var(--primary); color: #fff; font-weight: 700; }
 
 /* Alert boxes */

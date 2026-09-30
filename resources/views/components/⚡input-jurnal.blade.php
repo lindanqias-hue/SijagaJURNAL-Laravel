@@ -9,6 +9,7 @@ use App\Models\KeteranganSiswa;
 use App\Models\Siswa;
 use App\Services\KehadiranGuruService;
 use App\Services\DispensasiJurnalService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -380,11 +381,18 @@ new class extends Component
         $this->jam_ke =
             $this->jadwalAktif->jam_ke;
 
-        if (! $this->editing) {
-            $this->jamTerpilih = [
-                (int) $this->jadwalAktif->jam_ke,
-            ];
-        }
+        $rentangJadwal = $this->rentangJadwalBerurutan(
+            $jadwalHariIni,
+            $this->jadwalAktif,
+        );
+        $this->jadwalAktif = $rentangJadwal->first();
+        $jadwalTerakhir = $rentangJadwal->last();
+        $this->id_kelas = $this->jadwalAktif->id_kelas;
+        $this->jam_ke = (int) $this->jadwalAktif->jam_ke;
+        $this->jamTerpilih = $rentangJadwal
+            ->pluck('jam_ke')
+            ->map(fn ($jam): int => (int) $jam)
+            ->all();
 
         $this->jamMulaiKe =
             $this->jadwalAktif->jam_ke;
@@ -393,55 +401,10 @@ new class extends Component
             $this->jadwalAktif->jam_mulai;
 
         $this->jamSelesaiKe =
-            $this->jadwalAktif->jam_ke;
+            $jadwalTerakhir->jam_ke;
 
         $this->jamSelesaiPembelajaran =
-            $this->jadwalAktif->jam_selesai;
-
-        /*
-         * Cari jam berikutnya yang menyambung.
-         */
-        $jamSaatIni =
-            $this->jadwalAktif;
-
-        while (true) {
-
-            $jadwalBerikutnya = Jadwal::query()
-                ->where(
-                    'id_guru',
-                    $idGuru
-                )
-                ->where(
-                    'id_kelas',
-                    $this->jadwalAktif->id_kelas
-                )
-                ->where(
-                    'hari',
-                    $hari
-                )
-                ->where(
-                    'jam_ke',
-                    $jamSaatIni->jam_ke + 1
-                )
-                ->where(
-                    'jam_mulai',
-                    $jamSaatIni->jam_selesai
-                )
-                ->first();
-
-            if (!$jadwalBerikutnya) {
-                break;
-            }
-
-            $this->jamSelesaiKe =
-                $jadwalBerikutnya->jam_ke;
-
-            $this->jamSelesaiPembelajaran =
-                $jadwalBerikutnya->jam_selesai;
-
-            $jamSaatIni =
-                $jadwalBerikutnya;
-        }
+            $jadwalTerakhir->jam_selesai;
 
         $this->loadSiswa();
     }
@@ -548,6 +511,8 @@ new class extends Component
             )
             ->orderBy('jam_ke')
             ->get([
+                'id_jadwal',
+                'id_kelas',
                 'jam_ke',
                 'jam_mulai',
                 'jam_selesai',
@@ -741,19 +706,17 @@ new class extends Component
 
         $this->jumlah_tidak_hadir = 0;
 
-        $jamPertama =
-            $this->jamList->first();
+        $jadwalKelas = $this->jamList;
+        $jamPertama = $jadwalKelas->first();
 
         if ($jamPertama) {
-
-            $this->jam_ke =
-                $jamPertama->jam_ke;
-
-            $this->jamTerpilih = [
-                (int) $jamPertama->jam_ke,
-            ];
+            $rentangJadwal = $this->rentangJadwalBerurutan($jadwalKelas, $jamPertama);
+            $this->jamTerpilih = $rentangJadwal
+                ->pluck('jam_ke')
+                ->map(fn ($jam): int => (int) $jam)
+                ->all();
+            $this->jam_ke = (int) $this->jamTerpilih[0];
         } else {
-
             $this->jamTerpilih = [];
         }
 
@@ -1101,6 +1064,52 @@ new class extends Component
     | Nilai dari browser tidak dipercaya.
     |
     */
+
+    private function rentangJadwalBerurutan(Collection $jadwals, Jadwal $jadwalTerpilih): Collection
+    {
+        $index = $jadwals->search(
+            fn (Jadwal $jadwal): bool => (int) $jadwal->id_jadwal === (int) $jadwalTerpilih->id_jadwal,
+        );
+
+        if ($index === false) {
+            return collect([$jadwalTerpilih]);
+        }
+
+        $awal = (int) $index;
+        $akhir = (int) $index;
+
+        while ($awal > 0) {
+            $sekarang = $jadwals->get($awal);
+            $sebelumnya = $jadwals->get($awal - 1);
+
+            if (
+                (int) $sebelumnya->id_kelas !== (int) $sekarang->id_kelas ||
+                (int) $sebelumnya->jam_ke + 1 !== (int) $sekarang->jam_ke ||
+                $sebelumnya->jam_selesai !== $sekarang->jam_mulai
+            ) {
+                break;
+            }
+
+            $awal--;
+        }
+
+        while ($akhir < $jadwals->count() - 1) {
+            $sekarang = $jadwals->get($akhir);
+            $berikutnya = $jadwals->get($akhir + 1);
+
+            if (
+                (int) $sekarang->id_kelas !== (int) $berikutnya->id_kelas ||
+                (int) $sekarang->jam_ke + 1 !== (int) $berikutnya->jam_ke ||
+                $sekarang->jam_selesai !== $berikutnya->jam_mulai
+            ) {
+                break;
+            }
+
+            $akhir++;
+        }
+
+        return $jadwals->slice($awal, $akhir - $awal + 1)->values();
+    }
 
     private function jadwalUntukJamTerpilih(array $jamTerpilih)
     {
@@ -2266,7 +2275,6 @@ new class extends Component
         <div class="role-page-description">{{ $modeIzin ? 'Ajukan izin dan kirim titipan tugas kepada kelas.' : 'Isi jurnal sesuai jadwal mengajar Anda hari ini.' }}</div>
     </div>
     <div class="role-page-actions mb-3">
-        <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
     </div>
 
     @if ($saved)
@@ -2352,7 +2360,7 @@ new class extends Component
                         </div>
                         @endforeach
                     </div>
-                    <div class="form-text">Pilih beberapa jam berurutan sekaligus. Materi, catatan, dan absensi siswa akan disimpan untuk semua jam yang dipilih.</div>
+                    <div class="form-text">Jam berurutan dalam satu sesi terpilih otomatis. Ubah pilihan bila perlu; materi dan absensi akan disimpan untuk seluruh jam terpilih.</div>
                     @else
                     <div class="alert alert-warning mb-0">Pilih kelas terlebih dahulu untuk melihat daftar jam.</div>
                     @endif

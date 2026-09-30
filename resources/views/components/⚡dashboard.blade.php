@@ -246,48 +246,12 @@ new class extends Component
 <div
     x-data="{
         activeSection: window.location.hash === '#jadwal-saya' ? 'jadwal-saya' : 'dashboard',
-        currentPath: window.location.pathname,
         syncSection() {
             this.activeSection = window.location.hash === '#jadwal-saya' ? 'jadwal-saya' : 'dashboard';
-            this.currentPath = window.location.pathname;
         }
     }"
     x-init="window.addEventListener('hashchange', () => syncSection())"
 >
-    @php
-    $inputJurnalPath = parse_url(route('input-jurnal'), PHP_URL_PATH);
-    $riwayatPath = parse_url(route('riwayat'), PHP_URL_PATH);
-    $notifikasiPath = parse_url(route('notifikasi'), PHP_URL_PATH);
-    $dispensasiPath = parse_url(route('dispensasi'), PHP_URL_PATH);
-    $guruPiketPath = parse_url(route('guru-piket'), PHP_URL_PATH);
-    $rekapDispensasiPath = parse_url(route('rekap-dispensasi'), PHP_URL_PATH);
-    @endphp
-
-    <nav class="section-tabs" aria-label="Navigasi section guru">
-        <div class="tab-pill-group">
-            <button type="button"
-                class="tab-pill"
-                :class="{ 'active': activeSection === 'dashboard' }"
-                :aria-current="activeSection === 'dashboard' ? 'page' : false"
-                x-on:click="activeSection = 'dashboard'; window.location.hash = ''"
-            >Dashboard</button>
-            <button type="button"
-                class="tab-pill"
-                :class="{ 'active': activeSection === 'jadwal-saya' }"
-                :aria-current="activeSection === 'jadwal-saya' ? 'page' : false"
-                x-on:click="activeSection = 'jadwal-saya'; window.location.hash = 'jadwal-saya'"
-            >Jadwal Saya</button>
-            <a href="{{ route('input-jurnal') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $inputJurnalPath }}' }">Input Jurnal</a>
-            <a href="{{ route('riwayat') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $riwayatPath }}' }">Riwayat Saya</a>
-            <a href="{{ route('notifikasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $notifikasiPath }}' }">Notifikasi</a>
-            @if ($this->isGuruPiket)
-            <a href="{{ route('dispensasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $dispensasiPath }}' }">Izin & Dispensasi</a>
-            <a href="{{ route('guru-piket') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $guruPiketPath }}' }">Piket Hari Ini</a>
-            <a href="{{ route('rekap-dispensasi') }}" class="tab-pill" :class="{ 'active': currentPath === '{{ $rekapDispensasiPath }}' }">Rekapan</a>
-            @endif
-        </div>
-    </nav>
-
     <section id="dashboard" x-cloak x-show="activeSection === 'dashboard'">
 
     {{-- =====================================================
@@ -494,7 +458,6 @@ new class extends Component
         </header>
 
         <div class="role-page-actions mb-3">
-            <a href="{{ route('dashboard') }}" class="btn btn-outline-primary btn-sm fw-semibold">&larr; Kembali ke Dashboard</a>
         </div>
 
         <div class="card-custom">

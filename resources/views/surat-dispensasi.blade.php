@@ -286,10 +286,6 @@
             </div>
             @endif
 
-
-
-            <a href="{{ route('dashboard') }}" class="back">← Kembali ke Dashboard</a>
-
         </div>
     </div>
 

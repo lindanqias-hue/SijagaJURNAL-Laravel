@@ -521,27 +521,8 @@ new class extends Component
     </style>
 
     {{-- DASHBOARD --}}
-    <nav class="section-tabs" aria-label="Navigasi section sekretaris">
-        <div class="tab-pill-group">
-            @foreach ([
-                'dashboard' => 'Dashboard',
-                'data-kelas' => 'Data Kelas',
-                'validasi-jurnal' => 'Validasi Jurnal',
-                'tugas-guru' => 'Tugas Guru',
-                'kehadiran' => 'Kehadiran',
-                'surat-dispensasi' => 'Surat Dispensasi',
-                'rekap' => 'Rekap',
-            ] as $kunciSection => $labelSection)
-            <button type="button"
-                class="tab-pill {{ $activeSection === $kunciSection ? 'active' : '' }}"
-                @if ($activeSection === $kunciSection) aria-current="page" @endif
-                wire:click="bukaMenu('{{ $kunciSection }}')"
-            >{{ $labelSection }}</button>
-            @endforeach
-        </div>
-    </nav>
 
-    @if ($activeSection === 'dashboard')
+@if ($activeSection === 'dashboard')
     <section class="sekretaris-dashboard" id="dashboard">
         <div class="sekretaris-hero role-page-header">
             <div class="role-page-eyebrow">SIJAGA · PANEL SEKRETARIS
@@ -612,7 +593,6 @@ new class extends Component
             <h1>Informasi Kelas</h1>
             <p>Data kelas yang ditugaskan kepada akun Sekretaris ini.</p>
         </header>
-        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
         @if ($this->kelasSekretaris)
         <div class="row g-3 mb-4">
@@ -686,8 +666,6 @@ new class extends Component
             <h1 class="h3 fw-bold mt-2 mb-1">Validasi Jurnal</h1>
             <p class="mb-0">Periksa jurnal terbaru dan konfirmasi kehadiran guru setelah jam pelajaran selesai.</p>
         </div>
-        <button type="button" wire:click="bukaMenu('dashboard')"
-            class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
         <div id="ringkasan-jurnal" class="row g-3 mb-4">
             <div class="col-12 col-sm-4">
@@ -923,7 +901,6 @@ new class extends Component
             <h1>Tugas Guru Tidak Hadir</h1>
             <p>Daftar titipan tugas dari pengajuan izin guru yang sudah disetujui Wakasek untuk kelas {{ $this->kelasSekretaris?->nama_kelas ?? '-' }}.</p>
         </header>
-        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
         <div class="sekretaris-panel mb-4">
             <div style="padding:20px;border-bottom:1px solid #ddd"><h2 class="h5 mb-1">Izin guru yang sudah disetujui</h2></div>
@@ -950,7 +927,6 @@ new class extends Component
             <h1>Rekap Kehadiran · {{ $this->kelasSekretaris?->nama_kelas ?? 'Kelas' }}</h1>
             <p>Ringkasan status kehadiran berdasarkan jurnal guru untuk kelas yang Anda tangani.</p>
         </header>
-        <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
         <div class="row g-3 mb-4">
             @foreach ([
@@ -995,7 +971,6 @@ new class extends Component
             <p class="mb-0">Lihat atau unduh surat siswa di kelas Anda. Surat yang sudah lewat jamnya tetap bisa diunduh sebagai arsip.</p>
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-            <button type="button" wire:click="bukaMenu('dashboard')" class="btn btn-outline-primary btn-sm fw-semibold">← Kembali ke Dashboard</button>
             <div class="d-flex align-items-center gap-2">
                 <label class="form-label mb-0 small fw-semibold" for="tanggal-surat-dispen">Tanggal</label>
                 <input id="tanggal-surat-dispen" type="date" wire:model.live="tanggalSurat" class="form-control form-control-sm">
@@ -1040,8 +1015,6 @@ new class extends Component
             <p class="mb-0">Ringkasan jurnal serta catatan konfirmasi kehadiran guru di kelas ini.
             </p>
         </div>
-        <button type="button" wire:click="bukaMenu('dashboard')"
-            class="btn btn-outline-primary btn-sm fw-semibold mb-3">← Kembali ke Dashboard</button>
 
         <div class="row g-3 mb-4">
             <div class="col-6 col-xl-3"><div class="stat-card d-block"><div class="text-muted small">Total Jurnal</div><div class="stat-value text-primary">{{ $this->jumlahJurnal }}</div></div></div>
