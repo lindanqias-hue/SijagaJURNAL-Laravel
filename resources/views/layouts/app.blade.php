@@ -69,6 +69,8 @@
     </style>
     @endif
 
+        <meta name="role" content="{{ session('role', 'guru') }}">
+
     @livewireStyles
 </head>
 
@@ -128,109 +130,103 @@
                 <time class="layout-clock-date" data-layout-clock-date></time>
             </div>
 
-{{-- NAVIGASI --}}
-            <nav class="sidebar-nav">
+{{-- NAVIGASI SIDEBAR — sumber tunggal: NavMenu --}}
+        <nav class="sidebar-nav" x-data="navAccordion()" x-init="restore()">
+            @php
+            $role = session('role', 'guru');
+            $isGuruPiket = ($role === 'guru' && session('id_pengguna'))
+                ? app(\App\Services\GuruPiketAccessService::class)->bertugasHariIni((int) session('id_pengguna'))
+                : false;
+            $groups = app(\App\Support\NavMenu::class)->untukRole($role, $isGuruPiket);
+            @endphp
+
+            @foreach ($groups as $groupIndex => $group)
                 @php
-                $role = session('role', 'guru');
-                $navItems = [];
-
-                // Satu sumber kebenaran untuk status piket: hitung langsung via service
-                // agar selalu mengikuti jadwal hari ini, tidak basi karena session login.
-                $isGuruPiket = ($role === 'guru' && session('id_pengguna'))
-                    ? app(\App\Services\GuruPiketAccessService::class)->bertugasHariIni((int) session('id_pengguna'))
-                    : false;
-
-                if ($role === 'admin') {
-                $navItems = [
-                'admin' => ['label' => 'Dashboard Admin', 'route' => 'admin', 'anchor' => 'dashboard'],
-                'pengguna' => ['label' => 'Pengguna', 'route' => 'admin', 'anchor' =>
-                'pengguna'],
-                'guru' => ['label' => 'Guru', 'route' => 'admin', 'anchor' => 'guru'],
-                'siswa' => ['label' => 'Siswa', 'route' => 'admin', 'anchor' => 'siswa'],
-                'kode' => ['label' => 'Kelas', 'route' => 'admin', 'anchor' => 'kelas'],
-                'jadwal' => ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' =>
-                'jadwal'],
-                'jadwal_piket' => ['label' => 'Jadwal Piket', 'route' => 'admin', 'anchor' =>
-                'jadwal-piket'],
-                'jurnal' => ['label' => 'Jurnal', 'route' => 'admin', 'anchor' => 'jurnal'],
-                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'admin', 'anchor' =>
-                'dispensasi'],
-                ];
-                } elseif ($role === 'wakasek') {
-                $navItems = [
-                'wakasek' => ['label' => 'Dashboard', 'route' => 'wakasek', 'anchor' => 'dashboard'],
-                'monitoring_guru' => ['label' => 'Monitoring Guru', 'route' => 'wakasek',
-                'anchor' => 'monitoring-guru'],
-                'monitoring_jurnal' => ['label' => 'Monitoring Jurnal', 'route' => 'wakasek',
-                'anchor' => 'monitoring-jurnal'],
-                'pengajuan_izin' => ['label' => 'Pengajuan Izin Guru', 'route' => 'wakasek',
-                'anchor' => 'pengajuan-izin'],
-                'dispensasi' => ['label' => 'Dispensasi', 'route' => 'wakasek', 'anchor' =>
-                'dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'route' => 'wakasek', 'anchor' => 'rekap'],
-                ];
-                } elseif ($role === 'guru') {
-                $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard', 'anchor' => 'dashboard'],
-                'jadwal_saya' => ['label' => 'Jadwal Saya', 'route' => 'dashboard', 'anchor' =>
-                'jadwal-saya'],
-                'input_jurnal' => ['label' => 'Input Jurnal', 'route' => 'input-jurnal'],
-                'riwayat' => ['label' => 'Riwayat Saya', 'route' => 'riwayat'],
-                'notifikasi' => ['label' => 'Notifikasi', 'route' => 'notifikasi'],
-                ];
-
-                if ($isGuruPiket) {
-                $navItems['dispensasi'] = ['label' => 'Izin & Dispensasi', 'route' =>
-                'dispensasi'];
-                $navItems['guru_piket'] = ['label' => 'Piket Hari Ini', 'route' => 'guru-piket'];
-                $navItems['rekap_dispensasi'] = ['label' => 'Rekapan', 'route' =>
-                'rekap-dispensasi'];
-                }
-                } elseif ($role === 'sekretaris') {
-                $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'route' => 'sekretaris', 'anchor' =>
-                'dashboard'],
-                'data_kelas' => ['label' => 'Data Kelas', 'route' => 'sekretaris', 'anchor' =>
-                'data-kelas'],
-                'validasi_jurnal' => ['label' => 'Validasi Jurnal', 'route' => 'sekretaris', 'anchor' =>
-                'validasi-jurnal'],
-                'tugas_guru' => ['label' => 'Tugas Guru Tidak Hadir', 'route' => 'sekretaris', 'anchor' =>
-                'tugas-guru'],
-                'kehadiran' => ['label' => 'Kehadiran', 'route' => 'sekretaris', 'anchor' =>
-                'kehadiran'],
-                'surat_dispensasi' => ['label' => 'Surat Dispensasi', 'route' => 'sekretaris', 'anchor' =>
-                'surat-dispensasi'],
-                'rekap' => ['label' => 'Rekap', 'route' => 'sekretaris', 'anchor' => 'rekap'],
-                ];
-                } else {
-                $navItems = [
-                'dashboard' => ['label' => 'Dashboard', 'route' => 'dashboard', 'anchor' => 'dashboard'],
-                'riwayat' => ['label' => 'Laporan Tervalidasi', 'route' => 'riwayat'],
-                'data_master' => ['label' => 'Data Master', 'route' => 'data-master'],
-                ];
+                // Item langsung (Dashboard) tanpa kelompok.
+                $isDirect = empty($group['items']) && ! empty($group['route']);
+                $groupKey = $group['anchor'] ?? $group['label'];
+                $groupItems = $group['items'] ?? [];
+                // Kelompok terbuka kalau ada item aktif di dalamnya.
+                $hasActive = false;
+                foreach ($groupItems as $gi) {
+                    $u = app(\App\Support\NavMenu::class)->url($gi);
+                    if ($u !== null) {
+                        $isActive = request()->routeIs($gi['route'])
+                            && in_array($gi['anchor'] ?? '', ['', 'dashboard'], true);
+                        if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
+                            $isActive = ($gi['anchor'] ?? '') === request()->query('menu', 'dashboard');
+                        }
+                        if ($isActive) { $hasActive = true; break; }
+                    }
                 }
                 @endphp
 
-                @foreach ($navItems as $key => $item)
-                @php
-                $isActive = request()->routeIs($item['route']) && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
-                if (session('role') === 'sekretaris' && request()->routeIs('sekretaris')) {
-                $activeSection = request()->query('menu', 'dashboard');
-                $isActive = ($item['anchor'] ?? '') === $activeSection;
-                }
-                @endphp
-
-                <a href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'].'#'.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
-                    class="nav-link {{ $isActive ? 'active' : '' }}" data-nav-anchor="{{ $item['anchor'] ?? '' }}"
-                    data-route-active="{{ $isActive ? 'true' : 'false' }}">
-
-                    <span aria-hidden="true" style="font-size:15px; width:20px; text-align:center;"></span>
-
-                    {{ $item['label'] }}
-
-                    <span class="dot" @if (!$isActive) hidden @endif></span>
-                </a>
-                @endforeach
+                @if ($isDirect)
+                    @php
+                    $url = app(\App\Support\NavMenu::class)->url($group);
+                    $isActive = request()->routeIs($group['route'])
+                        && in_array($group['anchor'] ?? '', ['', 'dashboard'], true);
+                    if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
+                        $isActive = ($group['anchor'] ?? '') === request()->query('menu', 'dashboard');
+                    }
+                    @endphp
+                    @if ($url !== null)
+                    <a href="{{ $url }}"
+                        class="nav-link {{ $isActive ? 'active' : '' }}"
+                        data-nav-anchor="{{ $group['anchor'] ?? '' }}"
+                        data-route-active="{{ $isActive ? 'true' : 'false' }}">
+                        <span aria-hidden="true" style="font-size:15px; width:20px; text-align:center;"></span>
+                        {{ $group['label'] }}
+                        <span class="dot" @if (!$isActive) hidden @endif></span>
+                    </a>
+                    @endif
+                @else
+                <div class="nav-group" data-group="{{ $groupKey }}">
+                    <button type="button"
+                        class="nav-group-header"
+                        :class="{ 'is-open': openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }} }"
+                        @click="toggleGroup('{{ $groupKey }}')"
+                        aria-expanded="{{ $hasActive ? 'true' : 'false' }}"
+                        aria-controls="group-{{ $groupIndex }}">
+                        <span class="nav-group-icon">{{ $group['icon'] ?? '•' }}</span>
+                        <span class="nav-group-label">{{ $group['label'] }}</span>
+                        <span class="nav-group-chevron" :class="{ 'is-rotated': openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }} }">‹</span>
+                    </button>
+                    <div class="nav-group-body" id="group-{{ $groupIndex }}"
+                         x-show="openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }}"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 max-h-0"
+                         x-transition:enter-end="opacity-100 max-h-9999"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 max-h-9999"
+                         x-transition:leave-end="opacity-0 max-h-0">
+                        @foreach ($groupItems as $item)
+                            @php
+                            $url = app(\App\Support\NavMenu::class)->url($item);
+                            $isActive = false;
+                            if ($url !== null) {
+                                $isActive = request()->routeIs($item['route'])
+                                    && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
+                                if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
+                                    $isActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
+                                }
+                            }
+                            @endphp
+                            @if ($url !== null)
+                            <a href="{{ $url }}"
+                                class="nav-link nav-link-sub {{ $isActive ? 'active' : '' }}"
+                                data-nav-anchor="{{ $item['anchor'] ?? '' }}"
+                                data-route-active="{{ $isActive ? 'true' : 'false' }}">
+                                <span aria-hidden="true" style="font-size:13px; width:16px; text-align:center;"></span>
+                                {{ $item['label'] }}
+                                <span class="dot" @if (!$isActive) hidden @endif></span>
+                            </a>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            @endforeach
             </nav>
 
             {{-- USER --}}
@@ -285,24 +281,33 @@
             <main class="main-content">
                 <nav class="section-tabs d-lg-none" aria-label="Navigasi halaman" data-section-nav>
                     <div class="tab-pill-group">
-                        @foreach ($navItems as $key => $item)
+                        @php
+                        $flat = app(\App\Support\NavMenu::class)->flatten($groups);
+                        @endphp
+                        @foreach ($flat as $item)
                             @php
-                                $isSectionNavActive = request()->routeIs($item['route'])
+                            $url = app(\App\Support\NavMenu::class)->url($item);
+                            $isActive = false;
+                            if ($url !== null) {
+                                $isActive = request()->routeIs($item['route'])
                                     && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
-                                if (session('role') === 'sekretaris' && request()->routeIs('sekretaris')) {
-                                    $isSectionNavActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
+                                if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
+                                    $isActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
                                 }
-                                $navPath = Route::has($item['route']) ? parse_url(route($item['route']), PHP_URL_PATH) : '';
+                            }
+                            $navPath = $url !== null ? parse_url($url, PHP_URL_PATH) : '';
                             @endphp
-                            <a href="{{ Route::has($item['route']) ? route($item['route']).(session('role') === 'sekretaris' && !empty($item['anchor']) ? '?menu='.$item['anchor'].'#'.$item['anchor'] : (!empty($item['anchor']) ? '#'.$item['anchor'] : '')) : '#' }}"
-                                class="tab-pill {{ $isSectionNavActive ? 'active' : '' }}"
+                            @if ($url !== null)
+                            <a href="{{ $url }}"
+                                class="tab-pill {{ $isActive ? 'active' : '' }}"
                                 data-nav-path="{{ $navPath }}"
                                 data-nav-anchor="{{ $item['anchor'] ?? '' }}"
-                                data-nav-menu="{{ session('role') === 'sekretaris' ? 'true' : 'false' }}"
-                                data-route-active="{{ $isSectionNavActive ? 'true' : 'false' }}"
-                                @if ($isSectionNavActive) aria-current="page" @endif>
+                                data-nav-menu="{{ $role === 'sekretaris' ? 'true' : 'false' }}"
+                                data-route-active="{{ $isActive ? 'true' : 'false' }}"
+                                @if ($isActive) aria-current="page" @endif>
                                 {{ $item['label'] }}
                             </a>
+                            @endif
                         @endforeach
                     </div>
                 </nav>
@@ -316,7 +321,41 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     @livewireScripts
-
+    
+    <script>
+        // Accordion state navigator sidebar — simpan di localStorage per role.
+        function navAccordion() {
+            return {
+                openGroups: {},
+                storageKey() {
+                    const role = document.querySelector('meta[name="role"]')?.content
+                        || (window.SIJAGA_ROLE || 'guru');
+                    return 'sijaga:nav:' + role;
+                },
+                restore() {
+                    try {
+                        const raw = localStorage.getItem(this.storageKey());
+                        if (raw) {
+                            this.openGroups = JSON.parse(raw);
+                        }
+                    } catch (e) { /* ignore */ }
+                },
+                toggleGroup(key) {
+                    if (this.openGroups[key]) {
+                        delete this.openGroups[key];
+                    } else {
+                        this.openGroups[key] = true;
+                    }
+                    this.persist();
+                },
+                persist() {
+                    try {
+                        localStorage.setItem(this.storageKey(), JSON.stringify(this.openGroups));
+                    } catch (e) { /* ignore */ }
+                },
+            };
+        }
+    </script>
     <script>
         (() => {
             const timeElements = document.querySelectorAll('[data-layout-clock-time]');

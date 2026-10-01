@@ -98,4 +98,38 @@ Route::middleware('auth.session')->group(function () {
         Route::livewire('/rekap-dispensasi', 'rekap-dispensasi')
             ->name('rekap-dispensasi');
     });
+
+    // =========================================================
+    // ROUTE BARU — ORANG 5 (navigasi & integrasi)
+    // =========================================================
+
+    // Izin Guru: guru mengajukan, wakasek menyetujui.
+    // Component: ⚡izin-guru.blade.php (Orang 3)
+    Route::middleware('role:guru,wakasek')->group(function () {
+        Route::livewire('/izin-guru', 'izin-guru')->name('izin-guru');
+    });
+
+    // Kehadiran Siswa untuk guru piket.
+    // Component: ⚡piket-kehadiran.blade.php (Orang 1)
+    Route::middleware('role:guru')->group(function () {
+        Route::livewire('/piket-kehadiran', 'piket-kehadiran')->name('piket-kehadiran');
+    });
+
+    // Halaman detail jurnal (dipanggil dari monitoring wakasek).
+    // Component: ⚡jurnal-detail.blade.php (Orang 2)
+    Route::middleware('role:guru,wakasek,sekretaris')->group(function () {
+        Route::livewire('/jurnal/{id}/detail', 'jurnal-detail')->name('jurnal-detail');
+    });
+
+    // Halaman detail dispensasi.
+    // Component: ⚡dispensasi-detail.blade.php (Orang 4)
+    Route::middleware('role:guru,wakasek,sekretaris')->group(function () {
+        Route::livewire('/dispensasi/{id}/detail', 'dispensasi-detail')->name('dispensasi-detail');
+    });
+
+    // Dispensasi khusus wakasek (juga dipakai sebagai child di ⚡wakasek.blade.php).
+    // Component: ⚡wakasek-dispensasi.blade.php (Orang 4)
+    Route::middleware('role:wakasek')->group(function () {
+        Route::livewire('/wakasek/dispensasi', 'wakasek-dispensasi')->name('wakasek-dispensasi');
+    });
 });
