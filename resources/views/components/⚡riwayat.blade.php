@@ -5,6 +5,7 @@ use Livewire\WithPagination;
 use App\Models\Jurnal;
 use App\Models\Kelas;
 use App\Models\AbsensiSiswa;
+use App\Services\JurnalGroupingService;
 
 new class extends Component
 {
@@ -167,12 +168,29 @@ new class extends Component
     // RIWAYAT JURNAL
     // =========================================================
     public function getRiwayatProperty()
-    {
-        return $this->baseQuery()
-            ->orderByDesc('tanggal')
-            ->orderByDesc('jam_ke')
-            ->paginate(10);
-    }
+{
+    $jurnals = $this->baseQuery()
+        ->orderByDesc('tanggal')
+        ->orderBy('jam_ke')
+        ->get();
+
+    $grouped = app(JurnalGroupingService::class)
+        ->group($jurnals);
+
+    $page = request()->get('page', 1);
+    $perPage = 10;
+
+    return new \Illuminate\Pagination\LengthAwarePaginator(
+        $grouped->forPage($page, $perPage),
+        $grouped->count(),
+        $perPage,
+        $page,
+        [
+            'path' => request()->url(),
+            'query' => request()->query(),
+        ]
+    );
+}
 
     // =========================================================
     // STATISTIK
