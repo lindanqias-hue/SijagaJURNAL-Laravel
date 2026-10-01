@@ -155,7 +155,37 @@ new class extends Component
 
     </div>
 
+         {{-- IZIN GURU (Phase 3 — guard class_exists) --}}
+@php
+         $izinMenunggu = 0;
+         $izinList = collect();
+         if (class_exists(\App\Models\IzinGuru::class)) {
+             $izinList = \App\Models\IzinGuru::where('id_guru', session('id_pengguna'))
+                 ->where('status', 'Menunggu')
+                 ->orderByDesc('created_at')
+                 ->limit(5)
+                 ->get();
+             $izinMenunggu = \App\Models\IzinGuru::where('id_guru', session('id_pengguna'))
+                 ->where('status', 'Menunggu')
+                 ->count();
+         }
+     @endphp
 
+@if ($izinMenunggu > 0)
+    <div class="mb-3">
+        <div class="alert alert-info border-0">
+            📝 Ada <strong>{{ $izinMenunggu }}</strong> pengajuan izin guru yang menunggu.
+        </div>
+    </div>
+
+    <div class="d-flex flex-column gap-3 mb-4">
+        @foreach ($izinList as $izin)
+        <div class="card border-0 shadow-sm border-start border-4 border-info">
+            ...
+        </div>
+        @endforeach
+    </div>
+@endif
     {{-- DAFTAR NOTIFIKASI --}}
     <div class="d-flex flex-column gap-3">
 

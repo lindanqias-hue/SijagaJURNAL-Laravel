@@ -382,8 +382,103 @@ new class extends Component
             </div>
         </div>
     </div>
+     {{-- =====================================================
+          RINGKASAN TAMBAHAN (Phase 3 — integrasi)
+     ====================================================== --}}
+     <div class="row g-3 my-3" aria-label="Ringkasan Tambahan">
+        @php
+    $idGuru = session('id_pengguna');
+    $hariIni = now('Asia/Jakarta')->locale('id')->translatedFormat('l');
 
+    // Kelas kosong: jadwal hari ini tanpa jurnal.
+    $jadwalTanpaJurnal = collect();
+    if ($idGuru) {
+        $jadwalHariIni = \App\Models\Jadwal::where('id_guru', $idGuru)
+            ->where('hari', $hariIni)
+            ->whereHas('ikelas')
+            ->with('ikelas')
+            ->orderBy('jam_ke')
+            ->get();
 
+        $jurnalHariIni = \App\Models\Jurnal::where('id_guru', $idGuru)
+            ->whereDate('barang', now('Asia/Jakarta')->toDateString())
+            ->pluck('id_jadwal')
+            ->toArray();
+
+        $jadwalTanpaJurnal = $jadwalHariIni->filter(function ($j) use ($jurnalHariIni) {
+            return ! in_array($j->id_jadwal, $jurnalHariIni, true);
+        });
+    }
+
+    // Status izin (guard class_exists IzinGuru).
+    $izinMenunggu = 0;
+    if (class_exists(\App\Models\IzinGuru::class) && $idGuru) {
+        $izinMenunggu = \App\Models\IzinGuru::where('id_guru', $idGuru)
+            ->where('status', 'Menunggu')
+            ->count();
+    }
+
+    // Dispensasi menunggu (guard class_exists Dispensasi).
+    $dispensasiMenunggu = 0;
+    if (class_exists(\App\Models\Dispensasi::class) && $idGuru) {
+        $dispensasiMenunggu = \App\Models\Dispensasi::where('id_guru_piket', $idGuru)
+            ->where('status', 'Menunggu Persetujuan')
+            ->count();
+    }
+@endphp
+
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-value" style="color:#f97316;">{{ $jadwalTanpaJurnal->count() }}</div>
+            <div class="text-muted fw-medium" style="font-size:11.5px;">Kelas Kosong</div>
+        </div>
+    </div>
+
+    @if (class_exists(\App\Models\IzinGuru::class))
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-value" style="color:#dc2626;">{{ $izinMenunggu }}</div>
+            <div class="text-muted fw-medium" style="font-size:11.5px;">Izin Menunggu</div>
+        </div>
+    </div>
+    @endif
+
+    @if (class_exists(\App\Models\Dispensasi::class))
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-value" style="color:#7c3aed;">{{ $dispensasiMenunggu }}</div>
+            <div class="text-muted fw-medium" style="font-size:11.5px;">Dispensasi Menunggu</div>
+        </div>
+    </div>
+    @endif
+</div>
+
+{{-- Menu Cepat tambahan (route baru, gated) --}}
+<div class="row g-3 my-3" aria-label="Menu Cepat Tambahan">
+    @php
+        $nav = app(\App\Support\NavMenu::class);
+        $extraMenus = [
+            ['label' => 'Izin Guru', 'route' => 'izin-guru', 'component' => 'izin-guru', 'icon' => '📝', 'desc' => 'Ajukan izin atau lihat riwayat.'],
+            ['label' => 'Kehadiran Siswa', 'route' => 'piket-kehadiran', 'component' => 'piket-kehadiran', 'icon' => '✅', 'desc' => 'Pantau kehadiran siswa kelas yang dipiket.'],
+        ];
+    @endphp
+
+    @foreach ($extraMenus as $m)
+        @php
+            $u = $nav->url($m);
+        @endphp
+        @if ($u !== null)
+        <div class="col-12 col-sm-6 col-xl-4">
+            <a href="{{ $u }}" class="role-menu-card">
+                <span class="role-menu-icon">{{ $m['icon'] }}</span>
+                <h2 class="h5 fw-bold">{{ $m['label'] }}</h2>
+                <p>{{ $m['desc'] }}</p>
+                <span class="fw-bold text-primary">Buka <span aria-hidden="true">→</span></span>
+            </a>
+        </div>
+        @endif
+    @endforeach
+</div>
     {{-- =====================================================
          MENU CEPAT
     ====================================================== --}}

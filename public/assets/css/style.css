@@ -592,3 +592,86 @@ input[type="button"] {
   .table-stack td[data-label=""]::before { display: none; }
   .table-stack td > * { min-width: 0; }
 }
+/* ===================== SIDEBAR ACCORDION ===================== */
+.nav-group {
+    margin-bottom: 6px;
+}
+.nav-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,.75);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all .15s;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.nav-group-header:hover {
+    background: rgba(255,255,255,.08);
+    color: #fff;
+}
+.nav-group-header.is-open {
+    background: rgba(255,255,255,.10);
+    color: #fff;
+}
+.nav-group-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.nav-group-label {
+    flex: 1;
+    text-align: left;
+}
+.nav-group-chevron {
+    font-size: 14px;
+    color: rgba(255,255,255,.6);
+    transition: transform .2s ease;
+    flex-shrink: 0;
+}
+.nav-group-chevron.is-rotated {
+    transform: rotate(-90deg);
+}
+.nav-group-body {
+    overflow: hidden;
+    max-height: 9999px;
+    transition: max-height .2s ease, opacity .2s ease;
+    opacity: 1;
+}
+.nav-group-body[style*="display: none"] {
+    opacity: 0;
+}
+.nav-link-sub {
+    padding-left: 32px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: rgba(255,255,255,.7) !important;
+}
+.nav-link-sub:hover {
+    background: rgba(255,255,255,.06) !important;
+    color: #fff !important;
+}
+.nav-link-sub.active {
+    background: rgba(255,255,255,.12) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+}
+
+/* Mobile: accordion tetap bisa diputar, tapi tanpa border */
+@media (max-width: 991.98px) {
+    .nav-group-header {
+        padding: 12px 14px;
+    }
+    .nav-link-sub {
+        padding-left: 36px !important;
+    }
+}
