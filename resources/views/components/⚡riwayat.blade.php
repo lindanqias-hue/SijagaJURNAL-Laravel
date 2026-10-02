@@ -4,7 +4,6 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Jurnal;
 use App\Models\Kelas;
-use App\Models\AbsensiSiswa;
 use App\Services\JurnalGroupingService;
 
 new class extends Component
@@ -17,8 +16,6 @@ new class extends Component
     public $kelasFilter = '';
     public $bulanFilter = '';
     public $search = '';
-
-    public $jurnalTerpilih = null;
 
     // =========================================================
     // MOUNT
@@ -321,98 +318,6 @@ new class extends Component
     // =========================================================
     // LIHAT DETAIL JURNAL
     // =========================================================
-    public function lihatDetail($idJurnal)
-    {
-        $query = Jurnal::query()
-            ->whereKey($idJurnal);
-
-        // Guru hanya boleh melihat jurnalnya sendiri
-        if ($this->isGuru) {
-            $query->where(
-                'id_guru',
-                session('id_pengguna')
-            );
-        }
-
-        // Sekretaris hanya boleh melihat kelasnya
-        if ($this->isSekretaris) {
-
-            $idKelas = session('id_kelas');
-
-            if (!$idKelas) {
-                return;
-            }
-
-            $query->where(
-                'id_kelas',
-                $idKelas
-            );
-        }
-
-        if (!$query->exists()) {
-            return;
-        }
-
-        $this->jurnalTerpilih =
-            $this->jurnalTerpilih === $idJurnal
-                ? null
-                : $idJurnal;
-    }
-
-    // =========================================================
-    // DETAIL ABSENSI
-    // =========================================================
-    public function getDetailAbsensiProperty()
-    {
-        if (!$this->jurnalTerpilih) {
-            return collect();
-        }
-
-        $query = AbsensiSiswa::with([
-            'siswa',
-            'keteranganSiswa'
-        ])->where(
-            'id_jurnal',
-            $this->jurnalTerpilih
-        );
-
-        // Guru hanya boleh melihat absensi jurnal miliknya
-        if ($this->isGuru) {
-
-            $query->whereHas(
-                'jurnal',
-                function ($jurnal) {
-                    $jurnal->where(
-                        'id_guru',
-                        session('id_pengguna')
-                    );
-                }
-            );
-        }
-
-        // Sekretaris hanya boleh melihat absensi kelasnya
-        if ($this->isSekretaris) {
-
-            $idKelas = session('id_kelas');
-
-            if (!$idKelas) {
-                return collect();
-            }
-
-            $query->whereHas(
-                'jurnal',
-                function ($jurnal) use ($idKelas) {
-                    $jurnal->where(
-                        'id_kelas',
-                        $idKelas
-                    );
-                }
-            );
-        }
-
-        return $query->get();
-    }
-
     // =========================================================
     // RESET FILTER
     // =========================================================
@@ -905,7 +810,7 @@ new class extends Component
 
                             {{-- JAM --}}
                             <td>
-                                Jam {{ $jurnal->jam_ke }}
+                                Jam {{ $jurnal->jam_ke }}{{ ($jurnal->jam_ke_selesai ?? $jurnal->jam_ke) > $jurnal->jam_ke ? '–'.$jurnal->jam_ke_selesai : '' }}
                             </td>
 
 
@@ -972,23 +877,7 @@ new class extends Component
                             {{-- AKSI --}}
                             <td class="text-center">
 
-                                <button
-                                    type="button"
-                                    wire:click="lihatDetail({{
-                                        $jurnal->id_jurnal
-                                    }})"
-                                    class="btn-edit"
-                                >
-
-                                    {{
-                                        $jurnalTerpilih ===
-                                        $jurnal->id_jurnal
-                                            ? 'Tutup'
-                                            : 'Detail'
-                                    }}
-
-                                </button>
-
+                                <a href="{{ route('jurnal-detail', ['id' => $jurnal->id_jurnal]) }}" class="btn-edit">Detail</a>
 
                                 @if(
                                     $this->isGuru &&
@@ -1012,142 +901,6 @@ new class extends Component
                             </td>
 
                         </tr>
-
-
-                        {{-- =================================================
-                             DETAIL ABSENSI
-                        ================================================== --}}
-                        @if(
-                            $jurnalTerpilih ===
-                            $jurnal->id_jurnal
-                        )
-
-                            <tr>
-
-                                <td
-                                    colspan="{{
-                                        $this->isGuru
-                                            ? 7
-                                            : 8
-                                    }}"
-                                    style="
-                                        background:#f8fafc;
-                                        padding:16px;
-                                    "
-                                >
-
-                                    @if(
-                                        $jurnal->catatan_validasi
-                                    )
-
-                                        <div
-                                            class="alert-box alert-warning-box mb-3"
-                                        >
-                                            <strong>
-                                                Catatan Sistem:
-                                            </strong>
-
-                                            &nbsp;
-
-                                            {{
-                                                $jurnal->catatan_validasi
-                                            }}
-
-                                        </div>
-
-                                    @endif
-
-
-                                    @if(
-                                        $this->detailAbsensi->isEmpty()
-                                    )
-
-                                        <div
-                                            class="text-muted text-center py-2"
-                                        >
-                                            Belum ada data absensi untuk jurnal ini.
-                                        </div>
-
-                                    @else
-
-                                        <div class="table-responsive">
-
-                                            <table
-                                                class="table table-sm table-custom mb-0"
-                                            >
-
-                                                <thead>
-
-                                                    <tr>
-
-                                                        <th>
-                                                            Nama Siswa
-                                                        </th>
-
-                                                        <th class="text-center">
-                                                            Status
-                                                        </th>
-
-                                                        <th>
-                                                            Detail
-                                                        </th>
-
-                                                    </tr>
-
-                                                </thead>
-
-
-                                                <tbody>
-
-                                                    @foreach(
-                                                        $this->detailAbsensi
-                                                        as $absen
-                                                    )
-
-                                                        <tr>
-
-                                                            <td>
-                                                                {{
-                                                                    $absen
-                                                                        ->siswa
-                                                                        ->nama_siswa
-                                                                        ?? '-'
-                                                                }}
-                                                            </td>
-
-                                                            <td class="text-center">
-                                                                {{
-                                                                    $absen
-                                                                        ->keterangan
-                                                                }}
-                                                            </td>
-
-                                                            <td>
-                                                                {{
-                                                                    $absen
-                                                                        ->keteranganSiswa
-                                                                        ->keterangan
-                                                                        ?? '-'
-                                                                }}
-                                                            </td>
-
-                                                        </tr>
-
-                                                    @endforeach
-
-                                                </tbody>
-
-                                            </table>
-
-                                        </div>
-
-                                    @endif
-
-                                </td>
-
-                            </tr>
-
-                        @endif
 
 
                     @empty

@@ -33,13 +33,9 @@ new class extends Component
 
     public $materi = '';
     public $jumlah_tidak_hadir = 0;
+    public string $cariSiswa = '';
     public $catatan = '';
 
-    public bool $modeIzin = false;
-
-    public string $jenisIzin = '';
-
-    public string $cariSiswa = '';
 
     /*
     |--------------------------------------------------------------------------
@@ -50,7 +46,6 @@ new class extends Component
     public $jadwalAktif = null;
     public $mapelAktif = '';
 
-    public $jadwalIzin = null;
 
     public $jamMulaiPembelajaran = null;
     public $jamSelesaiPembelajaran = null;
@@ -82,6 +77,11 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
+    protected const STATUS_BUTUH_KETERANGAN = [
+        'Izin',
+        'Dispensasi',
+    ];
+
     public $editing = null;
     public $saved = false;
     public $isSaving = false;
@@ -96,12 +96,6 @@ new class extends Component
     public $absensi = [];
     public $keteranganTambahan = [];
     public array $absensiTerkunci = [];
-
-    protected const STATUS_BUTUH_KETERANGAN = [
-        'Sakit',
-        'Izin',
-        'Dispensasi',
-    ];
 
     public bool $showAbsensiSiswa = false;
     public bool $showReview = false;
@@ -248,11 +242,6 @@ new class extends Component
 
     public function updatedTanggal(): void
     {
-        if ($this->modeIzin) {
-            $this->muatJadwalIzin();
-            return;
-        }
-
         if ($this->editing) {
             return;
         }
@@ -260,46 +249,6 @@ new class extends Component
         $this->tanggal = Carbon::now('Asia/Jakarta')->toDateString();
         $this->loadJadwal();
         $this->loadDispensasiDisetujui();
-    }
-
-    public function toggleModeIzin(): void
-    {
-        abort_unless(session('role') === 'guru', 403);
-
-        $this->modeIzin = ! $this->modeIzin;
-        $this->jadwalIzin = null;
-        $this->jenisIzin = '';
-        $this->materi = '';
-        $this->id_kelas = '';
-        $this->tanggal = Carbon::now('Asia/Jakarta')->format('Y-m-d');
-
-        if ($this->modeIzin) {
-            $this->muatJadwalIzin();
-        } else {
-            $this->loadJadwal();
-        }
-    }
-
-    private function muatJadwalIzin(): void
-    {
-        $hari = $this->namaHariUntukTanggal();
-
-        if (! $hari || ! session('id_pengguna')) {
-            $this->jadwalIzin = null;
-            return;
-        }
-
-        $jadwals = Jadwal::query()
-            ->with('kelas')
-            ->where('id_guru', session('id_pengguna'))
-            ->where('hari', $hari)
-            ->orderBy('jam_ke')
-            ->get();
-
-        $this->jadwalIzin = $jadwals->firstWhere('id_kelas', (int) $this->id_kelas) ?? $jadwals->first();
-        $this->id_kelas = $this->jadwalIzin?->id_kelas ?? '';
-        $this->jam_ke = $this->jadwalIzin?->jam_ke ?? 1;
-        $this->jadwalAktif = $this->jadwalIzin;
     }
 
     /*
@@ -641,23 +590,6 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    public function getKelasIzinListProperty()
-    {
-        $hari = $this->namaHariUntukTanggal();
-
-        if (! $hari || ! session('id_pengguna')) {
-            return collect();
-        }
-
-        $idKelas = Jadwal::query()
-            ->where('id_guru', session('id_pengguna'))
-            ->where('hari', $hari)
-            ->pluck('id_kelas')
-            ->unique();
-
-        return Kelas::query()->whereIn('id_kelas', $idKelas)->orderBy('nama_kelas')->get();
-    }
-
     /*
     |--------------------------------------------------------------------------
     | TOTAL SISWA
@@ -679,6 +611,35 @@ new class extends Component
     /*
     |--------------------------------------------------------------------------
     | FILTER SISWA
+    |--------------------------------------------------------------------------
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | MODAL
+    |--------------------------------------------------------------------------
+    */
+
+    public function bukaReview(): void
+    {
+        $this->showReview = true;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SET ABSENSI
+    |--------------------------------------------------------------------------
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUTUH KETERANGAN
+    |--------------------------------------------------------------------------
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE KELAS
     |--------------------------------------------------------------------------
     */
 
@@ -724,89 +685,11 @@ new class extends Component
         $this->cariSiswa = '';
     }
 
-    public function bukaReview(): void
-    {
-        $this->showAbsensiSiswa = false;
-        $this->showReview = true;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | SET ABSENSI
-    |--------------------------------------------------------------------------
-    */
-
-    public function setAbsensiSiswa(
-        int|string $idSiswa,
-        string $status
-    ): void {
-
-        $statusDiizinkan = [
-            'Hadir',
-            'Izin',
-            'Sakit',
-            'Alpa',
-        ];
-
-        if (!in_array(
-            $status,
-            $statusDiizinkan,
-            true
-        )) {
-            return;
-        }
-
-        $ada = collect($this->siswa)
-            ->contains(
-                'id_siswa',
-                $idSiswa
-            );
-
-        if (!$ada) {
-            return;
-        }
-
-        $statusPiket = $this->statusPiketTerikatSaatIni();
-
-        if ($statusPiket->has((int) $idSiswa)) {
-            $this->terapkanStatusPiket($statusPiket);
-
-            return;
-        }
-
-        $this->absensi[$idSiswa] =
-            $status;
-
-        /*
-         * Kalau kembali Hadir,
-         * hapus keterangan tambahan.
-         */
-        if ($status === 'Hadir') {
-
-            unset(
-                $this->keteranganTambahan[
-                    $idSiswa
-                ]
-            );
-        }
-    }
-
     /*
     |--------------------------------------------------------------------------
     | BUTUH KETERANGAN
     |--------------------------------------------------------------------------
     */
-
-    public function butuhKeterangan(
-        int|string $idSiswa
-    ): bool {
-
-        return in_array(
-            $this->absensi[$idSiswa] ?? '',
-            self::STATUS_BUTUH_KETERANGAN,
-            true
-        );
-    }
 
     /*
     |--------------------------------------------------------------------------
@@ -816,11 +699,6 @@ new class extends Component
 
     public function updatedIdKelas(): void
     {
-        if ($this->modeIzin) {
-            $this->muatJadwalIzin();
-            return;
-        }
-
         /*
          * Property dari browser hanya memilih kelas.
          * Jam selalu dihitung ulang dari server.
@@ -1133,19 +1011,31 @@ new class extends Component
 
         foreach ($this->siswa as $siswa) {
 
-            if (!isset(
-                $this->absensi[
-                    $siswa->id_siswa
-                ]
-            )) {
-
-                $this->absensi[
-                    $siswa->id_siswa
-                ] = 'Hadir';
+            if (!isset($this->absensi[$siswa->id_siswa])) {
+                $this->absensi[$siswa->id_siswa] = 'Belum tersedia';
             }
         }
 
+        $this->muatAbsensiReadOnlyDariJurnal();
         $this->loadDispensasiDisetujui();
+    }
+
+    private function muatAbsensiReadOnlyDariJurnal(): void
+    {
+        if (!$this->editing) {
+            return;
+        }
+
+        $absensiJurnal = AbsensiSiswa::query()
+            ->with('keteranganSiswa')
+            ->where('id_jurnal', $this->editing->id_jurnal)
+            ->get();
+
+        foreach ($absensiJurnal as $absensi) {
+            $this->absensi[$absensi->id_siswa] = $absensi->keterangan;
+            $this->absensiTerkunci[$absensi->id_siswa] = true;
+            $this->keteranganTambahan[$absensi->id_siswa] = $absensi->keteranganSiswa?->keterangan ?? '';
+        }
     }
 
     /*
@@ -1273,11 +1163,6 @@ new class extends Component
 
         try {
 
-            if ($this->modeIzin) {
-                $this->simpanPengajuanIzin();
-                return;
-            }
-
             /*
             |--------------------------------------------------------------------------
             | VALIDASI DASAR
@@ -1296,9 +1181,6 @@ new class extends Component
 
                 'materi' =>
                     'required|string|max:1000',
-
-                'absensi.*' =>
-                    'required|in:Hadir,Izin,Sakit,Alpa,Dispensasi',
 
             ], [
 
@@ -1662,41 +1544,8 @@ new class extends Component
                         $siswa->id_siswa
                     ] ?? null;
 
-                if (!$statusSiswa) {
-
-                    $this->addError(
-                        'absensi',
-                        'Status kehadiran semua siswa harus diisi.'
-                    );
-
-                    return;
-                }
-
-                /*
-                 * Izin, sakit, dispensasi
-                 * wajib punya keterangan.
-                 */
-                if (
-                    in_array(
-                        $statusSiswa,
-                        self::STATUS_BUTUH_KETERANGAN,
-                        true
-                    )
-                    &&
-                    trim(
-                        $this->keteranganTambahan[
-                            $siswa->id_siswa
-                        ] ?? ''
-                    ) === ''
-                ) {
-
-                    $this->addError(
-                        'keteranganTambahan.' .
-                        $siswa->id_siswa,
-                        "Keterangan untuk {$siswa->nama_siswa} ({$statusSiswa}) wajib diisi."
-                    );
-
-                    return;
+                if (!$statusSiswa || $statusSiswa === 'Belum tersedia') {
+                    $this->absensi[$siswa->id_siswa] = 'Hadir';
                 }
             }
 
@@ -1947,11 +1796,7 @@ new class extends Component
                             */
 
                             if (
-                                in_array(
-                                    $statusSiswa,
-                                    self::STATUS_BUTUH_KETERANGAN,
-                                    true
-                                )
+                                $statusSiswa !== 'Hadir'
                             ) {
 
                                 KeteranganSiswa::create([
@@ -2082,105 +1927,15 @@ new class extends Component
         }
     }
 
-    private function simpanPengajuanIzin(): void
-    {
-        abort_unless(session('role') === 'guru', 403);
 
-        $this->validate([
-            'tanggal' => 'required|date|after_or_equal:today',
-            'jenisIzin' => 'required|string|max:100',
-            'materi' => 'required|string|max:1000',
-            'id_kelas' => 'required|integer',
-        ], [
-            'materi.required' => 'Titipan tugas wajib diisi.',
-            'jenisIzin.required' => 'Jenis izin wajib dipilih.',
-        ]);
-
-        $tanggal = Carbon::parse($this->tanggal, 'Asia/Jakarta');
-        $hari = $this->namaHariUntukTanggal();
-        $jadwal = Jadwal::query()
-            ->where('id_guru', session('id_pengguna'))
-            ->where('id_kelas', $this->id_kelas)
-            ->where('hari', $hari)
-            ->orderBy('jam_ke')
-            ->first();
-
-        if (! $jadwal) {
-            $this->addError('id_kelas', 'Tidak ditemukan jadwal mengajar Anda untuk kelas dan tanggal tersebut.');
-            return;
-        }
-
-        $statusKehadiran = match (mb_strtolower($this->jenisIzin)) {
-            'sakit' => 'Sakit',
-            default => 'Izin',
-        };
-
-        try {
-            $berhasilDibuat = DB::transaction(function () use ($jadwal, $tanggal, $statusKehadiran): bool {
-                DB::table('pengguna')
-                    ->where('id_pengguna', session('id_pengguna'))
-                    ->lockForUpdate()
-                    ->first();
-
-                $sudahAdaJurnal = Jurnal::query()
-                    ->where('id_guru', session('id_pengguna'))
-                    ->where('id_kelas', $jadwal->id_kelas)
-                    ->whereDate('tanggal', $tanggal->toDateString())
-                    ->where('jam_ke', $jadwal->jam_ke)
-                    ->exists();
-
-                if ($sudahAdaJurnal) {
-                    return false;
-                }
-
-                Jurnal::query()->create([
-                    'id_guru' => session('id_pengguna'),
-                    'id_kelas' => $jadwal->id_kelas,
-                    'tanggal' => $tanggal->toDateString(),
-                    'jam_ke' => $jadwal->jam_ke,
-                    'materi' => trim($this->materi),
-                    'jumlah_hadir' => 0,
-                    'jumlah_tidak_hadir' => 0,
-                    'status_kehadiran_guru' => $statusKehadiran,
-                    'adalah_pengajuan_izin' => true,
-                    'jenis_izin' => trim($this->jenisIzin),
-                    'catatan' => null,
-                    'status_validasi' => 'Menunggu',
-                    'id_validator' => null,
-                    'tanggal_validasi' => null,
-                    'catatan_validasi' => null,
-                ]);
-
-                return true;
-            });
-
-            if (! $berhasilDibuat) {
-                $this->addError('save', 'Sudah ada jurnal atau pengajuan izin untuk kelas dan jam ini pada tanggal tersebut.');
-                return;
-            }
-        } catch (\Illuminate\Database\QueryException $exception) {
-            if (str_contains($exception->getMessage(), 'jurnal_guru_kelas_tanggal_jam_unique')) {
-                $this->addError('save', 'Sudah ada jurnal atau pengajuan izin untuk kelas dan jam ini pada tanggal tersebut.');
-                return;
-            }
-
-            throw $exception;
-        }
-
-        $this->saved = true;
-        $this->materi = '';
-        $this->jenisIzin = '';
-        $this->modeIzin = false;
-        $this->loadJadwal();
-    }
 };
 ?>
 
 <div>
     <div class="role-page-header">
         <div class="role-page-eyebrow">Jurnal Guru</div>
-        <h1>{{ $modeIzin ? 'Izin Tidak Masuk' : ($editing ? 'Edit Jurnal Mengajar' : 'Input Jurnal Mengajar') }}</h1>
-        <div class="role-page-description">{{ $modeIzin ? 'Ajukan izin dan kirim titipan tugas kepada kelas.' : 'Isi jurnal sesuai jadwal mengajar Anda hari ini.' }}</div>
+        <h1>{{ $editing ? 'Edit Jurnal Mengajar' : 'Input Jurnal Mengajar' }}</h1>
+        <div class="role-page-description">Isi jurnal sesuai jadwal mengajar Anda hari ini.</div>
     </div>
     <div class="role-page-actions mb-3">
     </div>
@@ -2197,7 +1952,7 @@ new class extends Component
     <div class="alert alert-warning" role="alert">{{ $errors->first('jadwal') }}</div>
     @endif
 
-        @if (!$jadwalAktif && !$editing && !$modeIzin)
+        @if (!$jadwalAktif && !$editing)
     <div class="card-custom p-4">
         @if ($semuaJamTerisi)
         <h2 class="h5 fw-bold">Semua jam pelajaran hari ini sudah tercatat</h2>
@@ -2210,13 +1965,11 @@ new class extends Component
         <a href="{{ route('guru-piket') }}" class="btn btn-app-primary">Buka halaman guru piket</a>
         @endif
         @unless ($semuaJamTerisi)
-        <button type="button" wire:click="toggleModeIzin" class="btn btn-outline-danger">Izin Tidak Masuk</button>
+        <a href="{{ route('izin-guru') }}" class="btn btn-outline-danger">Ajukan Izin Guru</a>
         @endunless
     </div>
     @else
-    <div class="mb-3">
-        <button type="button" wire:click="toggleModeIzin" class="btn {{ $modeIzin ? 'btn-outline-secondary' : 'btn-outline-danger' }}">{{ $modeIzin ? 'Kembali ke Input Jurnal' : 'Izin Tidak Masuk' }}</button>
-    </div>
+    <div class="mb-3"><a href="{{ route('izin-guru') }}" class="btn btn-outline-danger">Ajukan Izin Guru</a></div>
     <div class="card-custom p-4">
         <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
             <div>
@@ -2239,7 +1992,7 @@ new class extends Component
             </div>
         </div>
 
-        @if ($jadwalAktif && !$modeIzin)
+        @if ($jadwalAktif)
         <div class="alert alert-info">
             Jam pelajaran mengikuti jadwal: ke-{{ $jamMulaiKe }}{{ $jamSelesaiKe > $jamMulaiKe ? ' sampai ke-'.$jamSelesaiKe : '' }}
             @if ($jamMulaiPembelajaran && $jamSelesaiPembelajaran)
@@ -2251,12 +2004,7 @@ new class extends Component
 
         <form wire:submit="save">
             <div class="row g-3">
-                @if ($modeIzin)
-                <div class="col-md-6"><label for="izin-tanggal" class="form-label fw-semibold">Tanggal izin</label><input id="izin-tanggal" type="date" wire:model.live="tanggal" min="{{ \Carbon\Carbon::now('Asia/Jakarta')->format('Y-m-d') }}" class="form-control">@error('tanggal') <div class="text-danger small mt-1">{{ $message }}</div> @enderror</div>
-                <div class="col-md-6"><label for="izin-jenis" class="form-label fw-semibold">Jenis izin</label><select id="izin-jenis" wire:model="jenisIzin" class="form-select"><option value="">Pilih jenis izin</option><option value="Sakit">Sakit</option><option value="Kepentingan">Kepentingan</option><option value="Lainnya">Lainnya</option></select>@error('jenisIzin') <div class="text-danger small mt-1">{{ $message }}</div> @enderror</div>
-                <div class="col-md-6"><label for="izin-kelas" class="form-label fw-semibold">Kelas</label><select id="izin-kelas" wire:model.live="id_kelas" class="form-select"><option value="">Pilih kelas</option>@foreach ($this->kelasIzinList as $kelas)<option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}</option>@endforeach</select>@error('id_kelas') <div class="text-danger small mt-1">{{ $message }}</div> @enderror</div>
-                <div class="col-md-6"><label class="form-label fw-semibold">Jam pelajaran</label><input type="text" class="form-control" value="{{ $jadwalIzin ? 'Jam ke-'.$jadwalIzin->jam_ke.' ('.substr($jadwalIzin->jam_mulai, 0, 5).'–'.substr($jadwalIzin->jam_selesai, 0, 5).')' : 'Pilih kelas' }}" readonly></div>
-                @elseif (!$editing)
+                @if (!$editing)
                 <div class="col-md-6">
                     <label for="jurnal-kelas" class="form-label fw-semibold">Kelas</label>
                     <select id="jurnal-kelas" wire:model.live="id_kelas" class="form-select">
@@ -2269,12 +2017,11 @@ new class extends Component
                 @endif
 
                 <div class="col-12">
-                    <label for="jurnal-materi" class="form-label fw-semibold">{{ $modeIzin ? 'Titipan tugas untuk kelas' : 'Materi pembelajaran' }}</label>
-                    <textarea id="jurnal-materi" wire:model="materi" rows="4" maxlength="1000" class="form-control" placeholder="{{ $modeIzin ? 'Tuliskan tugas atau instruksi untuk kelas' : 'Tuliskan materi yang diajarkan' }}"></textarea>
+                    <label for="jurnal-materi" class="form-label fw-semibold">Materi pembelajaran</label>
+                    <textarea id="jurnal-materi" wire:model="materi" rows="4" maxlength="1000" class="form-control" placeholder="Tuliskan materi yang diajarkan"></textarea>
                     @error('materi') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                @if (!$modeIzin)
                 <div class="col-12">
                     <label class="form-label fw-semibold d-block mb-2">Kehadiran siswa</label>
                     @error('absensi') <div class="text-danger small mb-2">{{ $message }}</div> @enderror
@@ -2289,7 +2036,7 @@ new class extends Component
                                 <strong class="d-block">Kehadiran siswa</strong>
                                 <span class="text-muted small">{{ count($siswa) }} siswa · {{ $jumlahHadirRingkasan }} hadir · {{ $jumlahTidakHadirRingkasan }} perlu dicatat</span>
                             </span>
-                            <span class="btn btn-sm btn-outline-primary">Lihat data siswa</span>
+                            <span class="btn btn-sm btn-outline-primary">Lihat status</span>
                         </span>
                     </button>
                     @if ($showAbsensiSiswa)
@@ -2298,7 +2045,7 @@ new class extends Component
                             <div class="card-header-custom d-flex flex-wrap justify-content-between align-items-center gap-3 px-4 py-3">
                                 <div>
                                     <h3 id="daftar-siswa-title" class="h6 mb-0">Daftar siswa dan status</h3>
-                                    <span class="small text-muted fw-normal">{{ count($siswa) }} siswa · cari nama, atur status, dan isi keterangan</span>
+                                    <span class="small text-muted fw-normal">{{ count($siswa) }} siswa · status hanya dapat dilihat di halaman jurnal</span>
                                 </div>
                                 <button type="button" class="btn btn-sm fw-bold px-3 py-2" style="color:#1d4ed8;background:#fff;border:1px solid #bfdbfe;border-radius:9px" wire:click="tutupAbsensiSiswa">Tutup Daftar</button>
                             </div>
@@ -2314,21 +2061,11 @@ new class extends Component
                                         <tr class="align-middle" wire:key="input-jurnal-siswa-{{ $siswaItem->id_siswa }}">
                                             <td>{{ $siswaItem->nama_siswa }}</td>
                                             <td>
-                                                @if ($statusTerkunci)
-                                                <span class="badge bg-warning text-dark">{{ $absensi[$siswaItem->id_siswa] ?? 'Hadir' }} · dari guru piket</span>
-                                                @else
-                                                <select wire:change="setAbsensiSiswa({{ $siswaItem->id_siswa }}, $event.target.value)" class="form-select form-select-sm" aria-label="Status kehadiran {{ $siswaItem->nama_siswa }}">
-                                                    @foreach (['Hadir', 'Izin', 'Sakit', 'Alpa'] as $status)
-                                                    <option value="{{ $status }}" @selected(($absensi[$siswaItem->id_siswa] ?? 'Hadir') === $status)>{{ $status }}</option>
-                                                    @endforeach
-                                                </select>
-                                                @endif
+                                                <span class="badge bg-secondary">{{ $absensi[$siswaItem->id_siswa] ?? 'Belum tersedia' }}</span>
                                             </td>
                                             <td>
                                                 @if ($statusTerkunci)
                                                 <span>{{ $keteranganTambahan[$siswaItem->id_siswa] ?: '—' }}</span>
-                                                @elseif ($this->butuhKeterangan($siswaItem->id_siswa))
-                                                <input type="text" wire:model="keteranganTambahan.{{ $siswaItem->id_siswa }}" class="form-control form-control-sm" placeholder="Keterangan wajib" aria-label="Keterangan {{ $siswaItem->nama_siswa }}">
                                                 @else
                                                 <span class="text-muted">—</span>
                                                 @endif
@@ -2348,17 +2085,15 @@ new class extends Component
                 </div>
                 @endif
 
-                @if (!$modeIzin)
                 <div class="col-12">
                     <label for="jurnal-catatan" class="form-label fw-semibold">Catatan (opsional)</label>
                     <textarea id="jurnal-catatan" wire:model="catatan" rows="2" class="form-control" placeholder="Catatan tambahan"></textarea>
                 </div>
-                @endif
 
                 <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-3">
-                    @if (!$modeIzin)<button type="button" wire:click="bukaReview" class="btn btn-outline-primary" @disabled(!count($siswa))>Tinjau jurnal</button>@endif
-                    <button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled" wire:target="save" @disabled(!$modeIzin && (!count($siswa) || !$jadwalAktif))>
-                        <span wire:loading.remove wire:target="save">{{ $modeIzin ? 'Kirim Pengajuan Izin' : ($editing ? 'Simpan Perubahan' : 'Simpan Jurnal') }}</span>
+                    <button type="button" wire:click="bukaReview" class="btn btn-outline-primary" @disabled(!count($siswa))>Tinjau jurnal</button>
+                    <button type="submit" class="btn btn-app-primary" wire:loading.attr="disabled" wire:target="save" @disabled(!count($siswa) || !$jadwalAktif)>
+                        <span wire:loading.remove wire:target="save">{{ $editing ? 'Simpan Perubahan' : 'Simpan Jurnal' }}</span>
                         <span wire:loading wire:target="save">Menyimpan…</span>
                     </button>
                 </div>
