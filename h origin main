@@ -1,0 +1,12 @@
+* [33m048102a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mpaket-2-jurnal-riwayat[m[33m, [m[1;31morigin/paket-2-jurnal-riwayat[m[33m)[m Orang 2: revisi input jurnal dan riwayat
+* [33me4c71a2[m Orang 2: terapkan grouping jurnal di riwayat
+*   [33ma0e0607[m Merge remote-tracking branch 'origin/main' into paket-2-jurnal-riwayat
+[32m|[m[33m\[m  
+[32m|[m * [33mdbd3f39[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Orang 5: cleanup backup files, duplicate layout, root junk, worktrees
+[32m|[m * [33m08c4838[m Orang 5: NavMenu, routes, accordion layout, halaman-detail, dashboard/notifikasi Phase 3
+* [33m|[m [33m0428efc[m paket orang 2 refisi
+[33m|[m[33m/[m  
+* [33m980b290[m[33m ([m[1;32mmain[m[33m)[m revisi jam otomatis dikit
+* [33m92d4812[m revisi dikit
+* [33mdc84a09[m Memperbaiki alur dispensasi dan izin siswa, tampilan admin, wakasek, sekretaris dan guru/gurupiket. Merubah jam di input jurnal guru
+* [33m9ac72a3[m small changes
