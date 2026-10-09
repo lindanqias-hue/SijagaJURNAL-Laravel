@@ -11,6 +11,12 @@
  * Prop tidak boleh diubah tanpa memeriksa semua pemakaian:
  *  - ⚡admin.blade.php (2 pemakaian: form create/edit)
  *  - ⚡wakasek.blade.php (2 pemakaian: detail rekap, detail jurnal)
+ *  - ⚡guru-piket.blade.php (1 pemakaian: daftar jadwal)
+ *  - ⚡input-jurnal.blade.php (2 pemakaian: absensi siswa, review)
+ *  - ⚡riwayat.blade.php (0 - pindah ke jurnal-detail page)
+ *  - ⚡dispensasi.blade.php (0 - pindah ke dispensasi-detail page)
+ *  - ⚡piket-kehadiran.blade.php (0 - halaman baru)
+ *  - ⚡izin-guru.blade.php (0 - halaman baru)
  */
 @endphp
 

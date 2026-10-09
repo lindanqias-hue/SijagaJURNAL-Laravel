@@ -83,24 +83,51 @@
         </div>
     </main>
     @else
+    @php
+    $role = session('role', 'guru');
+    $isGuruPiket = ($role === 'guru' && session('id_pengguna'))
+        ? app(\App\Services\GuruPiketAccessService::class)->bertugasHariIni((int) session('id_pengguna'))
+        : false;
+    $navMenu = app(\App\Support\NavMenu::class);
+    $groups = $navMenu->untukRole($role, $isGuruPiket);
+    $flat = $navMenu->flatten($groups);
+    $currentRoute = request()->route()?->getName();
+    $isSectionPage = $currentRoute !== null
+        && collect($flat)->where('route', $currentRoute)->where('anchor', '!=', '')->isNotEmpty();
+
+    $isItemActive = static function (array $item) use ($role): bool {
+        $isActive = request()->routeIs($item['route'])
+            && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
+        if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
+            $isActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
+        }
+
+        return $isActive;
+    };
+
+    $topbarTitle = 'SIJAGA';
+    foreach ($flat as $menuItem) {
+        if ($navMenu->url($menuItem) !== null && $isItemActive($menuItem)) {
+            $topbarTitle = $menuItem['label'];
+
+            break;
+        }
+    }
+    @endphp
     <div class="app-wrapper">
 
-        {{-- TOPBAR MOBILE --}}
-        <div class="topbar-mobile d-lg-none">
-            <button class="btn-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarNav">
+        {{-- TOPBAR (semua breakpoint) --}}
+        <header class="app-topbar">
+            <button class="btn-toggle d-lg-none" type="button" data-bs-toggle="offcanvas"
+                data-bs-target="#sidebarNav" aria-label="Buka navigasi">
                 &#9776;
             </button>
-            <div class="sidebar-logo">
-                <img src="{{ asset('assets/logo-sijaga.png') }}" alt="Logo SIJAGA">
-            </div>
-            <div class="brand-mini">
-                SIJAGA
-            </div>
-            <div class="layout-clock layout-clock-mobile" aria-label="Jam dan tanggal saat ini">
+            <div class="topbar-title" data-topbar-title>{{ $topbarTitle }}</div>
+            <div class="layout-clock" aria-label="Jam dan tanggal saat ini">
                 <time class="layout-clock-time" data-layout-clock-time></time>
                 <time class="layout-clock-date" data-layout-clock-date></time>
             </div>
-        </div>
+        </header>
 
         {{-- SIDEBAR --}}
         <aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebarNav">
@@ -125,108 +152,41 @@
                     aria-label="Close"></button>
             </div>
 
-            <div class="layout-clock layout-clock-desktop" aria-label="Jam dan tanggal saat ini">
-                <time class="layout-clock-time" data-layout-clock-time></time>
-                <time class="layout-clock-date" data-layout-clock-date></time>
-            </div>
-
-{{-- NAVIGASI SIDEBAR — sumber tunggal: NavMenu --}}
-        <nav class="sidebar-nav" x-data="navAccordion()" x-init="restore()">
-            @php
-            $role = session('role', 'guru');
-            $isGuruPiket = ($role === 'guru' && session('id_pengguna'))
-                ? app(\App\Services\GuruPiketAccessService::class)->bertugasHariIni((int) session('id_pengguna'))
-                : false;
-            $groups = app(\App\Support\NavMenu::class)->untukRole($role, $isGuruPiket);
-            @endphp
-
-            @foreach ($groups as $groupIndex => $group)
-                @php
-                // Item langsung (Dashboard) tanpa kelompok.
-                $isDirect = empty($group['items']) && ! empty($group['route']);
-                $groupKey = $group['anchor'] ?? $group['label'];
-                $groupItems = $group['items'] ?? [];
-                // Kelompok terbuka kalau ada item aktif di dalamnya.
-                $hasActive = false;
-                foreach ($groupItems as $gi) {
-                    $u = app(\App\Support\NavMenu::class)->url($gi);
-                    if ($u !== null) {
-                        $isActive = request()->routeIs($gi['route'])
-                            && in_array($gi['anchor'] ?? '', ['', 'dashboard'], true);
-                        if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
-                            $isActive = ($gi['anchor'] ?? '') === request()->query('menu', 'dashboard');
-                        }
-                        if ($isActive) { $hasActive = true; break; }
-                    }
-                }
-                @endphp
-
-                @if ($isDirect)
+            {{-- NAVIGASI SIDEBAR — sumber tunggal: NavMenu (flat, tanpa accordion) --}}
+            <nav class="sidebar-nav" aria-label="Navigasi utama">
+                @foreach ($groups as $group)
                     @php
-                    $url = app(\App\Support\NavMenu::class)->url($group);
-                    $isActive = request()->routeIs($group['route'])
-                        && in_array($group['anchor'] ?? '', ['', 'dashboard'], true);
-                    if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
-                        $isActive = ($group['anchor'] ?? '') === request()->query('menu', 'dashboard');
-                    }
+                    $isDirect = empty($group['items']) && ! empty($group['route']);
+                    $groupItems = $group['items'] ?? [];
                     @endphp
-                    @if ($url !== null)
-                    <a href="{{ $url }}"
-                        class="nav-link {{ $isActive ? 'active' : '' }}"
-                        data-nav-anchor="{{ $group['anchor'] ?? '' }}"
-                        data-route-active="{{ $isActive ? 'true' : 'false' }}">
-                        <span aria-hidden="true" style="font-size:15px; width:20px; text-align:center;"></span>
-                        {{ $group['label'] }}
-                        <span class="dot" @if (!$isActive) hidden @endif></span>
-                    </a>
-                    @endif
-                @else
-                <div class="nav-group" data-group="{{ $groupKey }}">
-                    <button type="button"
-                        class="nav-group-header"
-                        :class="{ 'is-open': openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }} }"
-                        @click="toggleGroup('{{ $groupKey }}')"
-                        aria-expanded="{{ $hasActive ? 'true' : 'false' }}"
-                        aria-controls="group-{{ $groupIndex }}">
-                        <span class="nav-group-icon">{{ $group['icon'] ?? '•' }}</span>
-                        <span class="nav-group-label">{{ $group['label'] }}</span>
-                        <span class="nav-group-chevron" :class="{ 'is-rotated': openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }} }">‹</span>
-                    </button>
-                    <div class="nav-group-body" id="group-{{ $groupIndex }}"
-                         x-show="openGroups['{{ $groupKey }}'] ?? {{ $hasActive ? 'true' : 'false' }}"
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 max-h-0"
-                         x-transition:enter-end="opacity-100 max-h-9999"
-                         x-transition:leave="transition ease-in duration-150"
-                         x-transition:leave-start="opacity-100 max-h-9999"
-                         x-transition:leave-end="opacity-0 max-h-0">
+
+                    @if ($isDirect)
+                        @php $url = $navMenu->url($group); @endphp
+                        @if ($url !== null)
+                        <a href="{{ $url }}"
+                            class="nav-link {{ $isItemActive($group) ? 'active' : '' }}"
+                            data-nav-anchor="{{ $group['anchor'] ?? '' }}"
+                            data-route-active="{{ $isItemActive($group) ? 'true' : 'false' }}">
+                            <span class="nav-icon">{!! \App\Support\NavIcon::svg($group['icon'] ?? 'dashboard') !!}</span>
+                            {{ $group['label'] }}
+                        </a>
+                        @endif
+                    @else
+                        <div class="nav-section-label">{{ $group['label'] }}</div>
                         @foreach ($groupItems as $item)
-                            @php
-                            $url = app(\App\Support\NavMenu::class)->url($item);
-                            $isActive = false;
-                            if ($url !== null) {
-                                $isActive = request()->routeIs($item['route'])
-                                    && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
-                                if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
-                                    $isActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
-                                }
-                            }
-                            @endphp
+                            @php $url = $navMenu->url($item); @endphp
                             @if ($url !== null)
                             <a href="{{ $url }}"
-                                class="nav-link nav-link-sub {{ $isActive ? 'active' : '' }}"
+                                class="nav-link {{ $isItemActive($item) ? 'active' : '' }}"
                                 data-nav-anchor="{{ $item['anchor'] ?? '' }}"
-                                data-route-active="{{ $isActive ? 'true' : 'false' }}">
-                                <span aria-hidden="true" style="font-size:13px; width:16px; text-align:center;"></span>
+                                data-route-active="{{ $isItemActive($item) ? 'true' : 'false' }}">
+                                <span class="nav-icon">{!! \App\Support\NavIcon::svg($item['icon'] ?? 'circle') !!}</span>
                                 {{ $item['label'] }}
-                                <span class="dot" @if (!$isActive) hidden @endif></span>
                             </a>
                             @endif
                         @endforeach
-                    </div>
-                </div>
-                @endif
-            @endforeach
+                    @endif
+                @endforeach
             </nav>
 
             {{-- USER --}}
@@ -279,22 +239,13 @@
         {{-- CONTENT --}}
         <div class="content-col" style="flex:1; min-width:0;">
             <main class="main-content">
+                @if ($isSectionPage)
                 <nav class="section-tabs d-lg-none" aria-label="Navigasi halaman" data-section-nav>
                     <div class="tab-pill-group">
-                        @php
-                        $flat = app(\App\Support\NavMenu::class)->flatten($groups);
-                        @endphp
                         @foreach ($flat as $item)
                             @php
-                            $url = app(\App\Support\NavMenu::class)->url($item);
-                            $isActive = false;
-                            if ($url !== null) {
-                                $isActive = request()->routeIs($item['route'])
-                                    && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
-                                if ($role === 'sekretaris' && request()->routeIs('sekretaris')) {
-                                    $isActive = ($item['anchor'] ?? '') === request()->query('menu', 'dashboard');
-                                }
-                            }
+                            $url = $navMenu->url($item);
+                            $isActive = $url !== null && $isItemActive($item);
                             $navPath = $url !== null ? parse_url($url, PHP_URL_PATH) : '';
                             @endphp
                             @if ($url !== null)
@@ -311,6 +262,7 @@
                         @endforeach
                     </div>
                 </nav>
+                @endif
                 {{ $slot }}
             </main>
         </div>
@@ -321,41 +273,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     @livewireScripts
-    
-    <script>
-        // Accordion state navigator sidebar — simpan di localStorage per role.
-        function navAccordion() {
-            return {
-                openGroups: {},
-                storageKey() {
-                    const role = document.querySelector('meta[name="role"]')?.content
-                        || (window.SIJAGA_ROLE || 'guru');
-                    return 'sijaga:nav:' + role;
-                },
-                restore() {
-                    try {
-                        const raw = localStorage.getItem(this.storageKey());
-                        if (raw) {
-                            this.openGroups = JSON.parse(raw);
-                        }
-                    } catch (e) { /* ignore */ }
-                },
-                toggleGroup(key) {
-                    if (this.openGroups[key]) {
-                        delete this.openGroups[key];
-                    } else {
-                        this.openGroups[key] = true;
-                    }
-                    this.persist();
-                },
-                persist() {
-                    try {
-                        localStorage.setItem(this.storageKey(), JSON.stringify(this.openGroups));
-                    } catch (e) { /* ignore */ }
-                },
-            };
-        }
-    </script>
+
     <script>
         (() => {
             const timeElements = document.querySelectorAll('[data-layout-clock-time]');
@@ -390,6 +308,64 @@
 
             updateClock();
             window.setInterval(updateClock, 1000);
+        })();
+
+        (() => {
+            const nav = document.querySelector('.sidebar-nav');
+
+            if (!nav) {
+                return;
+            }
+
+            const links = [...nav.querySelectorAll('.nav-link')];
+            const titleEl = document.querySelector('[data-topbar-title]');
+
+            const syncTitle = () => {
+                if (!titleEl) {
+                    return;
+                }
+
+                const override = document.querySelector('[data-page-title]');
+                const active = nav.querySelector('.nav-link.active');
+                const label = override
+                    ? override.textContent.trim()
+                    : (active ? active.textContent.trim() : '');
+
+                titleEl.textContent = label || 'SIJAGA';
+            };
+
+            const syncActiveLink = () => {
+                const currentHash = decodeURIComponent(window.location.hash.slice(1));
+                const hashLink = currentHash
+                    ? links.find((link) => link.dataset.navAnchor === currentHash)
+                    : null;
+                const activeLink = hashLink ?? links.find((link) => link.dataset.routeActive === 'true');
+
+                links.forEach((link) => {
+                    link.classList.toggle('active', link === activeLink);
+                });
+
+                syncTitle();
+            };
+
+            syncActiveLink();
+            window.addEventListener('hashchange', syncActiveLink);
+            window.addEventListener('pageshow', syncActiveLink);
+            document.addEventListener('livewire:navigated', syncActiveLink);
+            document.addEventListener('livewire:init', () => {
+                Livewire.on('sekretaris-menu-berubah', ({
+                    section
+                }) => {
+                    links.forEach((link) => {
+                        const isActive = link.dataset.navAnchor === section;
+
+                        link.classList.toggle('active', isActive);
+                        link.dataset.routeActive = isActive ? 'true' : 'false';
+                    });
+
+                    syncTitle();
+                });
+            });
         })();
 
         (() => {
@@ -432,58 +408,6 @@
             window.addEventListener('hashchange', syncActiveLink);
             window.addEventListener('pageshow', syncActiveLink);
             document.addEventListener('livewire:navigated', syncActiveLink);
-        })();
-
-        (() => {
-            const nav = document.querySelector('.sidebar-nav');
-
-            if (!nav) {
-                return;
-            }
-
-            const links = [...nav.querySelectorAll('.nav-link')];
-
-            const syncActiveLink = () => {
-                const currentHash = decodeURIComponent(window.location.hash.slice(1));
-                const hashLink = currentHash ?
-                    links.find((link) => link.dataset.navAnchor === currentHash) :
-                    null;
-                const activeLink = hashLink ?? links.find((link) => link.dataset.routeActive === 'true');
-
-                links.forEach((link) => {
-                    const isActive = link === activeLink;
-
-                    link.classList.toggle('active', isActive);
-                    const dot = link.querySelector('.dot');
-
-                    if (dot) {
-                        dot.hidden = !isActive;
-                    }
-                });
-            };
-
-            syncActiveLink();
-            window.addEventListener('hashchange', syncActiveLink);
-            window.addEventListener('pageshow', syncActiveLink);
-            document.addEventListener('livewire:navigated', syncActiveLink);
-            document.addEventListener('livewire:init', () => {
-                Livewire.on('sekretaris-menu-berubah', ({
-                    section
-                }) => {
-                    links.forEach((link) => {
-                        const isActive = link.dataset.navAnchor === section;
-
-                        link.classList.toggle('active', isActive);
-                        link.dataset.routeActive = isActive ? 'true' : 'false';
-
-                        const dot = link.querySelector('.dot');
-
-                        if (dot) {
-                            dot.hidden = !isActive;
-                        }
-                    });
-                });
-            });
         })();
     </script>
 

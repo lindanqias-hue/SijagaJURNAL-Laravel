@@ -390,23 +390,28 @@ new class extends Component
     $idGuru = session('id_pengguna');
     $hariIni = now('Asia/Jakarta')->locale('id')->translatedFormat('l');
 
+    $tanggalIni = now('Asia/Jakarta')->toDateString();
+
     // Kelas kosong: jadwal hari ini tanpa jurnal.
     $jadwalTanpaJurnal = collect();
     if ($idGuru) {
         $jadwalHariIni = \App\Models\Jadwal::where('id_guru', $idGuru)
             ->where('hari', $hariIni)
-            ->whereHas('ikelas')
-            ->with('ikelas')
+            ->whereHas('kelas')
+            ->with('kelas')
             ->orderBy('jam_ke')
             ->get();
 
+        // Kunci: kelas + jam_ke (satu baris jurnal per jadwal).
         $jurnalHariIni = \App\Models\Jurnal::where('id_guru', $idGuru)
-            ->whereDate('barang', now('Asia/Jakarta')->toDateString())
-            ->pluck('id_jadwal')
-            ->toArray();
+            ->whereDate('tanggal', $tanggalIni)
+            ->where('adalah_pengajuan_izin', false)
+            ->get()
+            ->map(fn ($jurnal) => $jurnal->id_kelas.'-'.$jurnal->jam_ke)
+            ->all();
 
         $jadwalTanpaJurnal = $jadwalHariIni->filter(function ($j) use ($jurnalHariIni) {
-            return ! in_array($j->id_jadwal, $jurnalHariIni, true);
+            return ! in_array($j->id_kelas.'-'.$j->jam_ke, $jurnalHariIni, true);
         });
     }
 
@@ -458,8 +463,8 @@ new class extends Component
     @php
         $nav = app(\App\Support\NavMenu::class);
         $extraMenus = [
-            ['label' => 'Izin Guru', 'route' => 'izin-guru', 'component' => 'izin-guru', 'icon' => '📝', 'desc' => 'Ajukan izin atau lihat riwayat.'],
-            ['label' => 'Kehadiran Siswa', 'route' => 'piket-kehadiran', 'component' => 'piket-kehadiran', 'icon' => '✅', 'desc' => 'Pantau kehadiran siswa kelas yang dipiket.'],
+            ['label' => 'Izin Guru', 'route' => 'izin-guru', 'component' => 'izin-guru', 'icon' => 'pencil-square', 'desc' => 'Ajukan izin atau lihat riwayat.'],
+            ['label' => 'Kehadiran Siswa', 'route' => 'piket-kehadiran', 'component' => 'piket-kehadiran', 'icon' => 'list-check', 'desc' => 'Pantau kehadiran siswa kelas yang dipiket.'],
         ];
     @endphp
 
@@ -470,7 +475,7 @@ new class extends Component
         @if ($u !== null)
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ $u }}" class="role-menu-card">
-                <span class="role-menu-icon">{{ $m['icon'] }}</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg($m['icon']) !!}</span>
                 <h2 class="h5 fw-bold">{{ $m['label'] }}</h2>
                 <p>{{ $m['desc'] }}</p>
                 <span class="fw-bold text-primary">Buka <span aria-hidden="true">→</span></span>
@@ -485,7 +490,7 @@ new class extends Component
     <div class="row g-3 my-3" aria-label="Menu Guru">
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('dashboard') }}#jadwal-saya" class="role-menu-card">
-                <span class="role-menu-icon">&#128197;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('calendar-date') !!}</span>
                 <h2 class="h5 fw-bold">Jadwal Saya</h2>
                 <p>Lihat jadwal mengajar dan tugas kelas hari ini.</p>
                 <span class="fw-bold text-primary">Buka jadwal <span aria-hidden="true">→</span></span>
@@ -493,7 +498,7 @@ new class extends Component
         </div>
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('input-jurnal') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#9998;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('pencil') !!}</span>
                 <h2 class="h5 fw-bold">Input Jurnal</h2>
                 <p>Isi jurnal pembelajaran untuk kelas yang Anda ajar.</p>
                 <span class="fw-bold text-primary">Buka input jurnal <span aria-hidden="true">→</span></span>
@@ -501,7 +506,7 @@ new class extends Component
         </div>
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('riwayat') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#128203;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('clock-history') !!}</span>
                 <h2 class="h5 fw-bold">Riwayat Saya</h2>
                 <p>Tinjau jurnal yang pernah dikirim beserta status validasinya.</p>
                 <span class="fw-bold text-primary">Buka riwayat <span aria-hidden="true">→</span></span>
@@ -509,7 +514,7 @@ new class extends Component
         </div>
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('notifikasi') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#128276;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('bell') !!}</span>
                 <h2 class="h5 fw-bold">Notifikasi</h2>
                 <p>Lihat pemberitahuan dispensasi yang berkaitan dengan jadwal Anda.</p>
                 <span class="fw-bold text-primary">Buka notifikasi <span aria-hidden="true">→</span></span>
@@ -518,7 +523,7 @@ new class extends Component
         @if ($this->isGuruPiket)
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('dispensasi') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#128221;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('clipboard-check') !!}</span>
                 <h2 class="h5 fw-bold">Izin & Dispensasi</h2>
                 <p>Buat dan pantau pengajuan izin atau dispensasi siswa.</p>
                 <span class="fw-bold text-primary">Buka dispensasi <span aria-hidden="true">→</span></span>
@@ -526,7 +531,7 @@ new class extends Component
         </div>
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('guru-piket') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#128101;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('shield') !!}</span>
                 <h2 class="h5 fw-bold">Piket Hari Ini</h2>
                 <p>Pantau kehadiran guru dan koordinasi tugas piket.</p>
                 <span class="fw-bold text-primary">Buka piket <span aria-hidden="true">→</span></span>
@@ -534,7 +539,7 @@ new class extends Component
         </div>
         <div class="col-12 col-sm-6 col-xl-4">
             <a href="{{ route('rekap-dispensasi') }}" class="role-menu-card">
-                <span class="role-menu-icon">&#128202;</span>
+                <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('bar-chart') !!}</span>
                 <h2 class="h5 fw-bold">Rekapan</h2>
                 <p>Lihat rekap dispensasi yang sudah dicatat.</p>
                 <span class="fw-bold text-primary">Buka rekapan <span aria-hidden="true">→</span></span>

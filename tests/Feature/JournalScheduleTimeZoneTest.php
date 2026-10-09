@@ -71,7 +71,24 @@ class JournalScheduleTimeZoneTest extends TestCase
             ->assertSee('XI RPL 2')
             ->assertSee('Konsentrasi RPL')
             ->assertSee('11:10')
-            ->call('bukaAbsensiSiswa')
-            ->assertSee('MARVEL MAULANA SAPUTRA');
+            ->assertSee('Diisi guru pengampu')
+            ->assertSeeHtml('aria-label="Status kehadiran');
+    }
+
+    public function test_journal_form_kehadiran_read_only_for_guru_piket(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-28 08:00:00', 'Asia/Jakarta'));
+        $this->seed(DatabaseSeeder::class);
+
+        $guru = Pengguna::query()->where('nip', 'GURU003')->firstOrFail();
+        $this->withSession([
+            'id_pengguna' => $guru->id_pengguna,
+            'role' => 'guru',
+            'is_guru_piket' => true,
+        ]);
+
+        Livewire::test('input-jurnal')
+            ->assertSee('Dikelola guru piket')
+            ->assertSee('data dari piket — read-only');
     }
 }

@@ -226,13 +226,16 @@ new class extends Component
 
     public function getPengajuanIzinDisetujuiProperty()
     {
-        return Jurnal::query()
+        if (! class_exists(\App\Models\IzinGuru::class) || ! session('id_kelas')) {
+            return collect();
+        }
+
+        return \App\Models\IzinGuru::query()
             ->with(['guru', 'kelas', 'validator'])
             ->where('id_kelas', session('id_kelas'))
-            ->where('adalah_pengajuan_izin', true)
-            ->where('status_validasi', 'Divalidasi')
+            ->where('status', 'Disetujui')
             ->orderByDesc('tanggal')
-            ->orderByDesc('id_jurnal')
+            ->orderByDesc('id_izin')
             ->get();
     }
 
@@ -536,7 +539,7 @@ new class extends Component
         <div class="row g-3">
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('data-kelas')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#127891;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('building') !!}</span>
                     <h2 class="h5 fw-bold">Data Kelas</h2>
                     <p>Lihat informasi kelas, daftar siswa, dan jadwal belajar kelas yang menjadi tanggung jawab Anda.</p>
                     <span class="fw-bold text-primary">Buka data kelas <span aria-hidden="true">→</span></span>
@@ -544,7 +547,7 @@ new class extends Component
             </div>
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('validasi-jurnal')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#9989;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('check2-square') !!}</span>
                     <h2 class="h5 fw-bold">Validasi Jurnal</h2>
                     <p>{{ $this->jumlahMenunggu }} jurnal menunggu konfirmasi setelah jam pelajaran selesai.</p>
                     <span class="fw-bold text-primary">Buka validasi <span aria-hidden="true">→</span></span>
@@ -552,7 +555,7 @@ new class extends Component
             </div>
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('kehadiran')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#9989;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('check-circle') !!}</span>
                     <h2 class="h5 fw-bold">Kehadiran</h2>
                     <p>Pantau status hadir, izin, sakit, dan tanpa keterangan berdasarkan jurnal kelas.</p>
                     <span class="fw-bold text-primary">Buka kehadiran <span aria-hidden="true">→</span></span>
@@ -560,7 +563,7 @@ new class extends Component
             </div>
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('tugas-guru')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#128221;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('clipboard-check') !!}</span>
                     <h2 class="h5 fw-bold">Tugas Guru Tidak Hadir</h2>
                     <p>{{ $this->pengajuanIzinDisetujui->count() }} tugas dari pengajuan izin guru yang sudah disetujui Wakasek.</p>
                     <span class="fw-bold text-primary">Buka tugas guru <span aria-hidden="true">→</span></span>
@@ -568,7 +571,7 @@ new class extends Component
             </div>
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('surat-dispensasi')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#128196;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('envelope') !!}</span>
                     <h2 class="h5 fw-bold">Surat Dispensasi</h2>
                     <p>{{ $this->suratDispensasiDisetujui->count() }} surat siswa kelas ini disetujui. Pilih tanggal lain untuk melihat arsip surat.</p>
                     <span class="fw-bold text-primary">Buka surat dispensasi <span aria-hidden="true">→</span></span>
@@ -576,7 +579,7 @@ new class extends Component
             </div>
             <div class="col-12 col-md-6">
                 <button type="button" wire:click="bukaMenu('rekap')" class="role-menu-card w-100 text-start">
-                    <span class="role-menu-icon">&#128202;</span>
+                    <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('bar-chart') !!}</span>
                     <h2 class="h5 fw-bold">Rekap</h2>
                     <p>Lihat hasil konfirmasi dan ringkasan jurnal kelas yang sudah diproses.</p>
                     <span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span>
@@ -909,7 +912,7 @@ new class extends Component
                     <thead><tr><th>Tanggal</th><th>Jam</th><th>Guru</th><th>Jenis izin</th><th>Titipan tugas</th><th>Validasi Wakasek</th></tr></thead>
                     <tbody>
                         @forelse ($this->pengajuanIzinDisetujui as $izin)
-                        <tr wire:key="sekretaris-izin-{{ $izin->id_jurnal }}"><td>{{ $izin->tanggal?->format('d/m/Y') }}</td><td>Jam {{ $izin->jam_ke }}</td><td>{{ $izin->guru?->nama ?? '-' }}</td><td>{{ $izin->jenis_izin }}</td><td>{{ $izin->materi }}</td><td>{{ $izin->validator?->nama ?? 'Disetujui' }}</td></tr>
+                        <tr wire:key="sekretaris-izin-{{ $izin->id_izin }}"><td>{{ $izin->tanggal?->format('d/m/Y') }}</td><td>Jam {{ $izin->jam_ke_mulai }}&ndash;{{ $izin->jam_ke_selesai }}</td><td>{{ $izin->guru?->nama ?? '-' }}</td><td>{{ $izin->jenis_izin }}</td><td>@foreach (($izin->tugas_per_jam ?? []) as $jam => $tugas)Jam {{ $jam }}: {{ $tugas }}<br>@endforeach</td><td>{{ $izin->validator?->nama ?? 'Disetujui' }}</td></tr>
                         @empty
                         <tr><td colspan="6" class="text-center text-muted py-4">Belum ada tugas dari pengajuan izin guru yang disetujui.</td></tr>
                         @endforelse

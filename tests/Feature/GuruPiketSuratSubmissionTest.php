@@ -39,8 +39,8 @@ class GuruPiketSuratSubmissionTest extends TestCase
         ]);
 
         $component = Livewire::test('dispensasi')
-            ->set('id_kelas', $fixture['idKelas'])
-            ->set('siswaTerpilih', $fixture['idSiswa'])
+            ->set('id_kelas_terpilih', [(string) $fixture['idKelas']])
+            ->set('siswaTerpilih', [(int) $fixture['idKelas'] => $fixture['idSiswa']])
             ->set('jenis_dispensasi', 'Sehari Penuh')
             ->set('idWakasek', (string) $fixture['wakasek']->id_pengguna)
             ->set('alasan', 'Kegiatan sekolah di luar')
@@ -84,8 +84,8 @@ class GuruPiketSuratSubmissionTest extends TestCase
         ]);
 
         Livewire::test('dispensasi')
-            ->set('id_kelas', $fixture['idKelas'])
-            ->set('siswaTerpilih', [$fixture['idSiswa'][0]])
+            ->set('id_kelas_terpilih', [(string) $fixture['idKelas']])
+            ->set('siswaTerpilih', [(int) $fixture['idKelas'] => [$fixture['idSiswa'][0]]])
             ->set('jenisSurat', 'Izin')
             ->set('alasan', 'Surat izin orang tua')
             ->set('lampiran', UploadedFile::fake()->image('izin.png', 10, 10))
@@ -129,14 +129,14 @@ class GuruPiketSuratSubmissionTest extends TestCase
         ]);
 
         Livewire::test('dispensasi')
-            ->set('id_kelas', $fixture['idKelas'])
+            ->set('id_kelas_terpilih', [(string) $fixture['idKelas']])
             ->set('jenis_dispensasi', 'Per Jam')
             ->assertSet('jam_ke_mulai', 1)
             ->assertSet('jam_ke_selesai', 1)
             ->set('jam_ke_mulai', 2)
             ->assertSet('jam_mulai', '07:40:00')
             ->assertSee('07:40')
-            ->set('siswaTerpilih', [$fixture['idSiswa'][0]])
+            ->set('siswaTerpilih', [(int) $fixture['idKelas'] => [$fixture['idSiswa'][0]]])
             ->set('idWakasek', (string) $fixture['wakasek']->id_pengguna)
             ->set('alasan', 'Keluar sekolah untuk kegiatan')
             ->set('lampiran', UploadedFile::fake()->image('bukti-per-jam.png', 10, 10))
@@ -178,7 +178,7 @@ class GuruPiketSuratSubmissionTest extends TestCase
         ]);
 
         $component = Livewire::test('dispensasi')
-            ->set('id_kelas', $fixture['idKelas']);
+            ->set('id_kelas_terpilih', [(string) $fixture['idKelas']]);
 
         $jadwalPertama = collect($component->get('jadwalHariIni'))->first();
         $this->assertSame('Guru Piket', data_get($jadwalPertama, 'nama_guru'));

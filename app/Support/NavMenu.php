@@ -21,8 +21,9 @@ use Livewire\Livewire;
  *  - key 'component': opsional. Nama component Livewire (tanpa prefix
  *                    ⚡). Item ini baru muncul kalau Route::has() DAN
  *                    Livewire::exists() keduanya true.
- *  - key 'group'   : opsional. Label kelompok accordion.
- *  - key 'icon'    : opsional. Emoji/icon kelompok.
+ *  - key 'group'   : opsional. Label kelompok (section) pada
+ *                    sidebar flat.
+ *  - key 'icon'    : opsional. Kunci ikon di App\Support\NavIcon.
  *  - key 'piket'   : opsional. true → item hanya muncul kalau
  *                    $isGuruPiket true.
  */
@@ -124,37 +125,34 @@ class NavMenu
                 'route' => 'admin',
                 'anchor' => 'dashboard',
                 'component' => 'admin',
+                'icon' => 'dashboard',
             ],
             [
                 'label' => 'Data Master',
-                'icon' => '🗄️',
                 'items' => [
-                    ['label' => 'Pengguna',   'route' => 'admin', 'anchor' => 'pengguna'],
-                    ['label' => 'Guru',       'route' => 'admin', 'anchor' => 'guru'],
-                    ['label' => 'Siswa',      'route' => 'admin', 'anchor' => 'siswa'],
-                    ['label' => 'Kelas',      'route' => 'admin', 'anchor' => 'elas'],
+                    ['label' => 'Pengguna',   'route' => 'admin', 'anchor' => 'pengguna', 'icon' => 'people'],
+                    ['label' => 'Guru',       'route' => 'admin', 'anchor' => 'guru',     'icon' => 'person-badge'],
+                    ['label' => 'Siswa',      'route' => 'admin', 'anchor' => 'siswa',    'icon' => 'person'],
+                    ['label' => 'Kelas',      'route' => 'admin', 'anchor' => 'kelas',    'icon' => 'building'],
                 ],
             ],
             [
                 'label' => 'Jadwal',
-                'icon' => '📅',
                 'items' => [
-                    ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' => 'jadwal'],
-                    ['label' => 'Jadwal Piket',    'route' => 'admin', 'anchor' => 'jadwal-piket'],
+                    ['label' => 'Jadwal Mengajar', 'route' => 'admin', 'anchor' => 'jadwal',       'icon' => 'calendar-week'],
+                    ['label' => 'Jadwal Piket',    'route' => 'admin', 'anchor' => 'jadwal-piket', 'icon' => 'calendar-check'],
                 ],
             ],
             [
                 'label' => 'Jurnal',
-                'icon' => '📓',
                 'items' => [
-                    ['label' => 'Jurnal', 'route' => 'admin', 'anchor' => 'jurnal'],
+                    ['label' => 'Jurnal', 'route' => 'admin', 'anchor' => 'jurnal', 'icon' => 'journal-bookmark'],
                 ],
             ],
             [
                 'label' => 'Dispensasi',
-                'icon' => '📋',
                 'items' => [
-                    ['label' => 'Dispensasi', 'route' => 'admin', 'anchor' => 'dispensasi'],
+                    ['label' => 'Dispensasi', 'route' => 'admin', 'anchor' => 'dispensasi', 'icon' => 'clipboard-check'],
                 ],
             ],
         ];
@@ -175,34 +173,31 @@ class NavMenu
                 'route' => 'wakasek',
                 'anchor' => 'dashboard',
                 'component' => 'wakasek',
+                'icon' => 'dashboard',
             ],
             [
                 'label' => 'Monitoring',
-                'icon' => '📊',
                 'items' => [
-                    ['label' => 'Monitoring Guru',    'route' => 'wakasek', 'anchor' => 'monitoring-guru'],
-                    ['label' => 'Monitoring Jurnal',  'route' => 'wakasek', 'anchor' => 'monitoring-jurnal'],
+                    ['label' => 'Monitoring Guru',   'route' => 'wakasek', 'anchor' => 'monitoring-guru',  'icon' => 'people-fill'],
+                    ['label' => 'Monitoring Jurnal', 'route' => 'wakasek', 'anchor' => 'monitoring-jurnal', 'icon' => 'journal-text'],
                 ],
             ],
             [
                 'label' => 'Izin',
-                'icon' => '📝',
                 'items' => [
-                    ['label' => 'Pengajuan Izin Guru', 'route' => 'wakasek', 'anchor' => 'pengajuan-izin'],
+                    ['label' => 'Pengajuan Izin Guru', 'route' => 'wakasek', 'anchor' => 'pengajuan-izin', 'icon' => 'pencil-square'],
                 ],
             ],
             [
                 'label' => 'Dispensasi',
-                'icon' => '📋',
                 'items' => [
-                    ['label' => 'Dispensasi', 'route' => 'wakasek', 'anchor' => 'dispensasi'],
+                    ['label' => 'Dispensasi', 'route' => 'wakasek-dispensasi', 'component' => 'wakasek-dispensasi', 'icon' => 'clipboard-check'],
                 ],
             ],
             [
                 'label' => 'Laporan',
-                'icon' => '📈',
                 'items' => [
-                    ['label' => 'Rekap', 'route' => 'wakasek', 'anchor' => 'rekap'],
+                    ['label' => 'Rekap', 'route' => 'wakasek', 'anchor' => 'rekap', 'icon' => 'bar-chart'],
                 ],
             ],
         ];
@@ -223,28 +218,26 @@ class NavMenu
                 'route' => 'dashboard',
                 'anchor' => 'dashboard',
                 'component' => 'dashboard',
+                'icon' => 'dashboard',
             ],
             [
                 'label' => 'Jurnal',
-                'icon' => '📓',
                 'items' => [
-                    ['label' => 'Jadwal Saya',  'route' => 'dashboard', 'anchor' => 'jadwal-saya'],
-                    ['label' => 'Input Jurnal',  'route' => 'input-jurnal', 'component' => 'input-jurnal'],
-                    ['label' => 'Riwayat Saya', 'route' => 'riwayat',      'component' => 'riwayat'],
+                    ['label' => 'Jadwal Saya',  'route' => 'dashboard',   'anchor' => 'jadwal-saya', 'icon' => 'calendar-date'],
+                    ['label' => 'Input Jurnal',  'route' => 'input-jurnal', 'component' => 'input-jurnal', 'icon' => 'pencil'],
+                    ['label' => 'Riwayat Saya', 'route' => 'riwayat',      'component' => 'riwayat',  'icon' => 'clock-history'],
                 ],
             ],
             [
                 'label' => 'Notifikasi',
-                'icon' => '🔔',
                 'items' => [
-                    ['label' => 'Notifikasi', 'route' => 'notifikasi', 'component' => 'notifikasi'],
+                    ['label' => 'Notifikasi', 'route' => 'notifikasi', 'component' => 'notifikasi', 'icon' => 'bell'],
                 ],
             ],
             [
                 'label' => 'Izin',
-                'icon' => '📝',
                 'items' => [
-                    ['label' => 'Izin Guru', 'route' => 'izin-guru', 'component' => 'izin-guru'],
+                    ['label' => 'Izin Guru', 'route' => 'izin-guru', 'component' => 'izin-guru', 'icon' => 'pencil-square'],
                 ],
             ],
         ];
@@ -252,19 +245,17 @@ class NavMenu
         if ($isGuruPiket) {
             $items[] = [
                 'label' => 'Dispensasi',
-                'icon' => '📋',
                 'items' => [
-                    ['label' => 'Izin & Dispensasi', 'route' => 'dispensasi',        'component' => 'dispensasi'],
-                    ['label' => 'Rekapan',            'route' => 'rekap-dispensasi', 'component' => 'rekap-dispensasi'],
+                    ['label' => 'Izin & Dispensasi', 'route' => 'dispensasi',        'component' => 'dispensasi',        'icon' => 'clipboard-check'],
+                    ['label' => 'Rekapan',            'route' => 'rekap-dispensasi', 'component' => 'rekap-dispensasi', 'icon' => 'bar-chart'],
                 ],
             ];
 
             $items[] = [
                 'label' => 'Piket',
-                'icon' => '🛡️',
                 'items' => [
-                    ['label' => 'Piket Hari Ini', 'route' => 'guru-piket',       'component' => 'guru-piket'],
-                    ['label' => 'Kehadiran Siswa', 'route' => 'piket-kehadiran', 'component' => 'piket-kehadiran'],
+                    ['label' => 'Piket Hari Ini', 'route' => 'guru-piket',       'component' => 'guru-piket',       'icon' => 'shield'],
+                    ['label' => 'Kehadiran Siswa', 'route' => 'piket-kehadiran', 'component' => 'piket-kehadiran', 'icon' => 'list-check'],
                 ],
             ];
         }
@@ -287,35 +278,32 @@ class NavMenu
                 'route' => 'sekretaris',
                 'anchor' => 'dashboard',
                 'component' => 'sekretaris',
+                'icon' => 'dashboard',
             ],
             [
                 'label' => 'Kelas',
-                'icon' => '🏫',
                 'items' => [
-                    ['label' => 'Data Kelas',  'route' => 'sekretaris', 'anchor' => 'data-kelas'],
-                    ['label' => 'Kehadiran',   'route' => 'sekretaris', 'anchor' => 'kehadiran'],
+                    ['label' => 'Data Kelas',  'route' => 'sekretaris', 'anchor' => 'data-kelas',  'icon' => 'building'],
+                    ['label' => 'Kehadiran',   'route' => 'sekretaris', 'anchor' => 'kehadiran',   'icon' => 'check-circle'],
                 ],
             ],
             [
                 'label' => 'Jurnal',
-                'icon' => '📓',
                 'items' => [
-                    ['label' => 'Validasi Jurnal', 'route' => 'sekretaris', 'anchor' => 'validasi-jurnal'],
+                    ['label' => 'Validasi Jurnal', 'route' => 'sekretaris', 'anchor' => 'validasi-jurnal', 'icon' => 'check2-square'],
                 ],
             ],
             [
                 'label' => 'Tugas',
-                'icon' => '✅',
                 'items' => [
-                    ['label' => 'Tugas Guru Tidak Hadir', 'route' => 'sekretaris', 'anchor' => 'tugas-guru'],
+                    ['label' => 'Tugas Guru Tidak Hadir', 'route' => 'sekretaris', 'anchor' => 'tugas-guru', 'icon' => 'clipboard-check'],
                 ],
             ],
             [
                 'label' => 'Dispensasi',
-                'icon' => '📋',
                 'items' => [
-                    ['label' => 'Surat Dispensasi', 'route' => 'sekretaris', 'anchor' => 'surat-dispensasi'],
-                    ['label' => 'Rekap',            'route' => 'sekretaris', 'anchor' => 'rekap'],
+                    ['label' => 'Surat Dispensasi', 'route' => 'sekretaris', 'anchor' => 'surat-dispensasi', 'icon' => 'envelope'],
+                    ['label' => 'Rekap',            'route' => 'sekretaris', 'anchor' => 'rekap',            'icon' => 'bar-chart'],
                 ],
             ],
         ];

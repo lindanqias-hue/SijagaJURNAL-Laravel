@@ -181,7 +181,17 @@ new class extends Component
     <div class="d-flex flex-column gap-3 mb-4">
         @foreach ($izinList as $izin)
         <div class="card border-0 shadow-sm border-start border-4 border-info">
-            ...
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="mb-1">{{ $izin->jenis_izin }} - {{ \Carbon\Carbon::parse($izin->tanggal)->translatedFormat('d F Y') }}</h6>
+                        <div class="text-muted small">Jam ke-{{ $izin->jam_ke_mulai }} s/d {{ $izin->jam_ke_selesai }} · {{ $izin->kelas->nama_kelas ?? '-' }}</div>
+                    </div>
+                    <span class="badge bg-warning text-dark">{{ $izin->status }}</span>
+                </div>
+                <div class="text-muted small mt-2">{{ $izin->catatan ?? '-' }}</div>
+                <a href="{{ route('izin-guru') }}" class="btn btn-sm btn-outline-primary mt-2">Lihat Detail</a>
+            </div>
         </div>
         @endforeach
     </div>
@@ -340,15 +350,27 @@ new class extends Component
                     </div>
 
 
-                    {{-- WAKASEK --}}
+                    {{-- WAKASEK & GURU PIKET --}}
                     <div class="col-md-6">
 
                         <div class="text-muted small">
-                            Diproses Oleh
+                            Disetujui Oleh (Wakasek)
                         </div>
 
                         <div class="fw-semibold">
-                            {{ $notif->nama_wakasek ?? $notif->nama_guru_piket ?? '-' }}
+                            {{ $notif->nama_wakasek ?? '-' }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="text-muted small">
+                            Diajukan Oleh (Guru Piket)
+                        </div>
+
+                        <div class="fw-semibold">
+                            {{ $notif->nama_guru_piket ?? '-' }}
                         </div>
 
                     </div>

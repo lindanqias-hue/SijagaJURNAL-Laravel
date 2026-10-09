@@ -537,6 +537,27 @@ new class extends Component
                         </div>
                         @endif
 
+                        {{-- APPROVER: wakasek penyetuju --}}
+                        @if ($dispensasi->status === 'Disetujui' && $dispensasi->wakasek)
+                        <div style="
+                                    font-size: 11px;
+                                    color: #2563eb;
+                                    margin-top: 2px;
+                                    font-weight: 600;
+                                ">
+                            Disetujui: {{ $dispensasi->wakasek->nama }}
+                        </div>
+                        @elseif ($dispensasi->status === 'Ditolak' && $dispensasi->wakasek)
+                        <div style="
+                                    font-size: 11px;
+                                    color: #dc2626;
+                                    margin-top: 2px;
+                                    font-weight: 600;
+                                ">
+                            Ditolak: {{ $dispensasi->wakasek->nama }}
+                        </div>
+                        @endif
+
                     </td>
 
 
@@ -625,6 +646,11 @@ new class extends Component
                         </span>
 
                         @endif
+
+                        <a href="{{ route('dispensasi-detail', $dispensasi->id_dispensasi) }}"
+                            style="display:inline-block;margin-top:4px;font-size:12px;font-weight:600;color:#2563eb;">
+                            Lihat Detail &rarr;
+                        </a>
 
                     </td>
 

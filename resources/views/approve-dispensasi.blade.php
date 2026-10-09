@@ -294,14 +294,21 @@
                 @endif
             </div>
 
-            @if ($dispensasi->status !== 'Menunggu Persetujuan')
+            <div class="data">
+                <div class="label">Diajukan Oleh (Guru Piket)</div>
+                <div class="value">
+                    {{ $dispensasi->guruPiket->nama ?? '-' }}
+                </div>
+            </div>
 
             <div class="data">
-                <div class="label">Diproses oleh</div>
+                <div class="label">Disetujui/Diproses Oleh (Wakasek)</div>
                 <div class="value">
                     {{ $dispensasi->wakasek->nama ?? '-' }}
                 </div>
             </div>
+
+            @if ($dispensasi->status !== 'Menunggu Persetujuan')
 
             <div class="data">
                 <div class="label">Catatan Wakasek</div>

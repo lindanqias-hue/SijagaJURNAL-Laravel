@@ -1,18 +1,18 @@
 <?php
 
-use Livewire\Component;
-use App\Models\Siswa;
-use App\Models\Kelas;
 use App\Models\Dispensasi;
 use App\Models\Jadwal;
+use App\Models\Kelas;
 use App\Models\Pengguna;
+use App\Models\Siswa;
+use App\Services\DispensasiJurnalService;
+use App\Services\GuruPiketAccessService;
+use App\Services\WhatsAppMessageService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use App\Services\GuruPiketAccessService;
-use App\Services\DispensasiJurnalService;
-use App\Services\WhatsAppMessageService;
+use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new class extends Component
@@ -25,20 +25,24 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    public $id_kelas = '';
-    public $siswaTerpilih = [];
-    public $jenis_dispensasi = 'Per Jam';
-    public $id_jadwal = '';
-    public $mapel = '';
+    /** @var array<int, string> Kelas yang dipilih (bisa lebih dari satu). */
+    public array $id_kelas_terpilih = [];
 
-    public $jam_ke_mulai = '';
-    public $jam_ke_selesai = '';
-    public $jam_mulai = '';
-    public $jam_selesai = '';
+    /** @var array<int, array<int, int>> [id_kelas => [id_siswa, ...]] */
+    public array $siswaTerpilih = [];
 
-    public $tanggal_sekarang = '';
-    public $jam_sekarang = '';
-    public $alasan = '';
+    public string $jenis_dispensasi = 'Per Jam';
+    public string $id_jadwal = '';
+    public string $mapel = '';
+
+    public string $jam_ke_mulai = '';
+    public string $jam_ke_selesai = '';
+    public string $jam_mulai = '';
+    public string $jam_selesai = '';
+
+    public string $tanggal_sekarang = '';
+    public string $jam_sekarang = '';
+    public string $alasan = '';
 
     public string $jenisSurat = 'Dispensasi';
     public string $idWakasek = '';
@@ -50,10 +54,12 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    public $kelasList = [];
-    public $siswaList = [];
-    public $wakasekList = [];
-    public $jadwalAktif = null;
+    public array $kelasList = [];
+    public array $wakasekList = [];
+    public array $siswaList = [];
+
+    /** @var array<int, string> Cache jumlah siswa per kelas. */
+    public array $jumlahSiswaTerpilih = [];
 
     /*
     |--------------------------------------------------------------------------
@@ -61,9 +67,12 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    public $waLinkWakasek = null;
-    public $waLinksWakasek = [];
+    public ?string $waLinkWakasek = null;
+    public array $waLinksWakasek = [];
     public bool $bolehInputPiket = false;
+
+    /** @var mixed Jadwal terpilih (Jadwal model atau null). */
+    public $jadwalAktif = null;
 
     /*
     |--------------------------------------------------------------------------
@@ -75,7 +84,7 @@ new class extends Component
     {
         $this->bolehInputPiket = session('role') === 'guru'
             && app(GuruPiketAccessService::class)
-            ->bertugasHariIni((int) session('id_pengguna'));
+                ->bertugasHariIni((int) session('id_pengguna'));
 
         $sekretarisPerKelas = Pengguna::query()
             ->where('role', 'sekretaris')
@@ -86,21 +95,24 @@ new class extends Component
 
         // Nama sekretaris ikut ditampilkan karena surat hanya muncul di menu
         // Surat Dispensasi milik sekretaris kelas tersebut.
-        $this->kelasList = Kelas::orderBy('nama_kelas')
+        $this->kelasList = Kelas::query()
+            ->orderBy('nama_kelas')
             ->get()
-            ->map(function (Kelas $kelas) use ($sekretarisPerKelas): Kelas {
-                $kelas->setAttribute(
-                    'nama_sekretaris',
-                    $sekretarisPerKelas->get($kelas->id_kelas)?->pluck('nama')->join(', ') ?? ''
-                );
+            ->map(function (Kelas $kelas) use ($sekretarisPerKelas): array {
+                return [
+                    'id_kelas' => $kelas->id_kelas,
+                    'nama_kelas' => $kelas->nama_kelas,
+                    'nama_sekretaris' => $sekretarisPerKelas->get($kelas->id_kelas)?->pluck('nama')->join(', ') ?? '',
+                ];
+            })
+            ->all();
 
-                return $kelas;
-            });
         $this->wakasekList = Pengguna::query()
             ->where('role', 'wakasek')
             ->whereNotNull('no_hp')
             ->orderBy('nama')
-            ->get();
+            ->get(['id_pengguna', 'nama', 'no_hp'])
+            ->all();
 
         $this->updateWaktu();
     }
@@ -108,7 +120,7 @@ new class extends Component
     public function updatedJenisSurat(): void
     {
         // Jika Izin atau Sakit, otomatis diset Sehari Penuh
-        if (in_array($this->jenisSurat, ['Izin', 'Sakit'])) {
+        if (in_array($this->jenisSurat, ['Izin', 'Sakit'], true)) {
             $this->jenis_dispensasi = 'Sehari Penuh';
             $this->updatedJenisDispensasi();
         }
@@ -118,7 +130,7 @@ new class extends Component
     {
         return session('role') === 'guru'
             && app(GuruPiketAccessService::class)
-            ->bertugasHariIni((int) session('id_pengguna'));
+                ->bertugasHariIni((int) session('id_pengguna'));
     }
 
     /*
@@ -143,8 +155,11 @@ new class extends Component
     |--------------------------------------------------------------------------
     */
 
-    public function updatedIdKelas($value)
+    public function updatedIdKelasTerpilih(mixed $value): void
     {
+        $this->id_kelas_terpilih = $this->normalisasiKelasTerpilih($value);
+
+        $this->siswaList = [];
         $this->siswaTerpilih = [];
         $this->jadwalAktif = null;
         $this->jam_ke_mulai = '';
@@ -154,16 +169,81 @@ new class extends Component
         $this->id_jadwal = '';
         $this->mapel = '';
 
-        if (!$value) {
-            $this->siswaList = [];
+        if ($this->id_kelas_terpilih === []) {
+            $this->jumlahSiswaTerpilih = [];
+
             return;
         }
 
-        $this->siswaList = Siswa::where('id_kelas', $value)
-            ->orderBy('nama_siswa')
-            ->get();
+        $this->jumlahSiswaTerpilih = [];
+
+        foreach ($this->id_kelas_terpilih as $idKelas) {
+            $idKelas = (int) $idKelas;
+            $this->siswaList[$idKelas] = Siswa::query()
+                ->where('id_kelas', $idKelas)
+                ->orderBy('nama_siswa')
+                ->get(['id_siswa', 'nama_siswa'])
+                ->all();
+            $this->siswaTerpilih[$idKelas] = [];
+            $this->jumlahSiswaTerpilih[$idKelas] = 0;
+        }
 
         $this->cariJadwalAktif();
+    }
+
+    /**
+     * Bersihkan pilihan kelas: bisa datang dari <select multiple> sebagai
+     * array, string tunggal, atau string kosong dari Livewire.
+     *
+     * @return array<int, string>
+     */
+    private function normalisasiKelasTerpilih(mixed $value): array
+    {
+        if (! is_array($value)) {
+            $value = $value === null || $value === '' ? [] : [$value];
+        }
+
+        return collect($value)
+            ->map(fn ($nilai): string => (string) $nilai)
+            ->filter(fn (string $nilai): bool => $nilai !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function toggleSiswa(int $idKelas, int $idSiswa): void
+    {
+        $terpilih = $this->siswaTerpilih[(int) $idKelas] ?? [];
+
+        if (in_array($idSiswa, $terpilih, true)) {
+            $this->siswaTerpilih[(int) $idKelas] = array_values(
+                array_diff($terpilih, [$idSiswa])
+            );
+        } else {
+            $terpilih[] = $idSiswa;
+            $this->siswaTerpilih[(int) $idKelas] = $terpilih;
+        }
+
+        $this->jumlahSiswaTerpilih[(int) $idKelas] = count($this->siswaTerpilih[(int) $idKelas]);
+    }
+
+    public function pilihSemuaSiswa(int $idKelas): void
+    {
+        $siswa = $this->siswaList[(int) $idKelas] ?? [];
+
+        $idSiswa = array_map(fn (Siswa $s): int => (int) $s->id_siswa, $siswa);
+
+        $sudahSemua = count($this->siswaTerpilih[(int) $idKelas] ?? []) === count($idSiswa);
+
+        if ($sudahSemua) {
+            $this->siswaTerpilih[(int) $idKelas] = [];
+            $this->jumlahSiswaTerpilih[(int) $idKelas] = 0;
+
+            return;
+        }
+
+        $this->siswaTerpilih[(int) $idKelas] = $idSiswa;
+        $this->jumlahSiswaTerpilih[(int) $idKelas] = count($idSiswa);
     }
 
     /*
@@ -174,7 +254,7 @@ new class extends Component
 
     public function cariJadwalAktif()
     {
-        if (!$this->id_kelas) {
+        if (! $this->id_kelas_terpilih) {
             return;
         }
 
@@ -183,28 +263,30 @@ new class extends Component
         $jadwalHariIni = $this->jadwalHariIni;
 
         $this->jadwalAktif = collect($jadwalHariIni)
-            ->first(function ($jadwal) use ($jamSekarang) {
+            ->first(function ($jadwal) use ($jamSekarang): bool {
                 return $jadwal->jam_mulai <= $jamSekarang
                     && $jadwal->jam_selesai >= $jamSekarang;
-            }) ?? collect($jadwalHariIni)->first();
+            })
+            ?? collect($jadwalHariIni)->first();
 
-        if (!$this->jadwalAktif) {
+        if (! $this->jadwalAktif) {
             $this->jam_ke_mulai = '';
             $this->jam_ke_selesai = '';
             $this->jam_mulai = '';
             $this->jam_selesai = '';
+
             return;
         }
 
-        $this->jam_ke_mulai = $this->jadwalAktif->jam_ke;
-        $this->jam_ke_selesai = $this->jadwalAktif->jam_ke;
+        $this->jam_ke_mulai = (string) $this->jadwalAktif->jam_ke;
+        $this->jam_ke_selesai = (string) $this->jadwalAktif->jam_ke;
         $this->jam_mulai = $this->jadwalAktif->jam_mulai;
         $this->jam_selesai = $this->jadwalAktif->jam_selesai;
     }
 
     public function getJadwalHariIniProperty(): \Illuminate\Support\Collection
     {
-        if (!$this->id_kelas) {
+        if (! $this->id_kelas_terpilih) {
             return collect();
         }
 
@@ -212,10 +294,11 @@ new class extends Component
 
         return Jadwal::query()
             ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
-            ->where('jadwal.id_kelas', $this->id_kelas)
+            ->whereIn('jadwal.id_kelas', $this->id_kelas_terpilih)
             ->where('jadwal.hari', $hariIni)
             ->select('jadwal.*', 'pengguna.mapel_diampu', 'pengguna.nama as nama_guru')
-            ->orderBy('jam_ke')
+            ->orderBy('jadwal.id_kelas')
+            ->orderBy('jadwal.jam_ke')
             ->get();
     }
 
@@ -224,14 +307,14 @@ new class extends Component
         $jadwalMulai = collect($this->jadwalHariIni)
             ->firstWhere('jam_ke', (int) $value);
 
-        if (!$jadwalMulai) {
+        if (! $jadwalMulai) {
             return;
         }
 
-        $this->jam_ke_mulai = $jadwalMulai->jam_ke;
+        $this->jam_ke_mulai = (string) $jadwalMulai->jam_ke;
 
-        if (!$this->jam_ke_selesai || (int) $this->jam_ke_selesai < (int) $value) {
-            $this->jam_ke_selesai = $jadwalMulai->jam_ke;
+        if (! $this->jam_ke_selesai || (int) $this->jam_ke_selesai < (int) $value) {
+            $this->jam_ke_selesai = (string) $jadwalMulai->jam_ke;
         }
 
         $jadwalSelesai = collect($this->jadwalHariIni)
@@ -243,7 +326,7 @@ new class extends Component
 
     public function updatedJamKeSelesai($value)
     {
-        if (!$value) {
+        if (! $value) {
             return;
         }
 
@@ -260,12 +343,12 @@ new class extends Component
         if ($this->jenis_dispensasi === 'Sehari Penuh') {
             $this->id_jadwal = '';
             $this->mapel = '';
-            $this->jam_ke_mulai = null;
-            $this->jam_ke_selesai = null;
-            $this->jam_mulai = null;
-            $this->jam_selesai = null;
+            $this->jam_ke_mulai = '';
+            $this->jam_ke_selesai = '';
+            $this->jam_mulai = '';
+            $this->jam_selesai = '';
         } elseif ($this->jenis_dispensasi === 'Per Mapel') {
-            $this->id_jadwal = $this->jadwalAktif?->id_jadwal ?? '';
+            $this->id_jadwal = (string) ($this->jadwalAktif?->id_jadwal ?? '');
             $this->updatedIdJadwal($this->id_jadwal);
         } else {
             $this->id_jadwal = '';
@@ -276,20 +359,21 @@ new class extends Component
 
     public function updatedIdJadwal($value): void
     {
-        if (!$value || $this->jenis_dispensasi !== 'Per Mapel') {
+        if (! $value || $this->jenis_dispensasi !== 'Per Mapel') {
             return;
         }
 
         $jadwal = $this->jadwalMapelTerpilih;
 
-        if (!$jadwal) {
+        if (! $jadwal) {
             $this->id_jadwal = '';
             $this->mapel = '';
+
             return;
         }
 
-        $this->jam_ke_mulai = $jadwal->jam_ke;
-        $this->jam_ke_selesai = $jadwal->jam_ke;
+        $this->jam_ke_mulai = (string) $jadwal->jam_ke;
+        $this->jam_ke_selesai = (string) $jadwal->jam_ke;
         $this->jam_mulai = $jadwal->jam_mulai;
         $this->jam_selesai = $jadwal->jam_selesai;
         $this->mapel = $jadwal->mapel_diampu ?? '';
@@ -297,7 +381,7 @@ new class extends Component
 
     public function getJadwalMapelTerpilihProperty(): ?Jadwal
     {
-        if (!$this->id_jadwal || !$this->id_kelas) {
+        if (! $this->id_jadwal || ! $this->id_kelas_terpilih) {
             return null;
         }
 
@@ -306,34 +390,29 @@ new class extends Component
         return Jadwal::query()
             ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
             ->where('jadwal.id_jadwal', $this->id_jadwal)
-            ->where('jadwal.id_kelas', $this->id_kelas)
+            ->whereIn('jadwal.id_kelas', $this->id_kelas_terpilih)
             ->where('jadwal.hari', $hariIni)
             ->select('jadwal.*', 'pengguna.mapel_diampu', 'pengguna.nama as nama_guru')
             ->first();
     }
 
-    public function getKelasNamaProperty()
+    public function getNamaKelasTerpilihProperty(): string
     {
-        return collect($this->kelasList)
-            ->firstWhere('id_kelas', $this->id_kelas)
-            ?->nama_kelas ?? '-';
-    }
-
-    public function getSiswaTerpilihDataProperty()
-    {
-        if (empty($this->siswaTerpilih)) {
-            return collect();
+        if (! $this->id_kelas_terpilih) {
+            return '-';
         }
 
-        return Siswa::whereIn('id_siswa', $this->siswaTerpilih)
-            ->where('id_kelas', $this->id_kelas)
-            ->orderBy('nama_siswa')
-            ->get();
+        $nama = collect($this->kelasList)
+            ->whereIn('id_kelas', array_map('intval', $this->id_kelas_terpilih))
+            ->pluck('nama_kelas')
+            ->all();
+
+        return $nama === [] ? '-' : implode(', ', $nama);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | SIMPAN PENGAJUAN
+    | SIMPAN PENGAJUAN (MULTI-KELAS / CROSS-CLASS)
     |--------------------------------------------------------------------------
     */
 
@@ -341,28 +420,31 @@ new class extends Component
     {
         if (! $this->piketMasihBertugas()) {
             $this->addError('piket', 'Anda tidak memiliki hak akses piket hari ini.');
+
             return;
         }
 
+        // Normalisasi ulang: nilai dari <select multiple> bisa berupa string.
+        $this->id_kelas_terpilih = $this->normalisasiKelasTerpilih($this->id_kelas_terpilih);
         // Jika Surat Izin atau Sakit, format waktunya otomatis Sehari Penuh
-        if (in_array($this->jenisSurat, ['Izin', 'Sakit'])) {
+        if (in_array($this->jenisSurat, ['Izin', 'Sakit'], true)) {
             $this->jenis_dispensasi = 'Sehari Penuh';
-            $this->jam_ke_mulai = null;
-            $this->jam_ke_selesai = null;
-            $this->jam_mulai = null;
-            $this->jam_selesai = null;
+            $this->jam_ke_mulai = '';
+            $this->jam_ke_selesai = '';
+            $this->jam_mulai = '';
+            $this->jam_selesai = '';
             $this->id_jadwal = '';
         }
 
         $this->validate([
-            'id_kelas' => 'required|exists:kelas,id_kelas',
+            'id_kelas_terpilih' => 'required|array|min:1',
+            'id_kelas_terpilih.*' => ['required', Rule::exists('kelas', 'id_kelas')],
             'siswaTerpilih' => 'required|array|min:1',
-            'siswaTerpilih.*' => ['required', Rule::exists('siswa', 'id_siswa')],
             'jenisSurat' => 'required|in:Dispensasi,Izin,Sakit',
             'idWakasek' => [
                 'nullable',
                 'required_if:jenisSurat,Dispensasi',
-                Rule::exists('pengguna', 'id_pengguna')->where(fn($query) => $query->where('role', 'wakasek')->whereNotNull('no_hp')),
+                Rule::exists('pengguna', 'id_pengguna')->where(fn ($query) => $query->where('role', 'wakasek')->whereNotNull('no_hp')),
             ],
             'jenis_dispensasi' => 'required_if:jenisSurat,Dispensasi|in:Per Jam,Sehari Penuh,Per Mapel',
             'jam_ke_mulai' => 'required_if:jenis_dispensasi,Per Jam|nullable|integer|min:1',
@@ -371,9 +453,8 @@ new class extends Component
             'alasan' => 'required|string|min:3|max:1000',
             'lampiran' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ], [
-            'id_kelas.required' => 'Kelas wajib dipilih.',
+            'id_kelas_terpilih.required' => 'Minimal pilih satu kelas.',
             'siswaTerpilih.required' => 'Minimal pilih satu siswa.',
-            'siswaTerpilih.min' => 'Minimal pilih satu siswa.',
             'alasan.required' => 'Alasan wajib diisi.',
             'alasan.min' => 'Alasan minimal 3 karakter.',
             'lampiran.required' => 'Unggah foto atau file bukti terlebih dahulu.',
@@ -381,126 +462,151 @@ new class extends Component
             'lampiran.max' => 'Ukuran bukti maksimal 5 MB.',
         ]);
 
-        $siswaData = Siswa::whereIn('id_siswa', $this->siswaTerpilih)
-            ->where('id_kelas', $this->id_kelas)
-            ->orderBy('nama_siswa')
-            ->get();
+        /*
+         * Bersihkan kelas tanpa siswa terpilih.
+         */
+        foreach ($this->siswaTerpilih as $idKelas => $siswa) {
+            if ($siswa === []) {
+                unset($this->siswaTerpilih[$idKelas]);
+            }
+        }
 
-        if ($siswaData->count() !== count($this->siswaTerpilih)) {
-            $this->addError('siswaTerpilih', 'Ada siswa yang tidak sesuai dengan kelas.');
+        if ($this->siswaTerpilih === []) {
+            $this->addError('siswaTerpilih', 'Minimal pilih satu siswa pada kelas yang dipilih.');
+
             return;
         }
 
+        /*
+         * Validasi jam per jam dari jadwal hari ini (per kelas).
+         */
         if ($this->jenisSurat === 'Dispensasi' && $this->jenis_dispensasi === 'Per Jam') {
             $hariIni = Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('l');
-            $jadwalJam = Jadwal::query()
-                ->where('id_kelas', $this->id_kelas)
+
+            foreach (array_keys($this->siswaTerpilih) as $idKelas) {
+                $jadwalJam = Jadwal::query()
+                    ->where('id_kelas', (int) $idKelas)
+                    ->where('hari', $hariIni)
+                    ->whereIn('jam_ke', [(int) $this->jam_ke_mulai, (int) $this->jam_ke_selesai])
+                    ->get()
+                    ->keyBy('jam_ke');
+
+                $jadwalMulai = $jadwalJam->get((int) $this->jam_ke_mulai);
+                $jadwalSelesai = $jadwalJam->get((int) $this->jam_ke_selesai);
+
+                if (! $jadwalMulai || ! $jadwalSelesai) {
+                    $this->addError('jam_ke_mulai', 'Jam harus dipilih dari jadwal kelas hari ini.');
+
+                    return;
+                }
+
+                if ((int) $jadwalSelesai->jam_ke < (int) $jadwalMulai->jam_ke) {
+                    $this->addError('jam_ke_selesai', 'Jam selesai tidak boleh sebelum jam mulai.');
+
+                    return;
+                }
+            }
+
+            $this->jam_mulai = (string) Jadwal::query()
+                ->whereIn('id_kelas', array_map('intval', $this->id_kelas_terpilih))
                 ->where('hari', $hariIni)
-                ->whereIn('jam_ke', [(int) $this->jam_ke_mulai, (int) $this->jam_ke_selesai])
-                ->get()
-                ->keyBy('jam_ke');
+                ->where('jam_ke', (int) $this->jam_ke_mulai)
+                ->value('jam_mulai');
 
-            $jadwalMulai = $jadwalJam->get((int) $this->jam_ke_mulai);
-            $jadwalSelesai = $jadwalJam->get((int) $this->jam_ke_selesai);
-
-            if (!$jadwalMulai || !$jadwalSelesai) {
-                $this->addError('jam_ke_mulai', 'Jam harus dipilih dari jadwal kelas hari ini.');
-                return;
-            }
-
-            if ((int) $jadwalSelesai->jam_ke < (int) $jadwalMulai->jam_ke) {
-                $this->addError('jam_ke_selesai', 'Jam selesai tidak boleh sebelum jam mulai.');
-                return;
-            }
-
-            $this->jam_mulai = $jadwalMulai->jam_mulai;
-            $this->jam_selesai = $jadwalSelesai->jam_selesai;
+            $this->jam_selesai = (string) Jadwal::query()
+                ->whereIn('id_kelas', array_map('intval', $this->id_kelas_terpilih))
+                ->where('hari', $hariIni)
+                ->where('jam_ke', (int) $this->jam_ke_selesai)
+                ->value('jam_selesai');
         }
 
-        $jadwalMapel = null;
-        $guruMapel = null;
         $mapelSnapshot = null;
 
         if ($this->jenisSurat === 'Dispensasi' && $this->jenis_dispensasi === 'Per Mapel') {
+            $hariIni = Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('l');
+
             $jadwalMapel = Jadwal::query()
                 ->join('pengguna', 'jadwal.id_guru', '=', 'pengguna.id_pengguna')
                 ->where('jadwal.id_jadwal', $this->id_jadwal)
-                ->where('jadwal.id_kelas', $this->id_kelas)
-                ->where('jadwal.hari', Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('l'))
+                ->where('jadwal.hari', $hariIni)
                 ->select('jadwal.*', 'pengguna.mapel_diampu')
                 ->first();
 
-            if (!$jadwalMapel) {
+            if (! $jadwalMapel) {
                 $this->addError('id_jadwal', 'Mapel tidak tersedia untuk kelas dan tanggal ini.');
+
                 return;
             }
 
-            $guruMapel = $jadwalMapel->id_guru;
             $mapelSnapshot = $jadwalMapel->mapel_diampu;
-            $this->jam_ke_mulai = $jadwalMapel->jam_ke;
-            $this->jam_ke_selesai = $jadwalMapel->jam_ke;
+            $this->jam_ke_mulai = (string) $jadwalMapel->jam_ke;
+            $this->jam_ke_selesai = (string) $jadwalMapel->jam_ke;
             $this->jam_mulai = $jadwalMapel->jam_mulai;
             $this->jam_selesai = $jadwalMapel->jam_selesai;
         }
 
-        if (in_array($this->jenisSurat, ['Izin', 'Sakit']) || $this->jenis_dispensasi === 'Sehari Penuh') {
-            $this->jam_ke_mulai = null;
-            $this->jam_ke_selesai = null;
-            $this->jam_mulai = null;
-            $this->jam_selesai = null;
+        if (in_array($this->jenisSurat, ['Izin', 'Sakit'], true) || $this->jenis_dispensasi === 'Sehari Penuh') {
+            $this->jam_ke_mulai = '';
+            $this->jam_ke_selesai = '';
+            $this->jam_mulai = '';
+            $this->jam_selesai = '';
         }
 
         $tanggal = Carbon::now('Asia/Jakarta')->toDateString();
         $lampiranPath = $this->lampiran->store('surat-piket', 'local');
 
-        $dispensasiList = DB::transaction(function () use (
-            $siswaData,
-            $tanggal,
-            $jadwalMapel,
-            $guruMapel,
-            $mapelSnapshot,
-            $lampiranPath
-        ) {
-            $created = collect();
+        $created = DB::transaction(function () use ($tanggal, $lampiranPath, $mapelSnapshot) {
+            $semua = collect();
 
-            foreach ($siswaData as $siswa) {
-                // Surat Izin & Sakit otomatis disetujui (STATUS_DISETUJUI), Dispensasi menunggu (STATUS_MENUNGGU)
-                $statusSurat = in_array($this->jenisSurat, ['Izin', 'Sakit'])
-                    ? Dispensasi::STATUS_DISETUJUI
-                    : Dispensasi::STATUS_MENUNGGU;
+            foreach ($this->siswaTerpilih as $idKelas => $idSiswaList) {
+                $siswaData = Siswa::query()
+                    ->whereIn('id_siswa', $idSiswaList)
+                    ->where('id_kelas', (int) $idKelas)
+                    ->orderBy('nama_siswa')
+                    ->get();
 
-                $dispensasi = Dispensasi::create([
-                    'id_siswa' => $siswa->id_siswa,
-                    'id_kelas' => $this->id_kelas,
-                    'id_jadwal' => $jadwalMapel?->id_jadwal,
-                    'id_guru' => $guruMapel,
-                    'mapel' => $mapelSnapshot,
-                    'jenis_dispensasi' => $this->jenis_dispensasi,
-                    'jenis_surat' => $this->jenisSurat,
-                    'tanggal' => $tanggal,
-                    'jam_ke' => $this->jam_ke_mulai,
-                    'jam_ke_mulai' => $this->jam_ke_mulai,
-                    'jam_ke_selesai' => $this->jam_ke_selesai,
-                    'jam_mulai' => $this->jam_mulai,
-                    'jam_selesai' => $this->jam_selesai,
-                    'alasan' => $this->alasan,
-                    'lampiran_path' => $lampiranPath,
-                    'id_guru_piket' => session('id_pengguna'),
-                    'id_wakasek' => $this->jenisSurat === 'Dispensasi' ? $this->idWakasek : null,
-                    'token' => Str::random(64),
-                    'ticket_token' => Str::random(64),
-                    'status' => $statusSurat,
-                ]);
+                foreach ($siswaData as $siswa) {
+                    $statusSurat = in_array($this->jenisSurat, ['Izin', 'Sakit'], true)
+                        ? Dispensasi::STATUS_DISETUJUI
+                        : Dispensasi::STATUS_MENUNGGU;
 
-                // Jika Izin atau Sakit, langsung sinkronisasi otomatis ke jurnal mengajar guru
-                if (in_array($this->jenisSurat, ['Izin', 'Sakit'])) {
-                    app(DispensasiJurnalService::class)->sync($dispensasi);
+                    $dispensasi = Dispensasi::create([
+                        'id_siswa' => $siswa->id_siswa,
+                        'id_kelas' => (int) $idKelas,
+                        'id_jadwal' => $this->jenisSurat === 'Dispensasi' && $this->jenis_dispensasi === 'Per Mapel'
+                            ? $this->id_jadwal
+                            : null,
+                        'id_guru' => $this->jenisSurat === 'Dispensasi' && $this->jenis_dispensasi === 'Per Mapel'
+                            ? ($this->jadwalMapelTerpilih?->id_guru ?? null)
+                            : null,
+                        'mapel' => $mapelSnapshot,
+                        'jenis_dispensasi' => $this->jenis_dispensasi,
+                        'jenis_surat' => $this->jenisSurat,
+                        'tanggal' => $tanggal,
+                        'jam_ke' => $this->jam_ke_mulai !== '' ? (int) $this->jam_ke_mulai : null,
+                        'jam_ke_mulai' => $this->jam_ke_mulai !== '' ? (int) $this->jam_ke_mulai : null,
+                        'jam_ke_selesai' => $this->jam_ke_selesai !== '' ? (int) $this->jam_ke_selesai : null,
+                        'jam_mulai' => $this->jam_mulai ?: null,
+                        'jam_selesai' => $this->jam_selesai ?: null,
+                        'alasan' => $this->alasan,
+                        'lampiran_path' => $lampiranPath,
+                        'id_guru_piket' => (int) session('id_pengguna'),
+                        'id_wakasek' => $this->jenisSurat === 'Dispensasi' ? $this->idWakasek : null,
+                        'token' => Str::random(64),
+                        'ticket_token' => Str::random(64),
+                        'status' => $statusSurat,
+                    ]);
+
+                    // Jika Izin atau Sakit, langsung sinkronisasi otomatis ke jurnal mengajar guru
+                    if (in_array($this->jenisSurat, ['Izin', 'Sakit'], true)) {
+                        app(DispensasiJurnalService::class)->sync($dispensasi);
+                    }
+
+                    $semua->push($dispensasi);
                 }
-
-                $created->push($dispensasi);
             }
 
-            return $created;
+            return $semua;
         });
 
         $this->waLinkWakasek = null;
@@ -511,37 +617,40 @@ new class extends Component
                 ->where('id_pengguna', $this->idWakasek)
                 ->where('role', 'wakasek')
                 ->firstOrFail();
+
             $semuaTerkirim = true;
 
-            foreach ($dispensasiList as $dispensasi) {
+            foreach ($created as $dispensasi) {
                 $linkApproval = route('approve-dispensasi', [
                     'token' => $dispensasi->token,
                     'wakasek' => $wakasek->id_pengguna,
                 ]);
+
                 $keteranganWaktu = $this->jenis_dispensasi === 'Per Jam'
-                    ? 'Jam ke-' . $this->jam_ke_mulai . ' s/d ' . $this->jam_ke_selesai
+                    ? 'Jam ke-'.$this->jam_ke_mulai.' s/d '.$this->jam_ke_selesai
                     : 'Sehari penuh';
 
                 $pesanWa = "PENGAJUAN DISPENSASI\n\n"
-                    . 'Siswa: ' . $dispensasi->siswa?->nama_siswa . "\n"
-                    . 'Kelas: ' . $this->kelasNama . "\n"
-                    . 'Tanggal: ' . $this->tanggal_sekarang . "\n"
-                    . 'Waktu: ' . $keteranganWaktu . "\n"
-                    . 'Alasan: ' . $this->alasan . "\n"
-                    . 'Guru Piket: ' . session('nama') . "\n\n"
-                    . 'Buka link untuk memberikan keputusan: ' . $linkApproval;
+                    . 'Siswa: '.$dispensasi->siswa?->nama_siswa."\n"
+                    . 'Kelas: '.($dispensasi->kelas?->nama_kelas ?? '-')."\n"
+                    . 'Tanggal: '.$this->tanggal_sekarang."\n"
+                    . 'Waktu: '.$keteranganWaktu."\n"
+                    . 'Alasan: '.$this->alasan."\n"
+                    . 'Guru Piket: '.session('nama')."\n\n"
+                    . 'Buka link untuk memberikan keputusan: '.$linkApproval;
 
                 if (! app(WhatsAppMessageService::class)->sendText($wakasek->no_hp, $pesanWa)) {
                     $semuaTerkirim = false;
-                    $nomorWa = preg_replace('/\D+/', '', $wakasek->no_hp);
+
+                    $nomorWa = preg_replace('/\D+/', '', (string) $wakasek->no_hp) ?? '';
                     $nomorWa = str_starts_with($nomorWa, '0')
-                        ? '62' . substr($nomorWa, 1)
-                        : (str_starts_with($nomorWa, '62') ? $nomorWa : '62' . $nomorWa);
+                        ? '62'.substr($nomorWa, 1)
+                        : (str_starts_with($nomorWa, '62') ? $nomorWa : '62'.$nomorWa);
 
                     $this->waLinksWakasek[] = [
                         'nama' => $wakasek->nama,
                         'siswa' => $dispensasi->siswa?->nama_siswa,
-                        'link' => 'https://wa.me/' . $nomorWa . '?text=' . urlencode($pesanWa),
+                        'link' => 'https://wa.me/'.$nomorWa.'?text='.urlencode($pesanWa),
                     ];
                 }
             }
@@ -549,22 +658,23 @@ new class extends Component
             $this->waLinkWakasek = $this->waLinksWakasek[0]['link'] ?? null;
 
             if ($semuaTerkirim) {
-                session()->flash('success', 'Pengajuan tersimpan dan notifikasi WhatsApp berhasil terkirim ke ' . $wakasek->nama . '.');
+                session()->flash('success', 'Pengajuan tersimpan dan notifikasi WhatsApp berhasil terkirim ke '.$wakasek->nama.'.');
             } else {
                 session()->flash('warning', 'Pengajuan tersimpan, tetapi notifikasi WhatsApp belum terkirim. Gunakan tautan cadangan atau periksa konfigurasi WhatsApp API.');
             }
         } else {
             $namaSuratLabel = $this->jenisSurat === 'Sakit' ? 'Surat Sakit' : 'Surat Izin';
-            session()->flash('success', $namaSuratLabel . ' berhasil disimpan dan disinkronkan ke jurnal.');
+
+            session()->flash('success', $namaSuratLabel.' berhasil disimpan dan disinkronkan ke jurnal.');
         }
 
         $this->siswaTerpilih = [];
         $this->alasan = '';
         $this->lampiran = null;
+        $this->jumlahSiswaTerpilih = [];
     }
 };
 ?>
-
 <div>
     {{-- HEADER --}}
     <div class="role-page-header">
@@ -620,50 +730,61 @@ new class extends Component
                 <fieldset class="border-0 p-0 m-0" @disabled(!$this->bolehInputPiket)>
                     <div class="row g-3">
 
-                        {{-- KELAS --}}
+                        {{-- KELAS (CROSS-CLASS: bisa lebih dari satu) --}}
                         <div class="col-12">
                             <label class="form-label fw-semibold">Kelas</label>
-                            <select wire:model.live="id_kelas" class="form-select">
-                                <option value="">-- Pilih Kelas --</option>
+                            <select wire:model.live="id_kelas_terpilih" class="form-select" multiple size="4">
                                 @foreach ($kelasList as $kelas)
-                                <option value="{{ $kelas->id_kelas }}">{{ $kelas->nama_kelas }}@if ($kelas->nama_sekretaris) — {{ $kelas->nama_sekretaris }}@endif</option>
+                                <option value="{{ $kelas['id_kelas'] }}">{{ $kelas['nama_kelas'] }}@if ($kelas['nama_sekretaris']) — {{ $kelas['nama_sekretaris'] }}@endif</option>
                                 @endforeach
                             </select>
-                            @error('id_kelas')
+                            <div class="form-text">Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu kelas.</div>
+                            @error('id_kelas_terpilih')
                             <small class="text-danger">{{ $message }}</small>
                             @enderror
                         </div>
 
-                        {{-- SISWA --}}
-                        @if ($id_kelas)
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Siswa yang Mendapat Surat/Dispensasi</label>
-                            @if ($siswaList->count())
-                            <div class="border rounded p-3" style="max-height: 280px; overflow-y: auto;">
-                                @foreach ($siswaList as $siswa)
-                                <div class="form-check mb-2" wire:key="siswa-item-{{ $siswa->id_siswa }}">
-                                    <input class="form-check-input" type="checkbox" value="{{ $siswa->id_siswa }}"
-                                        wire:model.live="siswaTerpilih" id="siswa-{{ $siswa->id_siswa }}">
-                                    <label class="form-check-label" for="siswa-{{ $siswa->id_siswa }}">
-                                        {{ $siswa->nama_siswa }}
+                        {{-- SISWA PER KELAS --}}
+                        @if (! empty($siswaList))
+                        @foreach ($siswaList as $idKelas => $siswaItems)
+                        <div class="col-12" wire:key="siswa-kelas-{{ $idKelas }}">
+                            <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span>
+                                    Siswa {{ collect($kelasList)->firstWhere('id_kelas', (int) $idKelas)['nama_kelas'] ?? '' }}
+                                </span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    wire:click="pilihSemuaSiswa({{ (int) $idKelas }})">
+                                    Pilih / Batal Semua
+                                </button>
+                            </label>
+                            @if (count($siswaItems))
+                            <div class="border rounded p-3" style="max-height: 240px; overflow-y: auto;">
+                                @foreach ($siswaItems as $siswa)
+                                <div class="form-check mb-2" wire:key="siswa-{{ $idKelas }}-{{ $siswa['id_siswa'] }}">
+                                    <input class="form-check-input" type="checkbox"
+                                        value="{{ $siswa['id_siswa'] }}"
+                                        wire:click="toggleSiswa({{ (int) $idKelas }}, {{ $siswa['id_siswa'] }})"
+                                        @checked(in_array($siswa['id_siswa'], $siswaTerpilih[$idKelas] ?? [], true))
+                                        id="siswa-{{ $idKelas }}-{{ $siswa['id_siswa'] }}">
+                                    <label class="form-check-label" for="siswa-{{ $idKelas }}-{{ $siswa['id_siswa'] }}">
+                                        {{ $siswa['nama_siswa'] }}
                                     </label>
                                 </div>
                                 @endforeach
                             </div>
                             <div class="mt-2">
                                 <span class="badge bg-primary">
-                                    Siswa: {{ count($siswaTerpilih) }} orang
+                                    {{ $jumlahSiswaTerpilih[(int) $idKelas] ?? 0 }} siswa dipilih
                                 </span>
                             </div>
                             @else
-                            <div class="alert alert-warning">
-                                Belum ada siswa di kelas ini.
-                            </div>
+                            <div class="alert alert-warning">Belum ada siswa di kelas ini.</div>
                             @endif
-                            @error('siswaTerpilih')
-                            <small class="text-danger">{{ $message }}</small>
-                            @enderror
                         </div>
+                        @endforeach
+                        @error('siswaTerpilih')
+                        <div class="col-12"><small class="text-danger">{{ $message }}</small></div>
+                        @enderror
                         @endif
 
                         {{-- JENIS SURAT (Opsi Sakit Ditambahkan Di Sini) --}}

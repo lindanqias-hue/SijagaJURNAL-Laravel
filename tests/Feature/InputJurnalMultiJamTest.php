@@ -163,6 +163,55 @@ class InputJurnalMultiJamTest extends TestCase
             ->assertSet('jamTerpilih', [1, 2]);
     }
 
+    public function test_guru_non_piket_mengisi_absensi_siswa_hadir_dan_alpa(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-28 07:10:00', 'Asia/Jakarta'));
+
+        $guru = $this->createPengguna('GURU001');
+        $idKelas = $this->createKelasSiswa();
+
+        $this->createJadwalRambung($guru, $idKelas, 1, '07:00:00', '07:45:00');
+
+        $idAhmad = Siswa::query()
+            ->where('id_kelas', $idKelas)
+            ->where('nama_siswa', 'Ahmad')
+            ->value('id_siswa');
+        $idBudi = Siswa::query()
+            ->where('id_kelas', $idKelas)
+            ->where('nama_siswa', 'Budi')
+            ->value('id_siswa');
+
+        $this->withSession([
+            'id_pengguna' => $guru->id_pengguna,
+            'role' => 'guru',
+        ]);
+
+        Livewire::test('input-jurnal')
+            ->set('id_kelas', $idKelas)
+            ->assertSet('absensi.'.$idAhmad, 'Hadir')
+            ->set('absensi.'.$idBudi, 'Alpa')
+            ->set('materi', 'Persamaan linear')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('absensi_siswa', [
+            'id_siswa' => $idAhmad,
+            'keterangan' => 'Hadir',
+        ]);
+
+        $this->assertDatabaseHas('absensi_siswa', [
+            'id_siswa' => $idBudi,
+            'keterangan' => 'Alpa',
+        ]);
+
+        $this->assertDatabaseHas('jurnal', [
+            'id_kelas' => $idKelas,
+            'jam_ke' => 1,
+            'jumlah_hadir' => 1,
+            'jumlah_tidak_hadir' => 1,
+        ]);
+    }
+
     private function createPengguna(string $nip): Pengguna
     {
         return Pengguna::create([

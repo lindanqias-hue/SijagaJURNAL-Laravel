@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Dispensasi;
 use App\Models\Jurnal;
 use App\Models\Pengguna;
+use App\Models\PiketKehadiranSiswa;
 use App\Services\DispensasiJurnalService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,6 +79,19 @@ class DispensasiJurnalSyncTest extends TestCase
             'keterangan' => 'Izin',
         ]);
 
+        /*
+         * Kehadiran siswa bersumber dari guru piket, jadi status "Alpa"
+         * dari piket harus tetap ditimpa oleh dispensasi yang disetujui.
+         */
+        PiketKehadiranSiswa::create([
+            'id_kelas' => $idKelas,
+            'id_siswa' => $idSiswa,
+            'tanggal' => '2026-09-28',
+            'jam_ke' => 1,
+            'status' => 'Alpa',
+            'id_guru_piket' => $guru->id_pengguna,
+        ]);
+
         $this->withSession(['id_pengguna' => $guru->id_pengguna, 'role' => 'guru']);
 
         Livewire::test('input-jurnal')
@@ -85,7 +99,6 @@ class DispensasiJurnalSyncTest extends TestCase
             ->set('tanggal', '2026-09-28')
             ->assertSet('jam_ke', 2)
             ->call('loadSiswa')
-            ->call('setAbsensiSiswa', $idSiswa, 'Alpa')
             ->assertSet('absensi.'.$idSiswa, 'Izin');
     }
 }

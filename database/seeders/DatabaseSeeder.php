@@ -149,6 +149,9 @@ class DatabaseSeeder extends Seeder
             ['GURU003', 'Jumat', 10, '13:30:00', '14:00:00'],
             ['GURU001', 'Jumat', 11, '14:00:00', '14:30:00'],
             ['GURU001', 'Jumat', 12, '14:30:00', '15:00:00'],
+            ['GURU001', 'Sabtu', 1, '07:00:00', '07:40:00'],
+            ['GURU001', 'Sabtu', 2, '07:40:00', '08:20:00'],
+            ['GURU001', 'Sabtu', 3, '08:20:00', '09:00:00'],
         ], $guruIds);
 
         $this->seedJadwal($kelasRpl1Id, [

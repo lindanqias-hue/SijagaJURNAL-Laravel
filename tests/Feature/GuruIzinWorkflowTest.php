@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\IzinGuru;
 use App\Models\Jadwal;
-use App\Models\Jurnal;
 use App\Models\Pengguna;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +28,7 @@ class GuruIzinWorkflowTest extends TestCase
         ], 'id_kelas');
         $sekretaris = $this->createPengguna('SEKRETARIS001', 'sekretaris', $idKelas);
 
-        $jadwal = Jadwal::create([
+        Jadwal::create([
             'id_guru' => $guru->id_pengguna,
             'id_kelas' => $idKelas,
             'hari' => 'Senin',
@@ -37,50 +37,60 @@ class GuruIzinWorkflowTest extends TestCase
             'jam_selesai' => '07:45:00',
         ]);
 
+        /*
+         * Pengajuan izin kini dibuat dari halaman terpisah (izin-guru)
+         * dan disimpan pada tabel izin_guru, bukan pada jurnal.
+         */
         $this->withSession(['id_pengguna' => $guru->id_pengguna, 'role' => 'guru']);
 
-        Livewire::test('input-jurnal')
-            ->call('toggleModeIzin')
+        Livewire::test('izin-guru')
+            ->set('jenisIzin', 'Sakit')
             ->set('tanggal', '2026-09-28')
             ->set('id_kelas', $idKelas)
-            ->set('jenisIzin', 'Sakit')
-            ->set('materi', 'Kerjakan latihan bab 2 secara mandiri.')
-            ->call('save')
+            ->set('tugasPerJam.1', 'Kerjakan latihan bab 2 secara mandiri.')
+            ->set('catatan', 'Sudah izin ke kepala sekolah.')
+            ->call('simpan')
             ->assertHasNoErrors();
 
-        $jurnal = Jurnal::query()->sole();
+        $izin = IzinGuru::query()->sole();
 
-        $this->assertDatabaseHas('jurnal', [
-            'id_jurnal' => $jurnal->id_jurnal,
-            'status_kehadiran_guru' => 'Sakit',
-            'adalah_pengajuan_izin' => true,
+        $this->assertDatabaseHas('izin_guru', [
+            'id_izin' => $izin->id_izin,
+            'id_guru' => $guru->id_pengguna,
             'jenis_izin' => 'Sakit',
-            'materi' => 'Kerjakan latihan bab 2 secara mandiri.',
-            'status_validasi' => 'Menunggu',
+            'status' => 'Menunggu',
         ]);
 
+        /*
+         * Wakasek memvalidasi pengajuan izin guru.
+         */
         $this->withSession(['id_pengguna' => $wakasek->id_pengguna, 'role' => 'wakasek']);
 
         Livewire::test('wakasek')
-            ->call('validasiPengajuanIzin', $jurnal->id_jurnal, 'Divalidasi')
+            ->call('validasiPengajuanIzin', $izin->id_izin, 'Disetujui')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('jurnal', [
-            'id_jurnal' => $jurnal->id_jurnal,
-            'status_validasi' => 'Divalidasi',
+        $this->assertDatabaseHas('izin_guru', [
+            'id_izin' => $izin->id_izin,
+            'status' => 'Disetujui',
             'id_validator' => $wakasek->id_pengguna,
         ]);
+
+        /*
+         * Kehadiran guru tersinkron dari izin yang disetujui.
+         */
         $this->assertDatabaseHas('kehadiran_gurus', [
-            'id_jadwal' => $jadwal->id_jadwal,
             'id_guru' => $guru->id_pengguna,
             'status' => 'Sakit',
-            'catatan' => 'Sakit',
         ]);
         $this->assertSame(
             '2026-09-28',
             Carbon::parse(DB::table('kehadiran_gurus')->where('status', 'Sakit')->value('tanggal'))->toDateString()
         );
 
+        /*
+         * Sekretaris kelas melihat informasi izin di halamannya.
+         */
         $this->withSession([
             'id_pengguna' => $sekretaris->id_pengguna,
             'id_kelas' => $idKelas,
@@ -88,7 +98,7 @@ class GuruIzinWorkflowTest extends TestCase
         ]);
 
         Livewire::test('sekretaris')
-            ->set('activeSection', 'validasi-jurnal')
+            ->set('activeSection', 'tugas-guru')
             ->assertSee('Sakit')
             ->assertSee('Kerjakan latihan bab 2 secara mandiri.');
     }

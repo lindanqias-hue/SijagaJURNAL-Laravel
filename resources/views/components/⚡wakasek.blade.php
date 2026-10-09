@@ -3,8 +3,10 @@
 use App\Models\Jadwal;
 use App\Models\Dispensasi;
 use App\Models\Jurnal;
+use App\Models\KehadiranGuru;
 use App\Services\KehadiranGuruService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 new class extends Component
@@ -105,56 +107,65 @@ new class extends Component
 
     public function getPengajuanIzinMenungguProperty()
     {
-        return Jurnal::query()
+        if (! class_exists(\App\Models\IzinGuru::class)) {
+            return collect();
+        }
+
+        return \App\Models\IzinGuru::query()
             ->with(['guru', 'kelas'])
-            ->where('adalah_pengajuan_izin', true)
-            ->where('status_validasi', 'Menunggu')
+            ->where('status', 'Menunggu')
             ->orderByDesc('tanggal')
-            ->orderByDesc('id_jurnal')
+            ->orderByDesc('created_at')
             ->get();
     }
 
-    public function validasiPengajuanIzin(int $idJurnal, string $status): void
+    public function validasiPengajuanIzin(int $idIzin, string $status): void
     {
         abort_unless(session('role') === 'wakasek', 403);
-        abort_unless(in_array($status, ['Divalidasi', 'Ditolak'], true), 422);
+        abort_unless(in_array($status, ['Disetujui', 'Ditolak'], true), 422);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($idJurnal, $status): void {
-            $jurnal = Jurnal::query()
-                ->where('adalah_pengajuan_izin', true)
-                ->where('status_validasi', 'Menunggu')
+        abort_unless(class_exists(\App\Models\IzinGuru::class), 404);
+
+        DB::transaction(function () use ($idIzin, $status): void {
+            $izin = \App\Models\IzinGuru::query()
+                ->where('status', 'Menunggu')
                 ->lockForUpdate()
-                ->find($idJurnal);
+                ->find($idIzin);
 
-            if (! $jurnal) {
+            if (! $izin) {
                 return;
             }
 
-            $jurnal->update([
-                'status_validasi' => $status,
+            $izin->update([
+                'status' => $status,
                 'id_validator' => session('id_pengguna'),
                 'tanggal_validasi' => now('Asia/Jakarta'),
                 'catatan_validasi' => trim($this->catatanValidasiIzin) ?: null,
             ]);
 
-            if ($status !== 'Divalidasi') {
+            if ($status !== 'Disetujui') {
                 return;
             }
 
             Jadwal::query()
-                ->where('id_guru', $jurnal->id_guru)
-                ->where('id_kelas', $jurnal->id_kelas)
-                ->where('hari', $jurnal->tanggal->locale('id')->translatedFormat('l'))
+                ->where('id_guru', $izin->id_guru)
+                ->where('id_kelas', $izin->id_kelas)
+                ->where('hari', $izin->tanggal->locale('id')->translatedFormat('l'))
+                ->whereBetween('jam_ke', [$izin->jam_ke_mulai, $izin->jam_ke_selesai])
                 ->get()
-                ->each(function (Jadwal $jadwal) use ($jurnal): void {
-                    \App\Models\KehadiranGuru::query()->updateOrCreate(
-                        ['id_jadwal' => $jadwal->id_jadwal, 'tanggal' => $jurnal->tanggal->toDateString()],
-                        ['id_guru' => $jurnal->id_guru, 'status' => $jurnal->status_kehadiran_guru, 'sumber' => 'Sistem', 'catatan' => $jurnal->jenis_izin]
+                ->each(function (Jadwal $jadwal) use ($izin): void {
+                    KehadiranGuru::query()->updateOrCreate(
+                        ['id_jadwal' => $jadwal->id_jadwal, 'tanggal' => $izin->tanggal->toDateString()],
+                        [
+                            'id_guru' => $izin->id_guru,
+                            'status' => $izin->jenis_izin,
+                            'sumber' => 'Wakasek',
+                            'catatan' => $izin->tugas_per_jam[(int) $jadwal->jam_ke] ?? null,
+                        ]
                     );
                 });
         });
 
-        $this->pengajuanIzinTerpilih = null;
         $this->catatanValidasiIzin = '';
     }
 
@@ -299,16 +310,6 @@ new class extends Component
                 return $sekarang->betweenIncluded($mulai, $selesai);
             })
             ->values();
-    }
-
-    public function getDispensasiMenungguProperty()
-    {
-        return Dispensasi::query()
-            ->with(['siswa', 'kelas'])
-            ->where('status', Dispensasi::STATUS_MENUNGGU)
-            ->orderBy('dispensasi.tanggal')
-            ->orderBy('id_dispensasi')
-            ->get();
     }
 
     public function getRiwayatJurnalProperty()
@@ -697,7 +698,7 @@ new class extends Component
             <div class="row g-3">
                 <div class="col-12 col-md-6">
                     <button type="button" class="role-menu-card w-100 text-start" x-on:click="openSection('pengajuan-izin')">
-                        <span class="role-menu-icon">&#128221;</span>
+                        <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('pencil-square') !!}</span>
                         <h2 class="h5 fw-bold">Pengajuan Izin Guru</h2>
                         <p><strong class="text-danger">{{ $this->pengajuanIzinMenunggu->count() }}</strong> pengajuan menunggu validasi.</p>
                         <span class="fw-bold text-primary">Buka pengajuan <span aria-hidden="true">→</span></span>
@@ -705,7 +706,7 @@ new class extends Component
                 </div>
                 <div class="col-12 col-md-6">
                     <button type="button" class="role-menu-card w-100 text-start" x-on:click="openSection('monitoring-guru')">
-                        <span class="role-menu-icon">&#128100;</span>
+                        <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('people-fill') !!}</span>
                         <h2 class="h5 fw-bold">Monitoring Guru</h2>
                         <p><strong class="text-danger">{{ $this->jadwalMengajarSekarang->count() }}</strong> jadwal mengajar saat ini.</p>
                         <span class="fw-bold text-primary">Buka monitoring <span aria-hidden="true">→</span></span>
@@ -713,23 +714,23 @@ new class extends Component
                 </div>
                 <div class="col-12 col-md-6">
                     <button type="button" class="role-menu-card w-100 text-start" x-on:click="openSection('monitoring-jurnal')">
-                        <span class="role-menu-icon">&#128203;</span>
+                        <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('journal-text') !!}</span>
                         <h2 class="h5 fw-bold">Monitoring Jurnal</h2>
                         <p><strong class="text-primary">{{ $this->stats['jurnalHariIni'] }}</strong> jurnal masuk hari ini.</p>
                         <span class="fw-bold text-primary">Buka monitoring <span aria-hidden="true">→</span></span>
                     </button>
                 </div>
                 <div class="col-12 col-md-6">
-                    <button type="button" class="role-menu-card w-100 text-start" x-on:click="openSection('dispensasi')">
-                        <span class="role-menu-icon">&#128196;</span>
+                    <a href="{{ route('wakasek-dispensasi') }}" class="role-menu-card w-100 text-start">
+                        <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('clipboard-check') !!}</span>
                         <h2 class="h5 fw-bold">Dispensasi</h2>
                         <p><strong style="color:#6d28d9">{{ $this->stats['dispensasiMenunggu'] }}</strong> pengajuan menunggu persetujuan.</p>
                         <span class="fw-bold text-primary">Buka dispensasi <span aria-hidden="true">→</span></span>
-                    </button>
+                    </a>
                 </div>
                 <div class="col-12 col-md-6">
                     <button type="button" class="role-menu-card w-100 text-start" x-on:click="openSection('rekap')">
-                        <span class="role-menu-icon">&#128202;</span>
+                        <span class="role-menu-icon">{!! \App\Support\NavIcon::svg('bar-chart') !!}</span>
                         <h2 class="h5 fw-bold">Rekap &amp; Laporan</h2>
                         <p><strong class="text-success">{{ $this->riwayatJurnal->count() }}</strong> jurnal pada periode terpilih.</p>
                         <span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span>
@@ -785,10 +786,13 @@ new class extends Component
         <div class="wakasek-page-header role-page-header m-3"><h2>Pengajuan Izin Guru</h2><div class="role-page-description">Validasi izin dan titipan tugas sebelum diteruskan ke sekretaris kelas.</div></div>
         <div class="wakasek-rekap-list">
             @forelse ($this->pengajuanIzinMenunggu as $izin)
-            <article class="wakasek-rekap-row" wire:key="pengajuan-izin-{{ $izin->id_jurnal }}">
-                <div><span class="wakasek-rekap-label">Tanggal / Jam</span>{{ $izin->tanggal?->format('d/m/Y') }} · Jam ke-{{ $izin->jam_ke }}</div><div><span class="wakasek-rekap-label">Guru</span>{{ $izin->guru?->nama ?? '-' }}</div><div><span class="wakasek-rekap-label">Kelas</span>{{ $izin->kelas?->nama_kelas ?? '-' }}</div><div><span class="wakasek-rekap-label">Jenis izin</span>{{ $izin->jenis_izin }}</div><div class="col-12"><span class="wakasek-rekap-label">Titipan tugas</span>{{ $izin->materi }}</div>
+            <article class="wakasek-rekap-row" wire:key="pengajuan-izin-{{ $izin->id_izin }}">
+                <div><span class="wakasek-rekap-label">Tanggal / Jam</span>{{ $izin->tanggal?->format('d/m/Y') }} · Jam ke-{{ $izin->jam_ke_mulai }} s/d {{ $izin->jam_ke_selesai }}</div><div><span class="wakasek-rekap-label">Guru</span>{{ $izin->guru?->nama ?? '-' }}</div><div><span class="wakasek-rekap-label">Kelas</span>{{ $izin->kelas?->nama_kelas ?? '-' }}</div><div><span class="wakasek-rekap-label">Jenis izin</span>{{ $izin->jenis_izin }}</div><div class="col-12"><span class="wakasek-rekap-label">Catatan guru</span>{{ $izin->catatan_validasi ?: '-' }}</div>
+                @foreach (($izin->tugas_per_jam ?? []) as $jam => $tugas)
+                <div class="col-12"><span class="wakasek-rekap-label">Tugas jam ke-{{ $jam }}</span>{{ $tugas }}</div>
+                @endforeach
                 <div class="col-12"><input type="text" wire:model="catatanValidasiIzin" class="form-control" placeholder="Catatan Wakasek (opsional)"></div>
-                <div class="col-12 d-flex gap-2"><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_jurnal }}, 'Divalidasi')" class="btn btn-success btn-sm">Setujui</button><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_jurnal }}, 'Ditolak')" class="btn btn-outline-danger btn-sm">Tolak</button></div>
+                <div class="col-12 d-flex gap-2"><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_izin }}, 'Disetujui')" class="btn btn-success btn-sm">Setujui</button><button type="button" wire:click="validasiPengajuanIzin({{ $izin->id_izin }}, 'Ditolak')" class="btn btn-outline-danger btn-sm">Tolak</button></div>
             </article>
             @empty<div class="text-center text-muted py-4">Tidak ada pengajuan izin yang menunggu validasi.</div>@endforelse
         </div>
@@ -808,23 +812,20 @@ new class extends Component
 
     <section x-cloak x-show="activeSection === 'dispensasi'" :class="{ 'd-none': activeSection !== 'dispensasi' }" id="dispensasi" class="card-custom wakasek-content-card">
         <div class="wakasek-page-header role-page-header m-3"><h2>Persetujuan Dispensasi</h2><div class="role-page-description">Tinjau pengajuan siswa yang menunggu persetujuan.</div></div>
-        <div class="card-header-custom">Dispensasi Menunggu Persetujuan</div>
-        <div class="p-3"><label class="visually-hidden" for="search-dispensasi-wakasek">Cari dispensasi</label><input id="search-dispensasi-wakasek" type="search" class="form-control" placeholder="Cari siswa, kelas, jenis, atau mapel..." x-model="searchDispensasi"></div>
-        <div class="table-responsive"><table class="table table-hover mb-0 align-middle wakasek-table table-stack"><thead><tr><th>Siswa</th><th>Kelas</th><th>Jenis</th><th>Mapel</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>
-            @forelse ($this->dispensasiMenunggu as $dispensasi)
-            <tr wire:key="wakasek-dispensasi-{{ $dispensasi->id_dispensasi }}" x-show="!searchDispensasi || $el.dataset.search.includes(searchDispensasi)" data-search="{{ mb_strtolower(($dispensasi->siswa?->nama_siswa ?? '').' '.($dispensasi->kelas?->nama_kelas ?? '').' '.$dispensasi->jenis_dispensasi.' '.($dispensasi->mapel ?? ''), 'UTF-8') }}"><td data-label="Siswa">{{ $dispensasi->siswa?->nama_siswa ?? '-' }}</td><td data-label="Kelas">{{ $dispensasi->kelas?->nama_kelas ?? '-' }}</td><td data-label="Jenis">{{ $dispensasi->jenis_dispensasi }}</td><td data-label="Mapel">{{ $dispensasi->mapel ?: '-' }}</td><td data-label="Tanggal">{{ $dispensasi->tanggal?->format('d/m/Y') }}</td><td data-label="Aksi">@if ($dispensasi->token)<a href="{{ route('approve-dispensasi', ['token' => $dispensasi->token, 'wakasek' => session('id_pengguna')]) }}" class="btn btn-sm btn-app-primary">Lihat &amp; Validasi</a>@else<a href="{{ route('surat-dispensasi.detail', $dispensasi->id_dispensasi) }}" class="btn btn-sm btn-outline-secondary">Lihat Detail</a>@endif</td></tr>
-            @empty<tr><td colspan="6" data-label="" class="text-center text-muted py-4">Tidak ada dispensasi yang menunggu.</td></tr>@endforelse
-        </tbody></table></div>
+        <div class="p-3">
+            <p class="text-muted mb-3">Pengelolaan dispensasi kini berada di halaman terpisah agar proses validasi lebih lega.</p>
+            <a href="{{ route('wakasek-dispensasi') }}" class="btn btn-app-primary">Buka Halaman Dispensasi Wakasek</a>
+        </div>
     </section>
 
     <section x-cloak x-show="activeSection === 'rekap'" :class="{ 'd-none': activeSection !== 'rekap' }" id="rekap" class="d-grid gap-4">
         <header class="wakasek-page-header role-page-header"><div class="role-page-eyebrow">Laporan Sekolah</div><h2>Rekap &amp; Riwayat</h2><div class="role-page-description">Filter periode, lalu ekspor CSV atau cetak laporan.</div></header>
         @if ($rekapTerbuka === '')
         <div class="row g-3">
-            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('jurnal')"><span class="role-menu-icon">&#128203;</span><h2 class="h5 fw-bold">Riwayat Jurnal</h2><p>{{ $this->riwayatJurnal->count() }} entri pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
-            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('belum-mengisi')"><span class="role-menu-icon">&#9203;</span><h2 class="h5 fw-bold">Guru Belum Mengisi</h2><p>{{ $this->rekapBelumMengisi->count() }} jadwal tanpa jurnal.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
-            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('kehadiran')"><span class="role-menu-icon">&#9989;</span><h2 class="h5 fw-bold">Monitoring Kehadiran Guru</h2><p>{{ $this->rekapKehadiran->count() }} jadwal pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
-            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('rekap-kelas')"><span class="role-menu-icon">&#128196;</span><h2 class="h5 fw-bold">Rekap Per Kelas</h2><p>{{ $this->rekapPerKelas->count() }} kelas-hari pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
+            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('jurnal')"><span class="role-menu-icon">{!! \App\Support\NavIcon::svg('journal-text') !!}</span><h2 class="h5 fw-bold">Riwayat Jurnal</h2><p>{{ $this->riwayatJurnal->count() }} entri pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
+            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('belum-mengisi')"><span class="role-menu-icon">{!! \App\Support\NavIcon::svg('exclamation-circle') !!}</span><h2 class="h5 fw-bold">Guru Belum Mengisi</h2><p>{{ $this->rekapBelumMengisi->count() }} jadwal tanpa jurnal.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
+            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('kehadiran')"><span class="role-menu-icon">{!! \App\Support\NavIcon::svg('check-circle') !!}</span><h2 class="h5 fw-bold">Monitoring Kehadiran Guru</h2><p>{{ $this->rekapKehadiran->count() }} jadwal pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
+            <div class="col-12 col-md-6"><button type="button" class="role-menu-card text-start w-100" wire:click="bukaRekap('rekap-kelas')"><span class="role-menu-icon">{!! \App\Support\NavIcon::svg('building') !!}</span><h2 class="h5 fw-bold">Rekap Per Kelas</h2><p>{{ $this->rekapPerKelas->count() }} kelas-hari pada periode terpilih.</p><span class="fw-bold text-primary">Buka rekap <span aria-hidden="true">→</span></span></button></div>
         </div>
         @else
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2"><button type="button" class="btn-back" wire:click="tutupRekap">&larr; Kembali ke semua rekap</button><span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1d4ed8">TAMPILAN REKAP</span></div>

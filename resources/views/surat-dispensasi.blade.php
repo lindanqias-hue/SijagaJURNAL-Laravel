@@ -228,13 +228,13 @@
             @endif
 
             <div class="row">
-                <div class="label">Guru Piket</div>
+                <div class="label">Guru Piket (Pengaju)</div>
                 <div class="value">{{ $dispensasi->guruPiket->nama ?? '-' }}</div>
             </div>
 
             @if($dispensasi->wakasek)
             <div class="row">
-                <div class="label">Diproses Oleh</div>
+                <div class="label">Diproses Oleh (Wakasek)</div>
                 <div class="value">{{ $dispensasi->wakasek->nama ?? '-' }}</div>
             </div>
             @endif

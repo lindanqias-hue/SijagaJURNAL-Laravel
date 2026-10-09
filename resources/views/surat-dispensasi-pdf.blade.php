@@ -86,18 +86,6 @@
             margin-top: 22px;
         }
 
-        .sign {
-            width: 42%;
-            margin: 38px 0 0 auto;
-            text-align: center;
-        }
-
-        .sign strong {
-            display: block;
-            margin-top: 58px;
-            text-decoration: underline;
-        }
-
         .verify {
             margin-top: 26px;
             border-top: 1px solid #cbd5e1;
@@ -151,7 +139,6 @@
         @endif
     </table>
     <div class="notice">Surat ini hanya berlaku untuk nama siswa dan waktu yang tercantum.</div>
-    <div class="sign">Disetujui oleh,<br>Wakil Kepala Sekolah<strong>{{ $dispensasi->wakasek->nama ?? 'Wakil Kepala Sekolah' }}</strong></div>
     <div class="verify">
         <div class="foot">Surat berlaku pada {{ \Carbon\Carbon::parse($dispensasi->tanggal)->format('d/m/Y') }}.</div>
     </div>
