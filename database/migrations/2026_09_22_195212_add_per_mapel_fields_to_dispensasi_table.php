@@ -14,11 +14,11 @@ return new class extends Migration
 
         Schema::table('dispensasi', function (Blueprint $table) {
             if (! Schema::hasColumn('dispensasi', 'id_jadwal')) {
-                $table->unsignedBigInteger('id_jadwal')->nullable()->after('id_kelas');
+                $table->unsignedInteger('id_jadwal')->nullable()->after('id_kelas');
             }
 
             if (! Schema::hasColumn('dispensasi', 'id_guru')) {
-                $table->integer('id_guru')->nullable()->after('id_jadwal');
+                $table->unsignedInteger('id_guru')->nullable()->after('id_jadwal');
             }
 
             if (! Schema::hasColumn('dispensasi', 'mapel')) {

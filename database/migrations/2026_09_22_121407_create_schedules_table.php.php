@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // Bungkus pembuatan tabel kelas dengan pengecekan
-        if (!Schema::hasTable('kelas')) {
+        if (! Schema::hasTable('kelas')) {
             Schema::create('kelas', function (Blueprint $table) {
                 $table->id();
                 $table->string('nama_kelas');
@@ -20,10 +20,10 @@ return new class extends Migration
         }
 
         // Bungkus pembuatan tabel jadwal_pelajarans dengan pengecekan
-        if (!Schema::hasTable('jadwal_pelajarans')) {
+        if (! Schema::hasTable('jadwal_pelajarans')) {
             Schema::create('jadwal_pelajarans', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('kelas_id')->constrained('kelas')->onDelete('cascade');
+                $table->unsignedInteger('id_kelas');
                 $table->string('hari');
                 $table->string('tipe');
                 $table->integer('jam_ke')->nullable();
@@ -33,6 +33,8 @@ return new class extends Migration
                 $table->string('guru')->nullable();
                 $table->string('ruangan')->nullable();
                 $table->timestamps();
+
+                $table->foreign('id_kelas')->references('id_kelas')->on('kelas')->onDelete('cascade');
             });
         }
     }

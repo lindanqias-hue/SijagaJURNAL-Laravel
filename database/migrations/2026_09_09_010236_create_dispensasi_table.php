@@ -16,12 +16,12 @@ return new class extends Migration
             $table->unsignedBigInteger('id_siswa');
 
             // Kelas siswa
-            $table->integer('id_kelas');
+            $table->unsignedInteger('id_kelas');
 
             // Jenis dispensasi
             $table->enum('jenis_dispensasi', [
                 'Per Jam',
-                'Sehari Penuh'
+                'Sehari Penuh',
             ]);
 
             // Otomatis diisi sistem
@@ -36,12 +36,12 @@ return new class extends Migration
             $table->text('alasan');
 
             // Guru piket yang membuat dispensasi
-            $table->integer('id_guru_piket');
+            $table->unsignedInteger('id_guru_piket');
 
             // Status dispensasi
             $table->enum('status', [
                 'Aktif',
-                'Selesai'
+                'Selesai',
             ])->default('Aktif');
 
             $table->timestamps();

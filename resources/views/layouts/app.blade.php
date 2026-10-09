@@ -91,10 +91,6 @@
     $navMenu = app(\App\Support\NavMenu::class);
     $groups = $navMenu->untukRole($role, $isGuruPiket);
     $flat = $navMenu->flatten($groups);
-    $currentRoute = request()->route()?->getName();
-    $isSectionPage = $currentRoute !== null
-        && collect($flat)->where('route', $currentRoute)->where('anchor', '!=', '')->isNotEmpty();
-
     $isItemActive = static function (array $item) use ($role): bool {
         $isActive = request()->routeIs($item['route'])
             && in_array($item['anchor'] ?? '', ['', 'dashboard'], true);
@@ -239,30 +235,6 @@
         {{-- CONTENT --}}
         <div class="content-col" style="flex:1; min-width:0;">
             <main class="main-content">
-                @if ($isSectionPage)
-                <nav class="section-tabs d-lg-none" aria-label="Navigasi halaman" data-section-nav>
-                    <div class="tab-pill-group">
-                        @foreach ($flat as $item)
-                            @php
-                            $url = $navMenu->url($item);
-                            $isActive = $url !== null && $isItemActive($item);
-                            $navPath = $url !== null ? parse_url($url, PHP_URL_PATH) : '';
-                            @endphp
-                            @if ($url !== null)
-                            <a href="{{ $url }}"
-                                class="tab-pill {{ $isActive ? 'active' : '' }}"
-                                data-nav-path="{{ $navPath }}"
-                                data-nav-anchor="{{ $item['anchor'] ?? '' }}"
-                                data-nav-menu="{{ $role === 'sekretaris' ? 'true' : 'false' }}"
-                                data-route-active="{{ $isActive ? 'true' : 'false' }}"
-                                @if ($isActive) aria-current="page" @endif>
-                                {{ $item['label'] }}
-                            </a>
-                            @endif
-                        @endforeach
-                    </div>
-                </nav>
-                @endif
                 {{ $slot }}
             </main>
         </div>
@@ -368,49 +340,7 @@
             });
         })();
 
-        (() => {
-            const nav = document.querySelector('[data-section-nav]');
-
-            if (!nav) {
-                return;
-            }
-
-            const links = [...nav.querySelectorAll('.tab-pill')];
-            const normalizePath = (path) => path.replace(/\/+$/, '') || '/';
-
-            const syncActiveLink = () => {
-                const currentPath = normalizePath(window.location.pathname);
-                const currentHash = decodeURIComponent(window.location.hash.slice(1));
-                const currentMenu = new URLSearchParams(window.location.search).get('menu');
-                const linksForPath = links.filter((link) => normalizePath(link.dataset.navPath) === currentPath);
-                const hashLink = currentHash
-                    ? linksForPath.find((link) => link.dataset.navAnchor === currentHash)
-                    : null;
-                const menuLink = currentMenu
-                    ? linksForPath.find((link) => link.dataset.navMenu === 'true' && link.dataset.navAnchor === currentMenu)
-                    : null;
-                const activeLink = menuLink ?? hashLink ?? linksForPath.find((link) => link.dataset.routeActive === 'true');
-
-                links.forEach((link) => {
-                    const isActive = link === activeLink;
-
-                    link.classList.toggle('active', isActive);
-
-                    if (isActive) {
-                        link.setAttribute('aria-current', 'page');
-                    } else {
-                        link.removeAttribute('aria-current');
-                    }
-                });
-            };
-
-            syncActiveLink();
-            window.addEventListener('hashchange', syncActiveLink);
-            window.addEventListener('pageshow', syncActiveLink);
-            document.addEventListener('livewire:navigated', syncActiveLink);
-        })();
-    </script>
+</script>
 
 </body>
-
 </html>

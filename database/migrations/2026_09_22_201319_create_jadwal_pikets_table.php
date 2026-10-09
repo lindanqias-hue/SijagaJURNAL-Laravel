@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('jadwal_piket', function (Blueprint $table) {
             $table->increments('id_jadwal_piket');
-            $table->integer('id_guru');
+            $table->unsignedInteger('id_guru');
             $table->date('tanggal');
             $table->time('jam_mulai');
             $table->time('jam_selesai');

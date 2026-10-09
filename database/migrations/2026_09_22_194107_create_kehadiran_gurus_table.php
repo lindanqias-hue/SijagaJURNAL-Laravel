@@ -29,8 +29,8 @@ return new class extends Migration
 
         Schema::create('kehadiran_gurus', function (Blueprint $table) {
             $table->id('id_kehadiran_guru');
-            $table->unsignedBigInteger('id_jadwal');
-            $table->integer('id_guru');
+            $table->unsignedInteger('id_jadwal');
+            $table->unsignedInteger('id_guru');
             $table->date('tanggal');
             $table->enum('status', [
                 'Menunggu',
